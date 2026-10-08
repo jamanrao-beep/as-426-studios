@@ -10,7 +10,8 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("return_to") || "/team";
 
-  const [email, setEmail] = useState(PRESET_ACCOUNTS[0]?.email || "");
+  const [selectedRole, setSelectedRole] = useState<"admin" | "waiter">("admin");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -18,8 +19,15 @@ function LoginForm() {
   const passwordInputRef = useRef<HTMLInputElement>(null);
 
   async function handleLogin() {
-    if (!email.trim()) {
-      setError("Please enter your sign-in email.");
+    const targetEmail =
+      email.trim() ||
+      (selectedRole === "admin"
+        ? PRESET_ACCOUNTS[0]?.email
+        : PRESET_ACCOUNTS[1]?.email) ||
+      "";
+
+    if (!targetEmail) {
+      setError("Please select a workspace role or enter your sign-in email.");
       return;
     }
     if (!password) {
@@ -35,7 +43,7 @@ function LoginForm() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({ email: targetEmail, password }),
       });
 
       const data = (await res.json()) as any;
@@ -53,19 +61,14 @@ function LoginForm() {
     }
   }
 
-  function selectRole(acc: (typeof PRESET_ACCOUNTS)[0]) {
-    setEmail(acc.email);
+  function selectRole(role: "admin" | "waiter") {
+    setSelectedRole(role);
     setPassword("");
     setError("");
-    // Focus password input for user to type
     setTimeout(() => {
       passwordInputRef.current?.focus();
     }, 50);
   }
-
-  const selectedAccount = PRESET_ACCOUNTS.find(
-    (a) => a.email.toLowerCase() === email.trim().toLowerCase()
-  );
 
   return (
     <div className="login-card">
@@ -76,7 +79,7 @@ function LoginForm() {
         </span>
         <h1>Sign in to Table Secret</h1>
         <p>
-          Select your role or enter your credentials with your password to open the workspace.
+          Select your workspace role and enter your password to continue.
         </p>
       </div>
 
@@ -86,18 +89,18 @@ function LoginForm() {
         </div>
       )}
 
-      {/* Role Selection Section */}
+      {/* Role Selection Section - Without showing any email */}
       <div className="preset-accounts-section">
         <p className="eyebrow preset-label">1. CHOOSE WORKSPACE ROLE</p>
         <div className="preset-grid">
           {PRESET_ACCOUNTS.map((acc) => {
-            const isSelected = selectedAccount?.email === acc.email;
+            const isSelected = selectedRole === acc.role;
             return (
               <button
-                key={acc.email}
+                key={acc.role}
                 type="button"
                 className={`preset-card ${acc.role === "admin" ? "preset-admin" : "preset-waiter"} ${isSelected ? "selected" : ""}`}
-                onClick={() => selectRole(acc)}
+                onClick={() => selectRole(acc.role)}
                 disabled={loading}
                 aria-pressed={isSelected}
               >
@@ -106,18 +109,13 @@ function LoginForm() {
                     {acc.role === "admin" ? <Shield size={18} /> : <UserCheck size={18} />}
                   </span>
                   <span className="preset-role-badge">
-                    {isSelected ? "Selected ✓" : acc.role === "admin" ? "Admin / Manager" : "Staff / Waiter"}
+                    {isSelected ? "Selected ✓" : acc.role === "admin" ? "Manager / Admin" : "Staff / Waiter"}
                   </span>
                 </div>
-                <h3>{acc.displayName}</h3>
-                <div className="preset-creds">
-                  <span>
-                    <Mail size={12} /> {acc.email}
-                  </span>
-                </div>
+                <h3>{acc.role === "admin" ? "Manager / Admin" : "Staff / Waiter"}</h3>
                 <p className="preset-desc">{acc.description}</p>
                 <div className="preset-action">
-                  <span>{isSelected ? "Role chosen · Enter password below" : `Select ${acc.role === "admin" ? "Manager" : "Staff"}`}</span>
+                  <span>{isSelected ? "Role selected · Enter password below" : `Select ${acc.role === "admin" ? "Manager" : "Staff"}`}</span>
                   <ArrowRight size={14} />
                 </div>
               </button>
@@ -139,21 +137,6 @@ function LoginForm() {
         }}
       >
         <label>
-          Sign-in Email
-          <div className="input-wrap">
-            <Mail size={16} className="input-icon" />
-            <input
-              type="email"
-              required
-              autoComplete="email"
-              placeholder="name@as426.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-        </label>
-
-        <label>
           Password
           <div className="input-wrap">
             <Lock size={16} className="input-icon" />
@@ -162,7 +145,7 @@ function LoginForm() {
               type={showPassword ? "text" : "password"}
               required
               autoComplete="current-password"
-              placeholder={`Enter password for ${selectedAccount?.displayName || email || "account"}`}
+              placeholder={selectedRole === "admin" ? "Enter Manager password (admin123)" : "Enter Staff password (staff123)"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -177,11 +160,28 @@ function LoginForm() {
           </div>
         </label>
 
+        {/* Optional Custom Email Input for other registered accounts */}
+        <details style={{ margin: "10px 0 16px", fontSize: "0.82rem", color: "#6d786f" }}>
+          <summary style={{ cursor: "pointer", userSelect: "none" }}>Sign in with custom email instead</summary>
+          <div style={{ marginTop: "10px" }}>
+            <div className="input-wrap">
+              <Mail size={16} className="input-icon" />
+              <input
+                type="email"
+                autoComplete="email"
+                placeholder="Enter your registered email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+          </div>
+        </details>
+
         <button type="submit" className="primary login-submit" disabled={loading}>
-          {loading ? "Signing in…" : `Sign In as ${selectedAccount ? (selectedAccount.role === "admin" ? "Manager / Admin" : "Staff") : "User"}`}
+          {loading ? "Signing in…" : `Sign In as ${selectedRole === "admin" ? "Manager / Admin" : "Staff / Waiter"}`}
         </button>
         <p style={{ textAlign: "center", fontSize: "0.78rem", color: "#6d786f", margin: "4px 0 0" }}>
-          Credentials: Admin password is <code>admin123</code> · Staff password is <code>staff123</code>
+          Default passwords: Admin is <code>admin123</code> · Staff is <code>staff123</code>
         </p>
       </form>
 

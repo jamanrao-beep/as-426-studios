@@ -31,10 +31,10 @@ export async function GET(req:Request){try{
 }catch{return Response.json({error:"Order feed unavailable. Please retry."},{status:503})}}
 export async function PATCH(req:Request){try{
  if(!sameOrigin(req))return Response.json({error:"Request rejected."},{status:403});
- const p=z.object({restaurant:z.string().refine(validSlug),id:z.string().uuid(),from:z.enum(["new","accepted","preparing","served","cancelled"]),status:z.enum(["new","accepted","preparing","served","cancelled"])}).safeParse(await req.json());
+ const p=z.object({restaurant:z.string().refine(validSlug),id:z.string().min(1).max(100),from:z.enum(["new","accepted","preparing","served","cancelled"]),status:z.enum(["new","accepted","preparing","served","cancelled"])}).safeParse(await req.json());
  if(!p.success)return Response.json({error:"Invalid order update."},{status:400});const b=p.data;
  const manager=await access(b.restaurant),actor=manager.allowed?manager:await orderAccess(b.restaurant);
- if(!actor.allowed||(!manager.allowed&&(b.status!=="served"||!["accepted","preparing"].includes(b.from))))return Response.json({error:"Only managers can change this status. Waiters may confirm delivery of accepted orders."},{status:403});
+ if(!actor.allowed)return Response.json({error:"Order access required."},{status:403});
  if(!await readMenu(b.restaurant))return Response.json({error:"Restaurant not found."},{status:404});
  if(!transitions[b.from as OrderStatus].includes(b.status))return Response.json({error:"That status change is not allowed."},{status:400});
  const result=await db().prepare("UPDATE orders SET status = ?,updated_at = ?,completed_at = ?,completed_by = ? WHERE id = ? AND restaurant_id = ? AND status = ?").bind(b.status,new Date().toISOString(),b.status==="served"?new Date().toISOString():null,b.status==="served"?actor.email:null,b.id,b.restaurant,b.from).run();

@@ -3,7 +3,7 @@ import {z} from 'zod';
 export async function POST(req:Request){try{
  if(!sameOrigin(req))return Response.json({error:'Request rejected'},{status:403});
  const raw=await req.text();if(raw.length>20000)return Response.json({error:'Too many orders'},{status:413});
- const p=z.object({restaurant:z.string().refine(validSlug),orders:z.array(z.object({id:z.string().uuid(),token:z.string().uuid()})).max(40)}).safeParse(JSON.parse(raw));
+ const p=z.object({restaurant:z.string().refine(validSlug),orders:z.array(z.object({id:z.string().min(1).max(100),token:z.string().min(1).max(100)})).max(40)}).safeParse(JSON.parse(raw));
  if(!p.success)return Response.json({error:'Invalid order lookup'},{status:400});
  const credentials=await Promise.all(p.data.orders.map(async o=>({id:o.id,hash:Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(o.token))),n=>n.toString(16).padStart(2,'0')).join('')})));
  if(!credentials.length)return Response.json({orders:[]});
