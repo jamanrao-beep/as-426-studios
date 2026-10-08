@@ -82,7 +82,7 @@ function LoginForm() {
         </span>
         <h1>Sign in to Table Secret</h1>
         <p>
-          Enter your Manager Gmail & password, or select a quick role to continue.
+          Sign in to access your restaurant workspace.
         </p>
       </div>
 
@@ -94,7 +94,7 @@ function LoginForm() {
 
       {/* Role Selection Quick-Toggles */}
       <div className="preset-accounts-section">
-        <p className="eyebrow preset-label">1. CHOOSE WORKSPACE ROLE OR ENTER GMAIL</p>
+        <p className="eyebrow preset-label">1. CHOOSE WORKSPACE ROLE OR ENTER EMAIL</p>
         <div className="preset-grid">
           <button
             type="button"
@@ -155,13 +155,13 @@ function LoginForm() {
         }}
       >
         <label>
-          Sign-in Email / Manager Gmail
+          Email
           <div className="input-wrap">
             <Mail size={16} className="input-icon" />
             <input
               type="email"
               autoComplete="email"
-              placeholder="Enter your sign-in email / Gmail"
+              placeholder="Enter email"
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
@@ -180,7 +180,7 @@ function LoginForm() {
               type={showPassword ? "text" : "password"}
               required
               autoComplete="current-password"
-              placeholder="Enter your password"
+              placeholder="Enter password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -216,7 +216,7 @@ function LoginForm() {
         <div className="info-item">
           <CheckCircle2 size={15} />
           <span>
-            <strong>Restaurant Managers:</strong> Sign in with the Gmail & password provided by Super Admin.
+            <strong>Restaurant Managers:</strong> Sign in with credentials provided by Super Admin.
           </span>
         </div>
       </footer>

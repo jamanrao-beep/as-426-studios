@@ -165,7 +165,7 @@ export default function Managers({
             <input
               required
               type="email"
-              placeholder="e.g. manager@gmail.com"
+              placeholder="Enter email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={busy}
@@ -176,7 +176,7 @@ export default function Managers({
             Manager’s Name / Label
             <input
               type="text"
-              placeholder="e.g. Vikram (Store Manager)"
+              placeholder="Enter name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={busy}
@@ -191,7 +191,7 @@ export default function Managers({
               <input
                 required
                 type={showPassword ? "text" : "password"}
-                placeholder="Set manager password"
+                placeholder="Enter password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={busy}
