@@ -1,19 +1,48 @@
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import fs from "node:fs";
+import os from "node:os";
 import { sample } from "@/lib/menu";
 
 let dbInstance: any = null;
 
+function createRawDb(): InstanceType<typeof DatabaseSync> {
+  // On Vercel / serverless, process.cwd() is read-only.
+  // Use os.tmpdir() (/tmp), which is guaranteed writable.
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    try {
+      const tmpPath = path.join(os.tmpdir(), "as426.sqlite");
+      return new DatabaseSync(tmpPath);
+    } catch {
+      return new DatabaseSync(":memory:");
+    }
+  }
+
+  // Local development: try .data folder, fallback to tmpdir or memory
+  try {
+    const dataDir = path.resolve(process.cwd(), ".data");
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    const dbPath = path.join(dataDir, "as426.sqlite");
+    return new DatabaseSync(dbPath);
+  } catch {
+    try {
+      return new DatabaseSync(path.join(os.tmpdir(), "as426.sqlite"));
+    } catch {
+      return new DatabaseSync(":memory:");
+    }
+  }
+}
+
 export function getSqliteD1() {
   if (dbInstance) return dbInstance;
-
-  const dataDir = path.resolve(process.cwd(), ".data");
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
+  if ((globalThis as any).__sqliteDbInstance) {
+    dbInstance = (globalThis as any).__sqliteDbInstance;
+    return dbInstance;
   }
-  const dbPath = path.join(dataDir, "as426.sqlite");
-  const rawDb = new DatabaseSync(dbPath);
+
+  const rawDb = createRawDb();
 
   // Initialize tables
   rawDb.exec(`
@@ -190,5 +219,6 @@ export function getSqliteD1() {
     }
   };
 
+  (globalThis as any).__sqliteDbInstance = dbInstance;
   return dbInstance;
 }
