@@ -17,7 +17,7 @@ export async function GET(req: Request) {
 
     // Load from restaurants table
     const dbRestaurants = await db()
-      .prepare("SELECT id, name, slug, address, contact_phone, contact_email, welcome_message, note, status, created_at, updated_at FROM restaurants WHERE status != 'archived'")
+      .prepare("SELECT id, name, slug, address, contact_phone, contact_email, welcome_message, note, status, manager_qr_visible, created_at, updated_at FROM restaurants WHERE status != 'archived'")
       .all<{
         id: string;
         name: string;
@@ -28,6 +28,7 @@ export async function GET(req: Request) {
         welcome_message: string;
         note: string;
         status: string;
+        manager_qr_visible?: number;
         created_at: string;
         updated_at: string;
       }>();
@@ -52,6 +53,7 @@ export async function GET(req: Request) {
         ...r,
         count: mInfo?.count || 0,
         active: r.status === "active" && (mInfo ? mInfo.active : true),
+        manager_qr_visible: r.manager_qr_visible !== 0,
       };
     });
 
@@ -67,6 +69,7 @@ export async function GET(req: Request) {
         welcome_message: "Welcome to Ember & Spice.",
         note: "Taxes and service charge included.",
         status: "active",
+        manager_qr_visible: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         count: sample.dishes.length,
@@ -184,6 +187,7 @@ const updateRestaurantSchema = z.object({
   welcome_message: z.string().trim().max(300).optional(),
   note: z.string().trim().max(300).optional(),
   status: z.enum(["active", "paused", "suspended"]).optional(),
+  manager_qr_visible: z.boolean().optional(),
 });
 
 export async function PATCH(req: Request) {
@@ -196,7 +200,7 @@ export async function PATCH(req: Request) {
       return Response.json({ error: "Invalid restaurant update payload." }, { status: 400 });
     }
 
-    const { id, name, address, contact_phone, contact_email, welcome_message, note, status } = parsed.data;
+    const { id, name, address, contact_phone, contact_email, welcome_message, note, status, manager_qr_visible } = parsed.data;
     const a = await access(id);
 
     if (!a.allowed && !a.owner) {
@@ -209,6 +213,9 @@ export async function PATCH(req: Request) {
     if (!a.owner) {
       if (status && status === "suspended") {
         return Response.json({ error: "Only Super Admin can suspend restaurants." }, { status: 403 });
+      }
+      if (manager_qr_visible !== undefined) {
+        return Response.json({ error: "Only Super Admin can control manager QR code visibility." }, { status: 403 });
       }
     }
 
@@ -230,6 +237,10 @@ export async function PATCH(req: Request) {
     if (a.owner && contact_email !== undefined) {
       updates.push("contact_email = ?");
       params.push(contact_email);
+    }
+    if (a.owner && manager_qr_visible !== undefined) {
+      updates.push("manager_qr_visible = ?");
+      params.push(manager_qr_visible ? 1 : 0);
     }
     if (welcome_message !== undefined) {
       updates.push("welcome_message = ?");
@@ -275,7 +286,7 @@ export async function PATCH(req: Request) {
         actorRole: a.role,
         targetType: "restaurant",
         targetId: id,
-        details: { status, welcome_message, note },
+        details: { status, welcome_message, note, manager_qr_visible },
       });
     }
 

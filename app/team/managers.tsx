@@ -31,8 +31,10 @@ interface ManagerAccount {
 
 export default function Managers({
   restaurants,
+  onToggleQrVisibility,
 }: {
-  restaurants: Array<{ id: string; name: string }>;
+  restaurants: Array<{ id: string; name: string; manager_qr_visible?: boolean }>;
+  onToggleQrVisibility?: (restaurantId: string, visible: boolean) => void;
 }) {
   const [managers, setManagers] = useState<ManagerAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -469,8 +471,9 @@ export default function Managers({
                     alignItems: "center",
                     justifyContent: "space-between",
                     padding: "14px 16px",
-                    background: "rgba(255,255,255,0.02)",
-                    border: "1px solid rgba(255,255,255,0.06)",
+                    background: "#fff",
+                    border: "1px solid #e2e8f0",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
                     borderRadius: 10,
                     gap: 12,
                     flexWrap: "wrap",
@@ -478,7 +481,7 @@ export default function Managers({
                 >
                   <div style={{ flex: 1, minWidth: 240 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      <strong style={{ fontSize: "0.95rem" }}>{m.name || m.email}</strong>
+                      <strong style={{ fontSize: "0.95rem", color: "#0f172a" }}>{m.name || m.email}</strong>
 
                       {isSuper ? (
                         <span
@@ -499,9 +502,10 @@ export default function Managers({
                             fontSize: "0.72rem",
                             padding: "2px 8px",
                             borderRadius: 12,
-                            background: m.status === "active" ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)",
-                            color: m.status === "active" ? "#6ee7b7" : "#fca5a5",
-                            border: `1px solid ${m.status === "active" ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)"}`,
+                            background: m.status === "active" ? "#d1fae5" : "#fee2e2",
+                            color: m.status === "active" ? "#065f46" : "#991b1b",
+                            border: `1px solid ${m.status === "active" ? "#a7f3d0" : "#fecaca"}`,
+                            fontWeight: 600,
                           }}
                         >
                           {m.status.toUpperCase()}
@@ -514,9 +518,10 @@ export default function Managers({
                             fontSize: "0.72rem",
                             padding: "2px 8px",
                             borderRadius: 12,
-                            background: "rgba(245,158,11,0.15)",
-                            color: "#fcd34d",
-                            border: "1px solid rgba(245,158,11,0.3)",
+                            background: "#fef3c7",
+                            color: "#92400e",
+                            border: "1px solid #fde68a",
+                            fontWeight: 600,
                           }}
                         >
                           TEMP PASSWORD (UNSET)
@@ -528,8 +533,9 @@ export default function Managers({
                             fontSize: "0.72rem",
                             padding: "2px 8px",
                             borderRadius: 12,
-                            background: "rgba(255,255,255,0.08)",
-                            color: "#cbd5e1",
+                            background: "#f1f5f9",
+                            color: "#475569",
+                            fontWeight: 500,
                           }}
                         >
                           PRIVATE PASSWORD SET
@@ -537,11 +543,38 @@ export default function Managers({
                       )}
                     </div>
 
-                    <div style={{ display: "flex", gap: 12, marginTop: 4, fontSize: "0.82rem", color: "#8da092", flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 14, marginTop: 4, fontSize: "0.82rem", color: "#475569", flexWrap: "wrap", alignItems: "center" }}>
                       <span>{m.email}</span>
                       {!isSuper && (
                         <span>
-                          📍 Assigned: <strong>{restObj?.name || m.restaurant_id || "Unassigned"}</strong>
+                          📍 Assigned: <strong style={{ color: "#0f172a" }}>{restObj?.name || m.restaurant_id || "Unassigned"}</strong>
+                        </span>
+                      )}
+                      {!isSuper && restObj && m.restaurant_id && (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <span>🔲 QR Visibility:</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const cur = restObj.manager_qr_visible !== false;
+                              if (onToggleQrVisibility && m.restaurant_id) {
+                                onToggleQrVisibility(m.restaurant_id, !cur);
+                              }
+                            }}
+                            style={{
+                              fontSize: "0.7rem",
+                              fontWeight: 700,
+                              padding: "2px 8px",
+                              borderRadius: 8,
+                              cursor: "pointer",
+                              border: restObj.manager_qr_visible !== false ? "1px solid #bbf7d0" : "1px solid #fecaca",
+                              background: restObj.manager_qr_visible !== false ? "#dcfce7" : "#fee2e2",
+                              color: restObj.manager_qr_visible !== false ? "#166534" : "#991b1b",
+                            }}
+                            title={`Click to turn ${restObj.manager_qr_visible !== false ? "OFF" : "ON"} QR visibility for ${restObj.name}`}
+                          >
+                            {restObj.manager_qr_visible !== false ? "ON" : "OFF"}
+                          </button>
                         </span>
                       )}
                     </div>

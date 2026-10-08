@@ -61,6 +61,7 @@ interface Restaurant {
   welcome_message?: string;
   note?: string;
   status?: string;
+  manager_qr_visible?: boolean;
 }
 
 const blankDish: Dish = {
@@ -129,6 +130,38 @@ export default function Team({
   const [customerUrl, setCustomerUrl] = useState("");
   const [bestSellerDishId, setBestSellerDishId] = useState<string | null>(null);
   const [topRatedDishId, setTopRatedDishId] = useState<string | null>(null);
+  const [togglingQr, setTogglingQr] = useState(false);
+
+  async function handleToggleManagerQr(visible: boolean, targetRestaurantId?: string) {
+    const targetId = targetRestaurantId || id;
+    if (!targetId || !isSuperAdmin) return;
+    setTogglingQr(true);
+    try {
+      const res = await fetch("/api/restaurants", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: targetId,
+          manager_qr_visible: visible,
+        }),
+      });
+      const data = (await res.json()) as any;
+      if (!res.ok) throw new Error(data.error || "Failed to update QR visibility");
+
+      setRestaurants((prev) =>
+        prev.map((r) => (r.id === targetId ? { ...r, manager_qr_visible: visible } : r))
+      );
+      toast.success(
+        visible
+          ? "Manager QR visibility is ON. Managers can view and download the QR code."
+          : "Manager QR visibility is OFF. The QR code is hidden from managers."
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update QR visibility");
+    } finally {
+      setTogglingQr(false);
+    }
+  }
 
   async function list() {
     try {
@@ -342,7 +375,9 @@ export default function Team({
     }
   }
 
-  const savedName = restaurants.find((r) => r.id === id)?.name || "";
+  const currentRest = restaurants.find((r) => r.id === id);
+  const savedName = currentRest?.name || "";
+  const managerCanSeeQr = currentRest ? currentRest.manager_qr_visible !== false : true;
 
   // Navigation Items
   const nav = isSuperAdmin
@@ -370,7 +405,7 @@ export default function Team({
         { key: "sales", label: "Monthly sales", icon: ShoppingBag },
         { key: "reviews", label: "Customer reviews", icon: MessageSquare },
         { key: "settings", label: "Restaurant settings", icon: Settings2 },
-        { key: "qr", label: "QR & customer link", icon: QrCode },
+        ...(managerCanSeeQr ? [{ key: "qr", label: "QR & customer link", icon: QrCode }] : []),
       ];
 
   return (
@@ -707,6 +742,57 @@ export default function Team({
                 <input readOnly value={"/r/" + id} />
               </label>
 
+              {/* MANAGER QR VISIBILITY CONTROL (SUPER ADMIN ONLY) */}
+              {isSuperAdmin && (
+                <div
+                  style={{
+                    margin: "20px 0",
+                    padding: "16px 18px",
+                    background: "#f8fafc",
+                    border: "1.5px solid #e2e8f0",
+                    borderRadius: 12,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 16,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <strong style={{ fontSize: "0.95rem", color: "#0f172a" }}>Manager QR Visibility</strong>
+                      <span
+                        style={{
+                          fontSize: "0.68rem",
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          padding: "2px 8px",
+                          borderRadius: 10,
+                          background: managerCanSeeQr ? "#dcfce7" : "#fee2e2",
+                          color: managerCanSeeQr ? "#166534" : "#991b1b",
+                          border: managerCanSeeQr ? "1px solid #bbf7d0" : "1px solid #fecaca",
+                        }}
+                      >
+                        {managerCanSeeQr ? "ON" : "OFF"}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: "0.82rem", color: "#475569", margin: 0 }}>
+                      Control whether restaurant managers can view and download this restaurant's QR code.
+                    </p>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: "auto" }}>
+                    <span style={{ fontSize: "0.85rem", fontWeight: 700, color: managerCanSeeQr ? "#166534" : "#64748b" }}>
+                      {managerCanSeeQr ? "ON" : "OFF"}
+                    </span>
+                    <Switch
+                      checked={managerCanSeeQr}
+                      disabled={togglingQr}
+                      onCheckedChange={(checked) => handleToggleManagerQr(checked)}
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* ARCHIVE RESTAURANT (SUPER ADMIN ONLY) */}
               {isSuperAdmin && (
                 <div className="delete-zone">
@@ -731,7 +817,44 @@ export default function Team({
           )}
 
           {/* QR & CUSTOMER LINK */}
-          {tab === "qr" && (
+          {tab === "qr" && !isSuperAdmin && !managerCanSeeQr && (
+            <div
+              style={{
+                background: "#fff",
+                border: "1px solid #e2e8f0",
+                borderRadius: 14,
+                padding: "48px 24px",
+                textAlign: "center",
+                maxWidth: 580,
+                margin: "24px auto",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+              }}
+            >
+              <div
+                style={{
+                  width: 58,
+                  height: 58,
+                  borderRadius: "50%",
+                  background: "#fee2e2",
+                  color: "#991b1b",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 16px auto",
+                }}
+              >
+                <QrCode size={30} />
+              </div>
+              <h2 style={{ fontSize: "1.35rem", color: "#0f172a", marginBottom: 8, fontWeight: 700 }}>
+                QR Code Access Disabled
+              </h2>
+              <p style={{ color: "#475569", fontSize: "0.9rem", lineHeight: 1.6, margin: 0 }}>
+                The Super Admin has turned off QR code visibility for this restaurant. Please contact your Super Admin if you need access to the table QR code or printable assets.
+              </p>
+            </div>
+          )}
+
+          {tab === "qr" && (isSuperAdmin || managerCanSeeQr) && (
             <div className="qr-panel">
               <div className="qr-card">
                 <p className="eyebrow">{menu?.name || savedName}</p>
@@ -775,7 +898,61 @@ export default function Team({
                   )}
                 </div>
 
-                <p className="muted">
+                {/* SUPER ADMIN ON/OFF CONTROL FOR MANAGER QR VISIBILITY */}
+                {isSuperAdmin && (
+                  <div
+                    style={{
+                      marginTop: 22,
+                      padding: "16px 18px",
+                      borderRadius: 12,
+                      background: "#f8fafc",
+                      border: "1.5px solid #e2e8f0",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 16,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <strong style={{ fontSize: "0.95rem", color: "#0f172a" }}>Manager QR Visibility</strong>
+                        <span
+                          style={{
+                            fontSize: "0.68rem",
+                            fontWeight: 700,
+                            textTransform: "uppercase",
+                            padding: "2px 8px",
+                            borderRadius: 10,
+                            background: managerCanSeeQr ? "#dcfce7" : "#fee2e2",
+                            color: managerCanSeeQr ? "#166534" : "#991b1b",
+                            border: managerCanSeeQr ? "1px solid #bbf7d0" : "1px solid #fecaca",
+                          }}
+                        >
+                          {managerCanSeeQr ? "ON" : "OFF"}
+                        </span>
+                      </div>
+                      <p style={{ fontSize: "0.82rem", color: "#475569", margin: 0 }}>
+                        {managerCanSeeQr
+                          ? "Restaurant Managers can see and download this QR code."
+                          : "This QR code is hidden from Restaurant Managers."}
+                      </p>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: "auto" }}>
+                      <span style={{ fontSize: "0.85rem", fontWeight: 700, color: managerCanSeeQr ? "#166534" : "#64748b" }}>
+                        {managerCanSeeQr ? "ON" : "OFF"}
+                      </span>
+                      <Switch
+                        checked={managerCanSeeQr}
+                        disabled={togglingQr}
+                        onCheckedChange={(checked) => handleToggleManagerQr(checked)}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <p className="muted" style={{ marginTop: 18 }}>
                   Private customer order isolation: Customers scan this QR to order from their table without registering or logging in. No staff tokens or passwords are ever placed inside QR codes.
                 </p>
               </div>
@@ -825,7 +1002,13 @@ export default function Team({
           {id && tab === "reviews" && <Reviews key={id} restaurant={id} />}
 
           {/* SUPER ADMIN: MANAGERS */}
-          {isSuperAdmin && tab === "managers" && <Managers key="managers" restaurants={restaurants} />}
+          {isSuperAdmin && tab === "managers" && (
+            <Managers
+              key="managers"
+              restaurants={restaurants}
+              onToggleQrVisibility={(restId, visible) => handleToggleManagerQr(visible, restId)}
+            />
+          )}
 
           {/* RESTAURANT ACCESS */}
           {isSuperAdmin && id && tab === "restaurant-access" && (

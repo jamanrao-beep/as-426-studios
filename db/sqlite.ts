@@ -73,6 +73,7 @@ export function getSqliteD1() {
       welcome_message TEXT DEFAULT '' NOT NULL,
       note TEXT DEFAULT '' NOT NULL,
       status TEXT DEFAULT 'active' NOT NULL,
+      manager_qr_visible INTEGER DEFAULT 1 NOT NULL,
       archived_at TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
@@ -237,6 +238,7 @@ export function getSqliteD1() {
 
   ensureColumn(rawDb, "restaurants", "status", "TEXT DEFAULT 'active'");
   ensureColumn(rawDb, "restaurants", "archived_at", "TEXT");
+  ensureColumn(rawDb, "restaurants", "manager_qr_visible", "INTEGER DEFAULT 1 NOT NULL");
 
   const now = new Date().toISOString();
 
