@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Utensils, Shield, UserCheck, Lock, Mail, ArrowRight, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import { PRESET_ACCOUNTS } from "@/lib/auth-constants";
@@ -10,13 +10,24 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("return_to") || "/team";
 
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(PRESET_ACCOUNTS[0]?.email || "");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const passwordInputRef = useRef<HTMLInputElement>(null);
 
-  async function handleLogin(targetEmail = email, targetPass = password) {
+  async function handleLogin() {
+    if (!email.trim()) {
+      setError("Please enter your sign-in email.");
+      return;
+    }
+    if (!password) {
+      setError("Please enter your password to continue.");
+      passwordInputRef.current?.focus();
+      return;
+    }
+
     setError("");
     setLoading(true);
 
@@ -24,7 +35,7 @@ function LoginForm() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: targetEmail, password: targetPass }),
+        body: JSON.stringify({ email: email.trim(), password }),
       });
 
       const data = (await res.json()) as any;
@@ -42,11 +53,19 @@ function LoginForm() {
     }
   }
 
-  function quickFillAndSubmit(acc: (typeof PRESET_ACCOUNTS)[0]) {
+  function selectRole(acc: (typeof PRESET_ACCOUNTS)[0]) {
     setEmail(acc.email);
-    setPassword(acc.password);
-    handleLogin(acc.email, acc.password);
+    setPassword("");
+    setError("");
+    // Focus password input for user to type
+    setTimeout(() => {
+      passwordInputRef.current?.focus();
+    }, 50);
   }
+
+  const selectedAccount = PRESET_ACCOUNTS.find(
+    (a) => a.email.toLowerCase() === email.trim().toLowerCase()
+  );
 
   return (
     <div className="login-card">
@@ -57,7 +76,7 @@ function LoginForm() {
         </span>
         <h1>Sign in to Table Secret</h1>
         <p>
-          Choose a role below or enter your credentials to open your assigned workspace.
+          Select your role or enter your credentials with your password to open the workspace.
         </p>
       </div>
 
@@ -67,50 +86,51 @@ function LoginForm() {
         </div>
       )}
 
-      {/* Quick Preset Accounts Section */}
+      {/* Role Selection Section */}
       <div className="preset-accounts-section">
-        <p className="eyebrow preset-label">SELECT ROLE (ONE-CLICK SIGN IN)</p>
+        <p className="eyebrow preset-label">1. CHOOSE WORKSPACE ROLE</p>
         <div className="preset-grid">
-          {PRESET_ACCOUNTS.map((acc) => (
-            <button
-              key={acc.email}
-              type="button"
-              className={`preset-card ${acc.role === "admin" ? "preset-admin" : "preset-waiter"}`}
-              onClick={() => quickFillAndSubmit(acc)}
-              disabled={loading}
-            >
-              <div className="preset-card-top">
-                <span className="preset-icon">
-                  {acc.role === "admin" ? <Shield size={18} /> : <UserCheck size={18} />}
-                </span>
-                <span className="preset-role-badge">
-                  {acc.role === "admin" ? "Admin / Owner" : "Common / Waiter"}
-                </span>
-              </div>
-              <h3>{acc.displayName}</h3>
-              <div className="preset-creds">
-                <span>
-                  <Mail size={12} /> {acc.email}
-                </span>
-                <span>
-                  <Lock size={12} /> {acc.password}
-                </span>
-              </div>
-              <p className="preset-desc">{acc.description}</p>
-              <div className="preset-action">
-                <span>Sign in as {acc.role === "admin" ? "Admin" : "Waiter"}</span>
-                <ArrowRight size={14} />
-              </div>
-            </button>
-          ))}
+          {PRESET_ACCOUNTS.map((acc) => {
+            const isSelected = selectedAccount?.email === acc.email;
+            return (
+              <button
+                key={acc.email}
+                type="button"
+                className={`preset-card ${acc.role === "admin" ? "preset-admin" : "preset-waiter"} ${isSelected ? "selected" : ""}`}
+                onClick={() => selectRole(acc)}
+                disabled={loading}
+                aria-pressed={isSelected}
+              >
+                <div className="preset-card-top">
+                  <span className="preset-icon">
+                    {acc.role === "admin" ? <Shield size={18} /> : <UserCheck size={18} />}
+                  </span>
+                  <span className="preset-role-badge">
+                    {isSelected ? "Selected ✓" : acc.role === "admin" ? "Admin / Manager" : "Staff / Waiter"}
+                  </span>
+                </div>
+                <h3>{acc.displayName}</h3>
+                <div className="preset-creds">
+                  <span>
+                    <Mail size={12} /> {acc.email}
+                  </span>
+                </div>
+                <p className="preset-desc">{acc.description}</p>
+                <div className="preset-action">
+                  <span>{isSelected ? "Role chosen · Enter password below" : `Select ${acc.role === "admin" ? "Manager" : "Staff"}`}</span>
+                  <ArrowRight size={14} />
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
       <div className="login-divider">
-        <span>OR ENTER CREDENTIALS MANUALLY</span>
+        <span>2. ENTER PASSWORD TO SIGN IN</span>
       </div>
 
-      {/* Manual Login Form */}
+      {/* Manual / Password Login Form */}
       <form
         className="login-form"
         onSubmit={(e) => {
@@ -138,10 +158,11 @@ function LoginForm() {
           <div className="input-wrap">
             <Lock size={16} className="input-icon" />
             <input
+              ref={passwordInputRef}
               type={showPassword ? "text" : "password"}
               required
               autoComplete="current-password"
-              placeholder="Enter your password"
+              placeholder={`Enter password for ${selectedAccount?.displayName || email || "account"}`}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -157,8 +178,11 @@ function LoginForm() {
         </label>
 
         <button type="submit" className="primary login-submit" disabled={loading}>
-          {loading ? "Signing in…" : "Sign In to Workspace"}
+          {loading ? "Signing in…" : `Sign In as ${selectedAccount ? (selectedAccount.role === "admin" ? "Manager / Admin" : "Staff") : "User"}`}
         </button>
+        <p style={{ textAlign: "center", fontSize: "0.78rem", color: "#6d786f", margin: "4px 0 0" }}>
+          Credentials: Admin password is <code>admin123</code> · Staff password is <code>staff123</code>
+        </p>
       </form>
 
       <footer className="login-footer-info">

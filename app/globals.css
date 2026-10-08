@@ -69,6 +69,8 @@
 .signout-btn:hover{background:#334835;color:#fff}
 .role-badge{display:inline-flex;align-items:center;gap:5px;font-size:.7rem;font-weight:700;padding:3px 8px;border-radius:12px;background:#e5f0d8;color:#3b5629}
 .waiter-switch-link{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;color:#456034;text-decoration:underline;margin-left:12px}
+.preset-card.selected{border-color:#203c26;background:#f0f6ea;box-shadow:0 0 0 2px #50713b}
+.preset-card.selected .preset-role-badge{background:#1f3625;color:#d9fa92}
 
 @media(max-width:700px){
   .login-brandbar{padding:0 18px;height:70px}
@@ -78,8 +80,12 @@
   .preset-grid{grid-template-columns:1fr;gap:12px}
   .preset-card{padding:16px}
   .mobile-topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#17251e;color:#fff;border-bottom:1px solid #2d3e32}
-  .admin-sidebar{padding:12px 14px}
+  .admin{display:flex!important;flex-direction:column!important}
+  .admin-sidebar{width:100%!important;height:auto!important;position:static!important;padding:14px 16px!important}
   .admin-sidebar .nav-item{padding:8px 12px;font-size:.8rem}
+  .admin-main{width:100%!important;min-width:0!important}
+  .admin-content{padding:20px 14px!important}
+  .cart-bar{width:calc(100% - 28px)!important;max-width:650px!important;margin:10px auto!important}
   .waiter-workspace header{padding:0 16px}
   .waiter-workspace main{padding:20px 14px}
   .waiter-workspace h1{font-size:1.85rem}
