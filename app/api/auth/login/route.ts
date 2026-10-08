@@ -13,18 +13,28 @@ export async function POST(req: Request) {
       );
     }
 
-    const user = await authenticate(email, password);
-    if (!user) {
+    const clientIp =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      req.headers.get("cf-connecting-ip") ||
+      "127.0.0.1";
+
+    const result = await authenticate(email, password, clientIp);
+    if (!result.user) {
+      const status = result.rateLimited ? 429 : 401;
       return NextResponse.json(
-        { error: "Invalid email or password. Please check your credentials." },
-        { status: 401 }
+        { error: result.error || "Invalid email or password." },
+        { status }
       );
     }
 
+    const user = result.user;
     const token = encodeSession(user);
+
     const response = NextResponse.json({
       success: true,
+      mustChangePassword: !!user.mustChangePassword,
       user: {
+        userId: user.userId,
         email: user.email,
         displayName: user.displayName,
         role: user.role,
@@ -44,8 +54,9 @@ export async function POST(req: Request) {
 
     return response;
   } catch (err: any) {
+    console.error("Login route error:", err);
     return NextResponse.json(
-      { error: err?.message || "Authentication failed." },
+      { error: "Authentication failed. Please try again." },
       { status: 500 }
     );
   }

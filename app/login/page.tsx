@@ -47,8 +47,13 @@ function LoginForm() {
         throw new Error(data.error || "Login failed. Please check your credentials.");
       }
 
-      // Success - navigate to destination
-      router.push(returnTo);
+      // Success - navigate to destination based on role and change password status
+      if (data.mustChangePassword) {
+        router.push("/change-password");
+      } else {
+        const dest = data.user?.role === "waiter" ? "/team/orders" : returnTo;
+        router.push(dest);
+      }
       router.refresh();
     } catch (err: any) {
       setError(err?.message || "An unexpected error occurred.");

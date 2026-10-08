@@ -7,7 +7,7 @@ export type ChatGPTUser = {
   displayName: string;
   email: string;
   fullName: string | null;
-  role?: "admin" | "waiter";
+  role?: "super_admin" | "admin" | "waiter";
 };
 
 const USER_ID_HEADER = "oai-authenticated-user-id";
