@@ -3,14 +3,12 @@
 import { useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Utensils, Shield, UserCheck, Lock, Mail, ArrowRight, Eye, EyeOff, CheckCircle2 } from "lucide-react";
-import { PRESET_ACCOUNTS, SUPER_ADMIN_EMAIL } from "@/lib/auth-constants";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("return_to") || "/team";
 
-  const [selectedRole, setSelectedRole] = useState<"admin" | "waiter" | "custom">("admin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -18,18 +16,14 @@ function LoginForm() {
   const [error, setError] = useState("");
   const passwordInputRef = useRef<HTMLInputElement>(null);
 
+  const isManager = email.trim().toLowerCase() === "admin@as426.com";
+  const isStaff = email.trim().toLowerCase() === "staff@as426.com";
+
   async function handleLogin() {
-    const targetEmail =
-      email.trim() ||
-      (selectedRole === "admin"
-        ? SUPER_ADMIN_EMAIL
-        : selectedRole === "waiter"
-        ? PRESET_ACCOUNTS.find((a) => a.role === "waiter")?.email
-        : "") ||
-      "";
+    const targetEmail = email.trim();
 
     if (!targetEmail) {
-      setError("Please enter your sign-in Gmail / email address or select a role.");
+      setError("Please select a workspace role or enter your sign-in email.");
       return;
     }
     if (!password) {
@@ -63,9 +57,17 @@ function LoginForm() {
     }
   }
 
-  function selectRole(role: "admin" | "waiter") {
-    setSelectedRole(role);
-    setEmail("");
+  function selectManagerRole() {
+    setEmail("admin@as426.com");
+    setPassword("");
+    setError("");
+    setTimeout(() => {
+      passwordInputRef.current?.focus();
+    }, 50);
+  }
+
+  function selectStaffRole() {
+    setEmail("staff@as426.com");
     setPassword("");
     setError("");
     setTimeout(() => {
@@ -82,7 +84,7 @@ function LoginForm() {
         </span>
         <h1>Sign in to Table Secret</h1>
         <p>
-          Sign in to access your restaurant workspace.
+          Select your workspace role or enter your credentials to open the dashboard.
         </p>
       </div>
 
@@ -94,12 +96,12 @@ function LoginForm() {
 
       {/* Role Selection Quick-Toggles */}
       <div className="preset-accounts-section">
-        <p className="eyebrow preset-label">1. CHOOSE WORKSPACE ROLE OR ENTER EMAIL</p>
+        <p className="eyebrow preset-label">1. CHOOSE WORKSPACE ROLE</p>
         <div className="preset-grid">
           <button
             type="button"
-            className={`preset-card preset-admin ${selectedRole === "admin" && !email.trim() ? "selected" : ""}`}
-            onClick={() => selectRole("admin")}
+            className={`preset-card preset-admin ${isManager ? "selected" : ""}`}
+            onClick={selectManagerRole}
             disabled={loading}
           >
             <div className="preset-card-top">
@@ -107,21 +109,21 @@ function LoginForm() {
                 <Shield size={18} />
               </span>
               <span className="preset-role-badge">
-                {selectedRole === "admin" && !email.trim() ? "Selected ✓" : "Super Admin"}
+                {isManager ? "Selected ✓" : "Manager"}
               </span>
             </div>
-            <h3>Super Admin / Owner</h3>
-            <p className="preset-desc">Full access to manage all restaurants, create managers and configure menus.</p>
+            <h3>Restaurant Manager</h3>
+            <p className="preset-desc">Full restaurant manager access: Manage menus, dishes, orders, waiters and customer reviews.</p>
             <div className="preset-action">
-              <span>{selectedRole === "admin" && !email.trim() ? "Role chosen · Enter password below" : "Select Super Admin"}</span>
+              <span>{isManager ? "Manager email filled · Enter password below" : "Select Restaurant Manager"}</span>
               <ArrowRight size={14} />
             </div>
           </button>
 
           <button
             type="button"
-            className={`preset-card preset-waiter ${selectedRole === "waiter" && !email.trim() ? "selected" : ""}`}
-            onClick={() => selectRole("waiter")}
+            className={`preset-card preset-waiter ${isStaff ? "selected" : ""}`}
+            onClick={selectStaffRole}
             disabled={loading}
           >
             <div className="preset-card-top">
@@ -129,13 +131,13 @@ function LoginForm() {
                 <UserCheck size={18} />
               </span>
               <span className="preset-role-badge">
-                {selectedRole === "waiter" && !email.trim() ? "Selected ✓" : "Staff"}
+                {isStaff ? "Selected ✓" : "Staff"}
               </span>
             </div>
             <h3>Staff / Waiter Workspace</h3>
             <p className="preset-desc">Streamlined table orders feed, alerts and delivery confirmation.</p>
             <div className="preset-action">
-              <span>{selectedRole === "waiter" && !email.trim() ? "Role chosen · Enter password below" : "Select Staff"}</span>
+              <span>{isStaff ? "Staff email filled · Enter password below" : "Select Staff"}</span>
               <ArrowRight size={14} />
             </div>
           </button>
@@ -163,10 +165,7 @@ function LoginForm() {
               autoComplete="email"
               placeholder="Enter email"
               value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                if (selectedRole !== "custom") setSelectedRole("custom");
-              }}
+              onChange={(e) => setEmail(e.target.value)}
             />
           </div>
         </label>
@@ -198,9 +197,9 @@ function LoginForm() {
         <button type="submit" className="primary login-submit" disabled={loading}>
           {loading
             ? "Signing in…"
-            : selectedRole === "admin" && !email.trim()
-            ? "Sign In as Super Admin"
-            : selectedRole === "waiter" && !email.trim()
+            : isManager
+            ? "Sign In as Restaurant Manager"
+            : isStaff
             ? "Sign In as Staff"
             : "Sign In"}
         </button>
@@ -210,13 +209,13 @@ function LoginForm() {
         <div className="info-item">
           <CheckCircle2 size={15} />
           <span>
-            <strong>Super Admin:</strong> Manages all restaurants, creates manager accounts & sets their passwords.
+            <strong>Restaurant Managers:</strong> Full workspace to manage dishes, table orders, waiters & reviews.
           </span>
         </div>
         <div className="info-item">
           <CheckCircle2 size={15} />
           <span>
-            <strong>Restaurant Managers:</strong> Sign in with credentials provided by Super Admin.
+            <strong>Staff Waiters:</strong> Fast orders-only feed to review, accept and deliver table orders.
           </span>
         </div>
       </footer>

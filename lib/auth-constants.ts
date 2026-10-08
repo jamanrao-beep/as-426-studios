@@ -30,8 +30,8 @@ export const PRESET_ACCOUNTS: Array<{
     email: "admin@as426.com",
     password: "admin123",
     role: "admin",
-    displayName: "AS 426 Admin",
-    description: "Full Admin Access: Manage restaurants, dishes, waiters, daily orders, monthly sales and reviews.",
+    displayName: "Restaurant Manager",
+    description: "Full Manager Access: Manage restaurant menus, dishes, waiters, daily orders and reviews.",
   },
   {
     email: "staff@as426.com",
