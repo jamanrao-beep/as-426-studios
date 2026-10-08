@@ -143,10 +143,40 @@ export default function PlacedOrders({ restaurant }: { restaurant: string }) {
                   {o.notes && <p>Your note: {o.notes}</p>}
 
                   <p className="muted">
-                    {o.completed_at
+                    {o.status === "cancelled" && o.cancelled_at
+                      ? `Cancelled: ${orderTime(o.cancelled_at)} IST`
+                      : o.completed_at
                       ? `Delivered: ${orderTime(o.completed_at)} IST`
                       : `Last updated: ${orderTime(o.updated_at)} IST`}
                   </p>
+
+                  {/* Customer display for cancelled orders */}
+                  {o.status === "cancelled" && (
+                    <div
+                      className="cancelled-customer-details"
+                      style={{
+                        marginTop: "0.75rem",
+                        padding: "0.75rem 0.9rem",
+                        backgroundColor: "rgba(239, 68, 68, 0.08)",
+                        borderLeft: "3px solid #ef4444",
+                        borderRadius: "6px",
+                      }}
+                    >
+                      <p style={{ color: "#dc2626", fontWeight: 600, margin: "0 0 4px 0", fontSize: "0.88rem" }}>
+                        Order Cancelled
+                      </p>
+                      {o.cancellation_reason && (
+                        <p style={{ fontSize: "0.85rem", margin: "0 0 4px 0", color: "inherit" }}>
+                          <strong>Reason:</strong> {o.cancellation_reason}
+                        </p>
+                      )}
+                      {o.cancelled_at && (
+                        <p style={{ fontSize: "0.78rem", color: "#6b7280", margin: 0 }}>
+                          Cancelled at: {orderTime(o.cancelled_at)} IST
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {/* Customer Dish Rating Option for Completed Orders */}
                   {o.status === "served" && matchingKey && (

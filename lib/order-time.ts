@@ -55,3 +55,12 @@ export function orderTime(value: string) {
     timeStyle: "short",
   });
 }
+
+export function formatISTTime(value: string | Date = new Date()) {
+  return new Date(value).toLocaleTimeString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}

@@ -19,7 +19,9 @@ export default async function Page() {
       return (
         <WaiterWorkspace
           email={a.email}
+          name={a.name || a.email}
           assignedRestaurant={a.restaurantId}
+          restaurantName={a.restaurantName || a.restaurantId || "Restaurant"}
           isWaiter={a.role === "waiter"}
         />
       );

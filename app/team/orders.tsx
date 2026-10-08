@@ -33,6 +33,8 @@ export default function Orders({
   const [loading, setLoading] = useState(true);
   const [more, setMore] = useState(false);
   const [cancel, setCancel] = useState<StoredOrder | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelError, setCancelError] = useState("");
 
   async function load(append = false, quiet = false) {
     const version = ++requestVersion.current;
@@ -66,23 +68,30 @@ export default function Orders({
     };
   }, [restaurant, canEdit, view, date]);
 
-  async function update(order: StoredOrder, status: OrderStatus) {
+  async function update(order: StoredOrder, status: OrderStatus, reason?: string) {
     setBusy(order.id);
     setError("");
     try {
       const r = await fetch("/api/orders", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ restaurant: order.restaurant_id, id: order.id, from: order.status, status }),
+        body: JSON.stringify({
+          restaurant: order.restaurant_id,
+          id: order.id,
+          from: order.status,
+          status,
+          reason: status === "cancelled" ? reason?.trim() : undefined,
+        }),
       });
       const d = (await r.json()) as { error?: string };
       if (!r.ok) throw Error(d.error);
       setCancel(null);
+      setCancelReason("");
+      setCancelError("");
       setDeliver(null);
       await load(false, true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn’t update order");
-      setCancel(null);
     } finally {
       setBusy(null);
     }
@@ -168,31 +177,23 @@ export default function Orders({
 
       <div className="orders-grid">
         {rows.map((o) => {
-          // Determine available actions based on role
-          let availableActions: OrderStatus[] = [];
-          if (isWaiter) {
-            // Waiter can ONLY confirm delivery if accepted or preparing
-            if (o.status === "accepted" || o.status === "preparing") {
-              availableActions = ["served"];
-            }
-          } else {
-            // Admin can execute full transitions
-            availableActions = transitions[o.status] || [];
-          }
-
+          // Available actions based on status transitions
+          const availableActions: OrderStatus[] = transitions[o.status] || [];
           const isTest = (o as any).is_test === 1;
 
           return (
             <article key={o.id} className={`order-card status-${o.status}`}>
+              {/* Test order prominent label */}
+              {isTest && (
+                <div style={{ marginBottom: "8px", background: "#fef2f2", border: "1px solid #ef4444", color: "#b91c1c", padding: "4px 8px", borderRadius: "4px", fontSize: "0.75rem", fontWeight: 700 }}>
+                  TEST ORDER — DO NOT PREPARE OR CHARGE.
+                </div>
+              )}
+
               <header>
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                     <span className="eyebrow">{o.restaurant_name}</span>
-                    {isTest && (
-                      <span style={{ fontSize: "0.68rem", fontWeight: 700, background: "#fef3c7", color: "#b45309", padding: "2px 6px", borderRadius: "4px" }}>
-                        TEST ORDER
-                      </span>
-                    )}
                   </div>
                   <h3>Table {o.table_label}</h3>
                   <small>
@@ -234,6 +235,23 @@ export default function Orders({
                 </p>
               )}
 
+              {/* Cancellation Details Attribution */}
+              {o.status === "cancelled" && (
+                <div style={{ marginTop: "10px", padding: "8px 10px", background: "rgba(239, 68, 68, 0.08)", borderLeft: "3px solid #ef4444", borderRadius: "6px" }}>
+                  <div style={{ fontWeight: 600, color: "#dc2626", fontSize: "0.85rem" }}>
+                    Cancelled by {o.cancelled_by_name || o.cancelled_by || "Staff"}{o.cancelled_by_role ? ` (${o.cancelled_by_role})` : ""}
+                  </div>
+                  {o.cancellation_reason && (
+                    <div style={{ fontSize: "0.82rem", margin: "3px 0", color: "inherit" }}>
+                      <strong>Reason:</strong> {o.cancellation_reason}
+                    </div>
+                  )}
+                  <div style={{ fontSize: "0.76rem", color: "#6b7280" }}>
+                    Cancelled at: {orderTime(o.cancelled_at || o.updated_at)} IST
+                  </div>
+                </div>
+              )}
+
               <div className="order-actions">
                 {availableActions.map((next) => (
                   <button
@@ -251,11 +269,6 @@ export default function Orders({
                     {busy === o.id ? "Updating…" : labels[next]}
                   </button>
                 ))}
-                {isWaiter && o.status === "new" && (
-                  <span className="muted" style={{ fontSize: "0.78rem", alignSelf: "center" }}>
-                    Awaiting manager acceptance
-                  </span>
-                )}
               </div>
             </article>
           );
@@ -271,9 +284,9 @@ export default function Orders({
       {/* Confirmation Modal for Delivery */}
       <AlertDialog open={!!deliver} onOpenChange={(v) => !v && setDeliver(null)}>
         <AlertDialogContent>
-          <AlertDialogTitle>Confirm delivered to table {deliver?.table_label}?</AlertDialogTitle>
+          <AlertDialogTitle>Confirm Delivery</AlertDialogTitle>
           <AlertDialogDescription>
-            Please confirm that all items for Table {deliver?.table_label} have been handed to the customer. This will record your delivery confirmation timestamp.
+            Have all items in this order been delivered to table <strong>{deliver?.table_label}</strong>?
           </AlertDialogDescription>
           <AlertDialogFooter>
             <AlertDialogCancel>Not yet</AlertDialogCancel>
@@ -293,18 +306,34 @@ export default function Orders({
       {/* Confirmation Modal for Cancellation */}
       <AlertDialog open={!!cancel} onOpenChange={(v) => !v && setCancel(null)}>
         <AlertDialogContent>
-          <AlertDialogTitle>Cancel this order?</AlertDialogTitle>
+          <AlertDialogTitle>Cancel Order #{cancel?.id.slice(0, 8).toUpperCase()}?</AlertDialogTitle>
           <AlertDialogDescription>
-            Please inform the guest at table {cancel?.table_label} that their order is being cancelled.
+            Table: <strong>{cancel?.table_label}</strong>. Please enter the reason for cancellation.
+            This reason will be visible to the customer on their order tracking screen.
           </AlertDialogDescription>
+          <div style={{ marginTop: "10px" }}>
+            <textarea
+              required
+              rows={3}
+              placeholder="Enter mandatory cancellation reason..."
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #ccc" }}
+            />
+            {cancelError && <p className="error" style={{ fontSize: "0.85rem", marginTop: "4px" }}>{cancelError}</p>}
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep order</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => { setCancelReason(""); setCancelError(""); }}>Keep order</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
-                if (cancel) update(cancel, "cancelled");
+                if (!cancelReason.trim()) {
+                  setCancelError("A cancellation reason is required.");
+                  return;
+                }
+                if (cancel) update(cancel, "cancelled", cancelReason.trim());
               }}
-              disabled={busy !== null}
+              disabled={busy !== null || !cancelReason.trim()}
             >
               Cancel order
             </AlertDialogAction>

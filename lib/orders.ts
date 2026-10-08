@@ -13,4 +13,32 @@ export function priceOrder(menu:Menu,items:OrderInput["items"]){
  const lines:OrderLine[]=items.map(i=>{const dish=menu.dishes.find(d=>d.id===i.id);if(!dish||!dish.available)throw Error("A selected dish is no longer available. Refresh the menu and update your cart.");const unitPrice=Math.round(dish.price*100);if(unitPrice!==i.unitPrice)throw Error("A dish price has changed. Refresh the menu and review your cart before ordering.");return {id:dish.id,name:dish.name,quantity:i.quantity,unitPrice}});
  return {lines,total:lines.reduce((n,i)=>n+i.unitPrice*i.quantity,0)};
 }
-export type StoredOrder={id:string,restaurant_id:string,restaurant_name:string,table_label:string,customer_name:string,notes:string,items:OrderLine[],total:number,status:OrderStatus,created_at:string,updated_at:string,completed_at?:string|null,completed_by?:string|null};
+export type StoredOrder = {
+  id: string;
+  restaurant_id: string;
+  restaurant_name: string;
+  table_label: string;
+  customer_name: string;
+  notes: string;
+  items: OrderLine[];
+  total: number;
+  status: OrderStatus;
+  is_test?: number;
+  status_history?: any[];
+  accepted_by?: string | null;
+  accepted_at?: string | null;
+  preparing_by?: string | null;
+  preparing_at?: string | null;
+  delivered_by?: string | null;
+  delivered_at?: string | null;
+  completed_at?: string | null;
+  completed_by?: string | null;
+  cancelled_by?: string | null;
+  cancelled_by_id?: string | null;
+  cancelled_by_name?: string | null;
+  cancelled_by_role?: string | null;
+  cancellation_reason?: string | null;
+  cancelled_at?: string | null;
+  created_at: string;
+  updated_at: string;
+};

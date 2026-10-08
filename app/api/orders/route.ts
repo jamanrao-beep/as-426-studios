@@ -133,6 +133,10 @@ export async function GET(req: Request) {
     const alerts = u.searchParams.get("alerts") === "1";
     const offset = Number(u.searchParams.get("offset") || 0);
 
+    const tableFilter = u.searchParams.get("table")?.trim() || "";
+    const statusFilter = u.searchParams.get("status")?.trim() || "";
+    const searchFilter = u.searchParams.get("search")?.trim() || "";
+
     if ((id && !validSlug(id)) || !Number.isSafeInteger(offset) || offset < 0) {
       return Response.json({ error: "Invalid request." }, { status: 400 });
     }
@@ -142,32 +146,49 @@ export async function GET(req: Request) {
       return Response.json({ error: "Order access required." }, { status: 403 });
     }
 
+    // Waiter restaurant isolation: cannot query another restaurant
+    if (a.role === "waiter") {
+      if (id && a.restaurantId && id !== a.restaurantId) {
+        return Response.json({ error: "You can only access orders for your assigned restaurant." }, { status: 403 });
+      }
+    }
+
+    const effectiveRestaurantId = a.role === "waiter" ? a.restaurantId : (id || (a.owner ? undefined : a.restaurantId));
+
     const params: unknown[] = [];
     let where = "1=1";
 
-    if (id) {
+    if (effectiveRestaurantId) {
       where += " AND o.restaurant_id = ?";
-      params.push(id);
+      params.push(effectiveRestaurantId);
     } else if (!a.owner && a.restaurantIds.length > 0) {
       where += ` AND o.restaurant_id IN (${a.restaurantIds.map(() => "?").join(",")})`;
       params.push(...a.restaurantIds);
     }
 
     const view = u.searchParams.get("view") || "today";
+    const todayIST = indiaDate();
+    const todayBounds = dayRange(todayIST);
 
     if (!alerts) {
       if (view === "unfinished") {
         where += " AND o.status IN ('new','accepted','preparing') AND o.created_at < ?";
-        params.push(dayRange(indiaDate()).start);
-      } else {
-        let range;
-        try {
-          range = dayRange(view === "history" ? u.searchParams.get("date") || indiaDate() : indiaDate());
-        } catch {
-          return Response.json({ error: "Invalid date." }, { status: 400 });
+        params.push(todayBounds.start);
+      } else if (view === "history") {
+        const histDate = u.searchParams.get("date")?.trim();
+        if (histDate) {
+          try {
+            const range = dayRange(histDate);
+            where += " AND o.created_at >= ? AND o.created_at < ?";
+            params.push(range.start, range.end);
+          } catch {
+            return Response.json({ error: "Invalid date format." }, { status: 400 });
+          }
         }
+      } else {
+        // "today" view
         where += " AND o.created_at >= ? AND o.created_at < ?";
-        params.push(range.start, range.end);
+        params.push(todayBounds.start, todayBounds.end);
       }
     }
 
@@ -175,12 +196,32 @@ export async function GET(req: Request) {
       where += " AND o.status = 'new'";
     }
 
+    if (statusFilter && ["new", "accepted", "preparing", "served", "cancelled"].includes(statusFilter)) {
+      where += " AND o.status = ?";
+      params.push(statusFilter);
+    }
+
+    if (tableFilter) {
+      where += " AND (LOWER(o.table_label) = LOWER(?) OR o.table_label = ?)";
+      params.push(tableFilter, tableFilter);
+    }
+
+    if (searchFilter) {
+      where += " AND (o.id LIKE ? OR LOWER(o.table_label) LIKE ? OR LOWER(o.customer_name) LIKE ?)";
+      const pattern = `%${searchFilter.toLowerCase()}%`;
+      params.push(pattern, pattern, pattern);
+    }
+
     const result = await db()
       .prepare(`
         SELECT 
           o.id, o.restaurant_id, o.restaurant_name, o.table_label, o.customer_name, o.notes, 
-          o.items, o.total, o.status, o.is_test, o.status_history, o.accepted_by, o.delivered_by,
-          o.created_at, o.updated_at, o.completed_at, o.completed_by 
+          o.items, o.total, o.status, o.is_test, o.status_history, 
+          o.accepted_by, o.accepted_at, o.preparing_by, o.preparing_at,
+          o.delivered_by, o.delivered_at, o.completed_by, o.completed_at,
+          o.cancelled_by, o.cancelled_by_id, o.cancelled_by_name, o.cancelled_by_role,
+          o.cancellation_reason, o.cancelled_at,
+          o.created_at, o.updated_at
         FROM orders o 
         WHERE ${where} 
         ORDER BY o.created_at DESC, o.id DESC 
@@ -188,6 +229,30 @@ export async function GET(req: Request) {
       `)
       .bind(...params, offset)
       .all<any>();
+
+    // Compute today's summary counts for current restaurant
+    let summary = { new: 0, accepted: 0, preparing: 0, served: 0, cancelled: 0 };
+    if (effectiveRestaurantId) {
+      try {
+        const counts = await db()
+          .prepare(`
+            SELECT status, COUNT(*) as cnt 
+            FROM orders 
+            WHERE restaurant_id = ? AND created_at >= ? AND created_at < ?
+            GROUP BY status
+          `)
+          .bind(effectiveRestaurantId, todayBounds.start, todayBounds.end)
+          .all<{ status: string; cnt: number }>();
+
+        for (const row of counts.results) {
+          if (row.status in summary) {
+            (summary as any)[row.status] = row.cnt;
+          }
+        }
+      } catch (cntErr) {
+        console.error("Failed to compute order summary counts:", cntErr);
+      }
+    }
 
     return Response.json(
       {
@@ -197,6 +262,7 @@ export async function GET(req: Request) {
           status_history: typeof r.status_history === "string" ? JSON.parse(r.status_history) : r.status_history || [],
         })),
         hasMore: result.results.length > 50,
+        summary,
       },
       { headers: { "Cache-Control": "no-store" } }
     );
@@ -216,61 +282,125 @@ export async function PATCH(req: Request) {
         id: z.string().min(1).max(100),
         from: z.enum(["new", "accepted", "preparing", "served", "cancelled"]),
         status: z.enum(["new", "accepted", "preparing", "served", "cancelled"]),
+        reason: z.string().trim().max(500).optional(),
       })
       .safeParse(await req.json());
 
     if (!p.success) return Response.json({ error: "Invalid order update." }, { status: 400 });
     const b = p.data;
 
-    // Check order access for user
+    // Check authenticated session and order access
     const actor = await orderAccess(b.restaurant);
     if (!actor.allowed && !actor.owner) {
       return Response.json({ error: "Order access required." }, { status: 403 });
     }
 
-    // Role-based permission enforcement:
-    // Waiters can ONLY mark orders as delivered ('served'). They CANNOT accept or cancel!
-    if (actor.role === "waiter") {
-      if (b.status !== "served") {
+    // Role-based restaurant scoping:
+    // Waiters and Admins can only update orders for their assigned restaurant
+    if (actor.role !== "super_admin" && actor.restaurantId !== b.restaurant) {
+      return Response.json(
+        { error: "Access denied. You can only update orders for your assigned restaurant." },
+        { status: 403 }
+      );
+    }
+
+    // Fetch existing order to validate current status and prevent conflicting/backwards changes
+    const currentOrder = await db()
+      .prepare(`
+        SELECT id, restaurant_id, status, is_test, status_history, table_label
+        FROM orders 
+        WHERE id = ?
+      `)
+      .bind(b.id)
+      .first<{
+        id: string;
+        restaurant_id: string;
+        status: OrderStatus;
+        is_test?: number;
+        status_history?: string;
+        table_label: string;
+      }>();
+
+    if (!currentOrder) {
+      return Response.json({ error: "Order not found." }, { status: 404 });
+    }
+
+    if (currentOrder.restaurant_id !== b.restaurant) {
+      return Response.json({ error: "Order belongs to a different restaurant." }, { status: 403 });
+    }
+
+    // Prevent any changes to already completed or cancelled orders
+    if (currentOrder.status === "served") {
+      return Response.json({ error: "Delivered orders cannot be modified." }, { status: 400 });
+    }
+
+    if (currentOrder.status === "cancelled") {
+      return Response.json({ error: "Cancelled orders cannot be reopened or modified." }, { status: 400 });
+    }
+
+    // Detect concurrent updates by other staff members
+    if (currentOrder.status !== b.from) {
+      const statusNames: Record<string, string> = {
+        new: "Placed",
+        accepted: "Accepted",
+        preparing: "Preparing",
+        served: "Delivered",
+        cancelled: "Cancelled",
+      };
+      return Response.json(
+        {
+          error: `This order was already updated to '${statusNames[currentOrder.status] || currentOrder.status}'. Please refresh your order feed.`,
+        },
+        { status: 409 }
+      );
+    }
+
+    // Validate permitted transitions:
+    // Placed -> Accepted or Cancelled
+    // Accepted -> Preparing, Delivered (served) or Cancelled
+    // Preparing -> Delivered (served) or Cancelled
+    if (!transitions[currentOrder.status].includes(b.status)) {
+      return Response.json({ error: "That status transition is not allowed." }, { status: 400 });
+    }
+
+    // Cancellation requires a mandatory reason
+    if (b.status === "cancelled") {
+      if (!b.reason || b.reason.trim().length < 2) {
         return Response.json(
-          { error: "Waiters are only permitted to confirm delivery. Accepting or cancelling orders requires manager authorization." },
-          { status: 403 }
-        );
-      }
-      if (b.from !== "accepted" && b.from !== "preparing") {
-        return Response.json(
-          { error: "Delivery can only be confirmed for accepted or preparing orders." },
+          { error: "A cancellation reason is required and will be shown to the customer." },
           { status: 400 }
         );
       }
     }
 
-    if (!transitions[b.from as OrderStatus].includes(b.status)) {
-      return Response.json({ error: "That status change is not allowed." }, { status: 400 });
-    }
-
     const now = new Date().toISOString();
+    const actorName = actor.name || actor.email;
+    const actorId = actor.userId || actor.email;
+    const actorRole = actor.role || "staff";
 
-    // Fetch existing status history
-    const existing = await db().prepare("SELECT status_history FROM orders WHERE id = ?").bind(b.id).first<{ status_history?: string }>();
     let history: any[] = [];
-    if (existing?.status_history) {
+    if (currentOrder.status_history) {
       try {
-        history = JSON.parse(existing.status_history);
+        history = JSON.parse(currentOrder.status_history);
       } catch {}
     }
+
     history.push({
       status: b.status,
-      by: actor.email,
-      role: actor.role || "staff",
+      from: currentOrder.status,
+      by: actorName,
+      byId: actorId,
+      role: actorRole,
+      reason: b.status === "cancelled" ? b.reason?.trim() : undefined,
       at: now,
     });
 
-    const isServed = b.status === "served";
-    const isCancelled = b.status === "cancelled";
     const isAccepted = b.status === "accepted";
     const isPreparing = b.status === "preparing";
+    const isServed = b.status === "served";
+    const isCancelled = b.status === "cancelled";
 
+    // Atomically execute update with optimistic concurrency guard
     const result = await db()
       .prepare(`
         UPDATE orders 
@@ -287,6 +417,10 @@ export async function PATCH(req: Request) {
           completed_by = CASE WHEN ? = 1 THEN ? ELSE completed_by END,
           completed_at = CASE WHEN ? = 1 THEN ? ELSE completed_at END,
           cancelled_by = CASE WHEN ? = 1 THEN ? ELSE cancelled_by END,
+          cancelled_by_id = CASE WHEN ? = 1 THEN ? ELSE cancelled_by_id END,
+          cancelled_by_name = CASE WHEN ? = 1 THEN ? ELSE cancelled_by_name END,
+          cancelled_by_role = CASE WHEN ? = 1 THEN ? ELSE cancelled_by_role END,
+          cancellation_reason = CASE WHEN ? = 1 THEN ? ELSE cancellation_reason END,
           cancelled_at = CASE WHEN ? = 1 THEN ? ELSE cancelled_at END
         WHERE id = ? AND restaurant_id = ? AND status = ?
       `)
@@ -295,42 +429,69 @@ export async function PATCH(req: Request) {
         now,
         JSON.stringify(history),
         isAccepted ? 1 : 0,
-        actor.email,
+        actorName,
         isAccepted ? 1 : 0,
         now,
         isPreparing ? 1 : 0,
-        actor.email,
+        actorName,
         isPreparing ? 1 : 0,
         now,
         isServed ? 1 : 0,
-        actor.email,
+        actorName,
         isServed ? 1 : 0,
         now,
         isServed ? 1 : 0,
-        actor.email,
+        actorName,
         isServed ? 1 : 0,
         now,
         isCancelled ? 1 : 0,
-        actor.email,
+        actorName,
+        isCancelled ? 1 : 0,
+        actorId,
+        isCancelled ? 1 : 0,
+        actorName,
+        isCancelled ? 1 : 0,
+        actorRole,
+        isCancelled ? 1 : 0,
+        b.reason ? b.reason.trim() : null,
         isCancelled ? 1 : 0,
         now,
         b.id,
         b.restaurant,
-        b.from
+        currentOrder.status
       )
       .run();
 
     if (!result.meta.changes) {
-      return Response.json({ error: "This order changed or is unavailable. Refresh the orders list." }, { status: 409 });
+      // Concurrency conflict - another user modified the status simultaneously
+      const refreshed = await db()
+        .prepare("SELECT status FROM orders WHERE id = ?")
+        .bind(b.id)
+        .first<{ status: string }>();
+
+      return Response.json(
+        {
+          error: `Another staff member already updated this order to '${refreshed?.status || "another status"}'. Please refresh.`,
+        },
+        { status: 409 }
+      );
     }
 
+    // Atomic structured audit logging
     await logAudit({
       action: "order_status_changed",
+      actorId,
       actorEmail: actor.email,
-      actorRole: actor.role || "staff",
+      actorRole,
       targetType: "order",
       targetId: b.id,
-      details: { from: b.from, to: b.status, restaurant: b.restaurant },
+      details: {
+        restaurant: b.restaurant,
+        from: currentOrder.status,
+        to: b.status,
+        actorName,
+        reason: b.reason ? b.reason.trim() : null,
+      },
     });
 
     return Response.json({ ok: true, status: b.status });

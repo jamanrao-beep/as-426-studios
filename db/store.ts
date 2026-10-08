@@ -14,8 +14,11 @@ export type Access = {
   owner: boolean; // Super Admin
   studio: boolean; // Super Admin
   role: UserRole | "";
+  userId?: string;
+  name?: string;
   email: string;
   restaurantId?: string;
+  restaurantName?: string;
   restaurantIds: string[];
   mustChangePassword?: boolean;
 };
@@ -45,12 +48,22 @@ export async function access(restaurantId?: string): Promise<Access> {
     const ids = allRestaurants.results.map((r) => r.id);
     if (!ids.includes("ember-spice")) ids.unshift("ember-spice");
 
+    let restaurantName = "";
+    if (restaurantId) {
+      const rest = await db().prepare("SELECT name FROM restaurants WHERE id = ?").bind(restaurantId).first<{ name: string }>();
+      restaurantName = rest?.name || restaurantId;
+    }
+
     return {
       allowed: true,
       owner: true,
       studio: true,
       role: "super_admin",
+      userId: user.userId,
+      name: user.displayName || user.email,
       email: user.email,
+      restaurantId: restaurantId || "ember-spice",
+      restaurantName,
       restaurantIds: ids,
       mustChangePassword: !!user.mustChangePassword,
     };
@@ -58,6 +71,31 @@ export async function access(restaurantId?: string): Promise<Access> {
 
   // Restaurant Admin / Manager
   if (user.role === "admin") {
+    // Check if assigned restaurant is active
+    let restName = userRestaurantId || "";
+    if (userRestaurantId) {
+      const rest = await db()
+        .prepare("SELECT name, status FROM restaurants WHERE id = ?")
+        .bind(userRestaurantId)
+        .first<{ name: string; status: string }>();
+      if (rest && (rest.status === "suspended" || rest.status === "archived")) {
+        return {
+          allowed: false,
+          owner: false,
+          studio: false,
+          role: "admin",
+          userId: user.userId,
+          name: user.displayName || user.email,
+          email: user.email,
+          restaurantId: userRestaurantId,
+          restaurantName: rest.name,
+          restaurantIds: [],
+          mustChangePassword: !!user.mustChangePassword,
+        };
+      }
+      if (rest) restName = rest.name;
+    }
+
     const ids = userRestaurantId ? [userRestaurantId] : [];
     const allowed = restaurantId !== undefined ? userRestaurantId === restaurantId : ids.length > 0;
     return {
@@ -65,8 +103,11 @@ export async function access(restaurantId?: string): Promise<Access> {
       owner: false,
       studio: false,
       role: "admin",
+      userId: user.userId,
+      name: user.displayName || user.email,
       email: user.email,
       restaurantId: userRestaurantId,
+      restaurantName: restName,
       restaurantIds: ids,
       mustChangePassword: !!user.mustChangePassword,
     };
@@ -74,13 +115,22 @@ export async function access(restaurantId?: string): Promise<Access> {
 
   // Waiter (orders-only)
   const ids = userRestaurantId ? [userRestaurantId] : [];
+  let waiterRestName = userRestaurantId || "";
+  if (userRestaurantId) {
+    const rest = await db().prepare("SELECT name FROM restaurants WHERE id = ?").bind(userRestaurantId).first<{ name: string }>();
+    if (rest) waiterRestName = rest.name;
+  }
+
   return {
     allowed: false, // Waiters do not have general manager access
     owner: false,
     studio: false,
     role: "waiter",
+    userId: user.userId,
+    name: user.displayName || user.email,
     email: user.email,
     restaurantId: userRestaurantId,
+    restaurantName: waiterRestName,
     restaurantIds: ids,
     mustChangePassword: !!user.mustChangePassword,
   };
@@ -104,6 +154,31 @@ export async function orderAccess(restaurantId?: string, managerOnly = false): P
     return access(restaurantId);
   }
 
+  // Check restaurant status for staff
+  let restaurantName = user.restaurantId || "";
+  if (user.restaurantId) {
+    const rest = await db()
+      .prepare("SELECT name, status FROM restaurants WHERE id = ?")
+      .bind(user.restaurantId)
+      .first<{ name: string; status: string }>();
+    if (rest && (rest.status === "suspended" || rest.status === "archived")) {
+      return {
+        allowed: false,
+        owner: false,
+        studio: false,
+        role: user.role,
+        userId: user.userId,
+        name: user.displayName || user.email,
+        email: user.email,
+        restaurantId: user.restaurantId,
+        restaurantName: rest.name,
+        restaurantIds: [],
+        mustChangePassword: !!user.mustChangePassword,
+      };
+    }
+    if (rest) restaurantName = rest.name;
+  }
+
   if (user.role === "admin") {
     const ids = user.restaurantId ? [user.restaurantId] : [];
     const allowed = restaurantId !== undefined ? user.restaurantId === restaurantId : ids.length > 0;
@@ -112,8 +187,11 @@ export async function orderAccess(restaurantId?: string, managerOnly = false): P
       owner: false,
       studio: false,
       role: "admin",
+      userId: user.userId,
+      name: user.displayName || user.email,
       email: user.email,
       restaurantId: user.restaurantId,
+      restaurantName,
       restaurantIds: ids,
       mustChangePassword: !!user.mustChangePassword,
     };
@@ -127,8 +205,11 @@ export async function orderAccess(restaurantId?: string, managerOnly = false): P
         owner: false,
         studio: false,
         role: "waiter",
+        userId: user.userId,
+        name: user.displayName || user.email,
         email: user.email,
         restaurantId: user.restaurantId,
+        restaurantName,
         restaurantIds: [],
         mustChangePassword: !!user.mustChangePassword,
       };
@@ -141,8 +222,11 @@ export async function orderAccess(restaurantId?: string, managerOnly = false): P
       owner: false,
       studio: false,
       role: "waiter",
+      userId: user.userId,
+      name: user.displayName || user.email,
       email: user.email,
       restaurantId: user.restaurantId,
+      restaurantName,
       restaurantIds: ids,
       mustChangePassword: !!user.mustChangePassword,
     };
@@ -153,6 +237,8 @@ export async function orderAccess(restaurantId?: string, managerOnly = false): P
     owner: false,
     studio: false,
     role: "",
+    userId: user.userId,
+    name: user.displayName || user.email,
     email: user.email,
     restaurantIds: [],
     mustChangePassword: false,

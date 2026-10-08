@@ -121,8 +121,9 @@ export default function DishInsights({
             <div
               key={n.id}
               style={{
-                background: n.is_read ? "rgba(255,255,255,0.02)" : "rgba(139,92,246,0.06)",
-                border: `1px solid ${n.is_read ? "rgba(255,255,255,0.06)" : "rgba(139,92,246,0.3)"}`,
+                background: n.is_read ? "#fff" : "#faf5ff",
+                border: `1px solid ${n.is_read ? "#e2e8f0" : "#d8b4fe"}`,
+                boxShadow: "0 1px 4px rgba(0,0,0,0.03)",
                 borderRadius: 12,
                 padding: "16px 20px",
                 display: "flex",
@@ -143,7 +144,7 @@ export default function DishInsights({
                       }}
                     />
                   )}
-                  <strong style={{ fontSize: "0.95rem", color: "#fff" }}>
+                  <strong style={{ fontSize: "0.95rem", color: "#0f172a", fontWeight: 700 }}>
                     {n.restaurant_name || n.restaurant_id}
                   </strong>
                   <span className="muted" style={{ fontSize: "0.8rem", display: "flex", alignItems: "center", gap: 4 }}>
@@ -157,7 +158,7 @@ export default function DishInsights({
                       type="button"
                       className="secondary"
                       onClick={() => markAsRead(n.id)}
-                      style={{ fontSize: "0.74rem", padding: "4px 8px" }}
+                      style={{ fontSize: "0.74rem", padding: "4px 8px", color: "#0f172a", borderColor: "#cbd5e1" }}
                     >
                       <Check size={12} style={{ marginRight: 3 }} /> Mark as read
                     </button>
@@ -173,12 +174,12 @@ export default function DishInsights({
                 </div>
               </div>
 
-              <p style={{ fontSize: "0.88rem", color: "#e2e8f0", margin: 0 }}>
+              <p style={{ fontSize: "0.88rem", color: "#1e293b", margin: 0 }}>
                 {n.summary_text}
               </p>
 
               {n.zero_sales_count > 0 && n.zero_sales_dishes.length > 0 && (
-                <div style={{ fontSize: "0.76rem", color: "#94a3b8" }}>
+                <div style={{ fontSize: "0.76rem", color: "#64748b" }}>
                   Available dishes with zero sales: {n.zero_sales_dishes.slice(0, 4).join(", ")}
                   {n.zero_sales_dishes.length > 4 && ` and ${n.zero_sales_dishes.length - 4} more`}
                 </div>

@@ -143,12 +143,13 @@ export default function DishPerformance({
               value={restaurant}
               onChange={(e) => onSelectRestaurant && onSelectRestaurant(e.target.value)}
               style={{
-                background: "#1c2621",
-                color: "#e8efe9",
-                border: "1px solid #2e3c33",
+                background: "#fff",
+                color: "#0f172a",
+                border: "1px solid #cbd5e1",
                 padding: "6px 12px",
                 borderRadius: 8,
                 fontSize: "0.85rem",
+                fontWeight: 600,
               }}
             >
               {restaurants.map((r) => (
@@ -168,14 +169,15 @@ export default function DishPerformance({
           alignItems: "center",
           gap: 8,
           flexWrap: "wrap",
-          background: "rgba(255,255,255,0.03)",
-          border: "1px solid rgba(255,255,255,0.07)",
+          background: "#fff",
+          border: "1px solid #e2e8f0",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
           padding: 8,
           borderRadius: 12,
           marginBottom: 24,
         }}
       >
-        <span style={{ fontSize: "0.8rem", color: "#8da092", marginLeft: 6, marginRight: 4 }}>
+        <span style={{ fontSize: "0.82rem", color: "#1e293b", fontWeight: 700, marginLeft: 6, marginRight: 4 }}>
           Period (IST):
         </span>
         {[
@@ -203,26 +205,28 @@ export default function DishPerformance({
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
               style={{
-                background: "#131a15",
-                color: "#e8efe9",
-                border: "1px solid #2a382f",
+                background: "#fff",
+                color: "#0f172a",
+                border: "1px solid #cbd5e1",
                 padding: "4px 8px",
                 borderRadius: 6,
                 fontSize: "0.8rem",
+                fontWeight: 600,
               }}
             />
-            <span style={{ color: "#8da092" }}>to</span>
+            <span style={{ color: "#475569", fontWeight: 600 }}>to</span>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               style={{
-                background: "#131a15",
-                color: "#e8efe9",
-                border: "1px solid #2a382f",
+                background: "#fff",
+                color: "#0f172a",
+                border: "1px solid #cbd5e1",
                 padding: "4px 8px",
                 borderRadius: 6,
                 fontSize: "0.8rem",
+                fontWeight: 600,
               }}
             />
           </div>
@@ -233,16 +237,17 @@ export default function DishPerformance({
       {data?.range && (
         <div
           style={{
-            fontSize: "0.82rem",
-            color: "#a5b4a9",
+            fontSize: "0.84rem",
+            color: "#334155",
             marginBottom: 18,
             display: "flex",
             alignItems: "center",
             gap: 6,
+            fontWeight: 500,
           }}
         >
-          <Calendar size={14} /> Showing delivered sales & submitted ratings for:{" "}
-          <strong style={{ color: "#fff" }}>{data.range.label}</strong>
+          <Calendar size={15} style={{ color: "#047857" }} /> Showing delivered sales & submitted ratings for:{" "}
+          <strong style={{ color: "#0f172a", fontWeight: 700 }}>{data.range.label}</strong>
         </div>
       )}
 
@@ -258,14 +263,15 @@ export default function DishPerformance({
         {/* Best-Selling Dish */}
         <div
           style={{
-            background: "linear-gradient(135deg, rgba(20,28,24,0.9), rgba(16,22,19,0.95))",
-            border: "1px solid rgba(255,255,255,0.08)",
+            background: "#fff",
+            border: "1px solid #e2e8f0",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
             borderRadius: 12,
             padding: 18,
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "0.78rem", color: "#a5b4a9", textTransform: "uppercase", letterSpacing: 0.5 }}>
+            <span style={{ fontSize: "0.78rem", color: "#475569", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>
               🏆 Best-Selling Dish
             </span>
             <span className="dish-badge-bestseller">TOP VOLUME</span>
@@ -273,18 +279,18 @@ export default function DishPerformance({
 
           {data?.summary.bestSeller ? (
             <div style={{ marginTop: 10 }}>
-              <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "#fff" }}>
+              <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "#0f172a" }}>
                 {data.summary.bestSeller.winners.map((w) => w.name).join(" / ")}
               </div>
-              <div style={{ marginTop: 4, fontSize: "0.85rem", color: "#6ee7b7" }}>
+              <div style={{ marginTop: 4, fontSize: "0.85rem", color: "#047857" }}>
                 <strong>{data.summary.bestSeller.winners[0]?.quantitySold}</strong> portions sold
                 {data.summary.bestSeller.isTie && (
-                  <span style={{ color: "#fbbf24", marginLeft: 6 }}>(Tied)</span>
+                  <span style={{ color: "#d97706", marginLeft: 6 }}>(Tied)</span>
                 )}
               </div>
             </div>
           ) : (
-            <div style={{ marginTop: 14, color: "#8da092", fontSize: "0.85rem" }}>
+            <div style={{ marginTop: 14, color: "#64748b", fontSize: "0.85rem" }}>
               No delivered sales recorded in this period.
             </div>
           )}
@@ -293,33 +299,34 @@ export default function DishPerformance({
         {/* Highest-Sales-Value Dish */}
         <div
           style={{
-            background: "linear-gradient(135deg, rgba(20,28,24,0.9), rgba(16,22,19,0.95))",
-            border: "1px solid rgba(255,255,255,0.08)",
+            background: "#fff",
+            border: "1px solid #e2e8f0",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
             borderRadius: 12,
             padding: 18,
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "0.78rem", color: "#a5b4a9", textTransform: "uppercase", letterSpacing: 0.5 }}>
+            <span style={{ fontSize: "0.78rem", color: "#475569", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>
               💰 Highest Revenue Dish
             </span>
-            <span style={{ fontSize: "0.72rem", color: "#34d399", fontWeight: 600 }}>VALUE</span>
+            <span style={{ fontSize: "0.72rem", color: "#047857", fontWeight: 700, background: "#ecfdf5", padding: "2px 6px", borderRadius: 4 }}>VALUE</span>
           </div>
 
           {data?.summary.highestValue ? (
             <div style={{ marginTop: 10 }}>
-              <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "#fff" }}>
+              <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "#0f172a" }}>
                 {data.summary.highestValue.winners.map((w) => w.name).join(" / ")}
               </div>
-              <div style={{ marginTop: 4, fontSize: "0.85rem", color: "#34d399" }}>
+              <div style={{ marginTop: 4, fontSize: "0.85rem", color: "#047857", fontWeight: 700 }}>
                 ₹{data.summary.highestValue.winners[0]?.salesValue.toLocaleString("en-IN")} sales order value
                 {data.summary.highestValue.isTie && (
-                  <span style={{ color: "#fbbf24", marginLeft: 6 }}>(Tied)</span>
+                  <span style={{ color: "#d97706", marginLeft: 6 }}>(Tied)</span>
                 )}
               </div>
             </div>
           ) : (
-            <div style={{ marginTop: 14, color: "#8da092", fontSize: "0.85rem" }}>
+            <div style={{ marginTop: 14, color: "#64748b", fontSize: "0.85rem" }}>
               No sales recorded in this period.
             </div>
           )}
@@ -328,14 +335,15 @@ export default function DishPerformance({
         {/* Highest-Rated Dish */}
         <div
           style={{
-            background: "linear-gradient(135deg, rgba(20,28,24,0.9), rgba(16,22,19,0.95))",
-            border: "1px solid rgba(255,255,255,0.08)",
+            background: "#fff",
+            border: "1px solid #e2e8f0",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
             borderRadius: 12,
             padding: 18,
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "0.78rem", color: "#a5b4a9", textTransform: "uppercase", letterSpacing: 0.5 }}>
+            <span style={{ fontSize: "0.78rem", color: "#475569", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>
               ⭐ Highest-Rated Dish
             </span>
             <span className="dish-badge-toprated">≥ 5 RATINGS</span>
@@ -343,19 +351,19 @@ export default function DishPerformance({
 
           {data?.summary.highestRated ? (
             <div style={{ marginTop: 10 }}>
-              <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "#fff" }}>
+              <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "#0f172a" }}>
                 {data.summary.highestRated.winners.map((w) => w.name).join(" / ")}
               </div>
-              <div style={{ marginTop: 4, fontSize: "0.85rem", color: "#fcd34d" }}>
+              <div style={{ marginTop: 4, fontSize: "0.85rem", color: "#b45309", fontWeight: 700 }}>
                 ★ {data.summary.highestRated.winners[0]?.periodAvgRating?.toFixed(1)} (from{" "}
                 {data.summary.highestRated.winners[0]?.periodRatingsCount} ratings in period)
                 {data.summary.highestRated.isTie && (
-                  <span style={{ color: "#fbbf24", marginLeft: 6 }}>(Tied)</span>
+                  <span style={{ color: "#d97706", marginLeft: 6 }}>(Tied)</span>
                 )}
               </div>
             </div>
           ) : (
-            <div style={{ marginTop: 14, color: "#8da092", fontSize: "0.82rem" }}>
+            <div style={{ marginTop: 14, color: "#64748b", fontSize: "0.82rem" }}>
               Honest threshold: Requires at least 5 ratings in this period.
             </div>
           )}
@@ -364,30 +372,31 @@ export default function DishPerformance({
         {/* Unsold Dishes */}
         <div
           style={{
-            background: "linear-gradient(135deg, rgba(20,28,24,0.9), rgba(16,22,19,0.95))",
-            border: "1px solid rgba(255,255,255,0.08)",
+            background: "#fff",
+            border: "1px solid #e2e8f0",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
             borderRadius: 12,
             padding: 18,
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "0.78rem", color: "#a5b4a9", textTransform: "uppercase", letterSpacing: 0.5 }}>
+            <span style={{ fontSize: "0.78rem", color: "#475569", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>
               💤 Unsold Dishes
             </span>
-            <span style={{ fontSize: "0.72rem", color: "#fca5a5" }}>0 SOLD</span>
+            <span style={{ fontSize: "0.72rem", color: "#dc2626", fontWeight: 700, background: "#fef2f2", padding: "2px 6px", borderRadius: 4 }}>0 SOLD</span>
           </div>
 
           <div style={{ marginTop: 10 }}>
-            <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "#fff" }}>
+            <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "#0f172a" }}>
               {data?.summary.unsold.total ?? 0}
             </div>
-            <div style={{ marginTop: 4, fontSize: "0.78rem", color: "#8da092" }}>
+            <div style={{ marginTop: 4, fontSize: "0.78rem", color: "#475569" }}>
               <span>
-                🟢 <strong style={{ color: "#6ee7b7" }}>{data?.summary.unsold.availableWithNoSales.length ?? 0}</strong> Available with 0 sales
+                🟢 <strong style={{ color: "#047857" }}>{data?.summary.unsold.availableWithNoSales.length ?? 0}</strong> Available with 0 sales
               </span>
               <br />
               <span>
-                ⏸️ <strong style={{ color: "#fca5a5" }}>{data?.summary.unsold.unavailable.length ?? 0}</strong> Marked sold out
+                ⏸️ <strong style={{ color: "#dc2626" }}>{data?.summary.unsold.unavailable.length ?? 0}</strong> Marked sold out
               </span>
             </div>
           </div>
@@ -397,15 +406,17 @@ export default function DishPerformance({
       {/* Detailed Dishes Performance Table */}
       <div
         style={{
-          background: "rgba(255,255,255,0.02)",
-          border: "1px solid rgba(255,255,255,0.07)",
+          background: "#fff",
+          border: "1px solid #e2e8f0",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
           borderRadius: 14,
           padding: 20,
           marginBottom: 24,
+          color: "#0f172a",
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
-          <h3 style={{ fontSize: "1.05rem" }}>
+          <h3 style={{ fontSize: "1.05rem", color: "#0f172a", fontWeight: 700 }}>
             Dish Performance Ranking ({data?.dishes.length ?? 0} items)
           </h3>
           <span className="muted" style={{ fontSize: "0.78rem" }}>
@@ -421,16 +432,16 @@ export default function DishPerformance({
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
               <thead>
-                <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", textAlign: "left", color: "#8da092" }}>
-                  <th style={{ padding: "10px 8px" }}>Dish Name</th>
-                  <th style={{ padding: "10px 8px" }}>Category</th>
-                  <th style={{ padding: "10px 8px" }}>Status</th>
-                  <th style={{ padding: "10px 8px", textAlign: "right" }}>Qty Sold</th>
-                  <th style={{ padding: "10px 8px", textAlign: "right" }}>Orders</th>
-                  <th style={{ padding: "10px 8px", textAlign: "right" }}>Order Value (₹)</th>
-                  <th style={{ padding: "10px 8px" }}>Period Rating</th>
-                  <th style={{ padding: "10px 8px" }}>Last Sold (IST)</th>
-                  <th style={{ padding: "10px 8px" }}>Feedback</th>
+                <tr style={{ borderBottom: "2px solid #cbd5e1", textAlign: "left", color: "#0f172a" }}>
+                  <th style={{ padding: "12px 10px", color: "#0f172a", fontWeight: 700 }}>Dish Name</th>
+                  <th style={{ padding: "12px 10px", color: "#0f172a", fontWeight: 700 }}>Category</th>
+                  <th style={{ padding: "12px 10px", color: "#0f172a", fontWeight: 700 }}>Status</th>
+                  <th style={{ padding: "12px 10px", textAlign: "right", color: "#0f172a", fontWeight: 700 }}>Qty Sold</th>
+                  <th style={{ padding: "12px 10px", textAlign: "right", color: "#0f172a", fontWeight: 700 }}>Orders</th>
+                  <th style={{ padding: "12px 10px", textAlign: "right", color: "#0f172a", fontWeight: 700 }}>Order Value (₹)</th>
+                  <th style={{ padding: "12px 10px", color: "#0f172a", fontWeight: 700 }}>Period Rating</th>
+                  <th style={{ padding: "12px 10px", color: "#0f172a", fontWeight: 700 }}>Last Sold (IST)</th>
+                  <th style={{ padding: "12px 10px", color: "#0f172a", fontWeight: 700 }}>Feedback</th>
                 </tr>
               </thead>
               <tbody>
@@ -442,77 +453,79 @@ export default function DishPerformance({
                     <tr
                       key={dish.id}
                       style={{
-                        borderBottom: "1px solid rgba(255,255,255,0.05)",
-                        background: isTopSeller ? "rgba(59,130,246,0.03)" : "transparent",
+                        borderBottom: "1px solid #e2e8f0",
+                        background: isTopSeller ? "rgba(59,130,246,0.04)" : "transparent",
                       }}
                     >
-                      <td style={{ padding: "12px 8px" }}>
-                        <strong style={{ color: "#fff" }}>{dish.name}</strong>
+                      <td style={{ padding: "12px 10px" }}>
+                        <strong style={{ color: "#0f172a", fontSize: "0.92rem", fontWeight: 700 }}>{dish.name}</strong>
                         {isTopSeller && <span className="dish-badge-bestseller">Best Seller</span>}
                         {isTopRated && <span className="dish-badge-toprated">Top Rated</span>}
                         {!dish.onCurrentMenu && (
-                          <span style={{ fontSize: "0.65rem", color: "#9ca3af", marginLeft: 6 }}>
+                          <span style={{ fontSize: "0.68rem", color: "#64748b", marginLeft: 6, fontWeight: 500 }}>
                             (Unlisted)
                           </span>
                         )}
                       </td>
-                      <td style={{ padding: "12px 8px", color: "#a5b4a9" }}>{dish.category}</td>
-                      <td style={{ padding: "12px 8px" }}>
+                      <td style={{ padding: "12px 10px", color: "#334155", fontWeight: 600 }}>{dish.category}</td>
+                      <td style={{ padding: "12px 10px" }}>
                         <span
                           style={{
                             fontSize: "0.72rem",
-                            padding: "2px 6px",
-                            borderRadius: 4,
+                            padding: "3px 8px",
+                            borderRadius: 6,
+                            fontWeight: 700,
                             background: dish.currentlyAvailable
-                              ? "rgba(16,185,129,0.15)"
-                              : "rgba(239,68,68,0.15)",
-                            color: dish.currentlyAvailable ? "#6ee7b7" : "#fca5a5",
+                              ? "#d1fae5"
+                              : "#fee2e2",
+                            color: dish.currentlyAvailable ? "#065f46" : "#991b1b",
+                            border: dish.currentlyAvailable ? "1px solid #a7f3d0" : "1px solid #fecaca",
                           }}
                         >
                           {dish.currentlyAvailable ? "Available" : "Sold out"}
                         </span>
                       </td>
-                      <td style={{ padding: "12px 8px", textAlign: "right", fontWeight: 600 }}>
+                      <td style={{ padding: "12px 10px", textAlign: "right", fontWeight: 700, color: "#0f172a" }}>
                         {dish.quantitySold}
                       </td>
-                      <td style={{ padding: "12px 8px", textAlign: "right", color: "#a5b4a9" }}>
+                      <td style={{ padding: "12px 10px", textAlign: "right", color: "#334155", fontWeight: 600 }}>
                         {dish.ordersCount}
                       </td>
-                      <td style={{ padding: "12px 8px", textAlign: "right", fontWeight: 600, color: "#34d399" }}>
+                      <td style={{ padding: "12px 10px", textAlign: "right", fontWeight: 700, color: "#047857" }}>
                         ₹{dish.salesValue.toLocaleString("en-IN")}
                       </td>
-                      <td style={{ padding: "12px 8px" }}>
+                      <td style={{ padding: "12px 10px" }}>
                         {dish.periodAvgRating !== null ? (
-                          <span style={{ color: "#fcd34d", fontWeight: 600 }}>
+                          <span style={{ color: "#92400e", fontWeight: 700, background: "#fef3c7", padding: "2px 6px", borderRadius: 4, border: "1px solid #fde68a" }}>
                             ★ {dish.periodAvgRating.toFixed(1)}{" "}
-                            <small className="muted">({dish.periodRatingsCount})</small>
+                            <small style={{ color: "#78350f" }}>({dish.periodRatingsCount})</small>
                           </span>
                         ) : dish.allTimeRatingsCount > 0 ? (
-                          <span className="muted" style={{ fontSize: "0.78rem" }}>
+                          <span style={{ fontSize: "0.78rem", color: "#475569", fontWeight: 500 }}>
                             ★ {dish.allTimeAvgRating.toFixed(1)} <small>(all-time)</small>
                           </span>
                         ) : (
-                          <span className="muted" style={{ fontSize: "0.78rem" }}>
+                          <span style={{ fontSize: "0.78rem", color: "#64748b" }}>
                             Not rated yet
                           </span>
                         )}
                       </td>
-                      <td style={{ padding: "12px 8px", color: "#8da092", fontSize: "0.78rem" }}>
+                      <td style={{ padding: "12px 10px", color: "#475569", fontSize: "0.78rem", fontWeight: 500 }}>
                         {dish.lastSoldAt ? orderTime(dish.lastSoldAt) : "—"}
                       </td>
-                      <td style={{ padding: "12px 8px" }}>
+                      <td style={{ padding: "12px 10px" }}>
                         {dish.latestComments.length > 0 ? (
                           <button
                             type="button"
                             className="secondary"
                             onClick={() => setSelectedDishFeedback(dish)}
-                            style={{ fontSize: "0.75rem", padding: "4px 8px" }}
+                            style={{ fontSize: "0.75rem", padding: "4px 8px", color: "#0f172a", borderColor: "#cbd5e1" }}
                           >
                             <MessageSquare size={12} style={{ marginRight: 4 }} />
                             {dish.latestComments.length} comment{dish.latestComments.length > 1 ? "s" : ""}
                           </button>
                         ) : (
-                          <span className="muted" style={{ fontSize: "0.78rem" }}>
+                          <span style={{ fontSize: "0.78rem", color: "#64748b" }}>
                             None
                           </span>
                         )}
@@ -526,7 +539,7 @@ export default function DishPerformance({
         )}
 
         {/* Unsold Dishes Limitation Note */}
-        <div style={{ marginTop: 18, fontSize: "0.76rem", color: "#8da092" }}>
+        <div style={{ marginTop: 18, fontSize: "0.76rem", color: "#475569", borderTop: "1px solid #f1f5f9", paddingTop: 12 }}>
           ℹ️ {data?.summary.unsold.note}
         </div>
       </div>
@@ -534,12 +547,13 @@ export default function DishPerformance({
       {/* Legal & Accounting Disclaimer */}
       <div
         style={{
-          background: "rgba(255,255,255,0.02)",
-          border: "1px solid rgba(255,255,255,0.06)",
+          background: "#fff",
+          border: "1px solid #e2e8f0",
           borderRadius: 10,
           padding: 14,
           fontSize: "0.78rem",
-          color: "#8da092",
+          color: "#475569",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
         }}
       >
         ⚖️ {data?.disclaimer}
@@ -547,9 +561,9 @@ export default function DishPerformance({
 
       {/* Private Customer Feedback Dialog */}
       <Dialog open={!!selectedDishFeedback} onOpenChange={(v) => !v && setSelectedDishFeedback(null)}>
-        <DialogContent className="editor-modal" style={{ maxWidth: 520 }}>
-          <DialogTitle>Private Feedback for {selectedDishFeedback?.name}</DialogTitle>
-          <DialogDescription>
+        <DialogContent className="editor-modal" style={{ maxWidth: 520, background: "#fff", color: "#0f172a" }}>
+          <DialogTitle style={{ color: "#0f172a" }}>Private Feedback for {selectedDishFeedback?.name}</DialogTitle>
+          <DialogDescription style={{ color: "#475569" }}>
             Confidential guest ratings and comments submitted for delivered orders.
           </DialogDescription>
 
@@ -558,21 +572,21 @@ export default function DishPerformance({
               <div
                 key={i}
                 style={{
-                  background: "rgba(0,0,0,0.25)",
-                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "#f8fafc",
+                  border: "1px solid #e2e8f0",
                   borderRadius: 8,
                   padding: "10px 14px",
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ color: "#fcd34d", fontWeight: 600, fontSize: "0.85rem" }}>
+                  <span style={{ color: "#b45309", fontWeight: 700, fontSize: "0.85rem" }}>
                     ★ {c.rating} / 5
                   </span>
-                  <span className="muted" style={{ fontSize: "0.72rem" }}>
+                  <span style={{ fontSize: "0.72rem", color: "#64748b" }}>
                     {orderTime(c.date)} IST
                   </span>
                 </div>
-                <p style={{ marginTop: 6, fontSize: "0.85rem", color: "#e2e8f0" }}>
+                <p style={{ marginTop: 6, fontSize: "0.85rem", color: "#0f172a" }}>
                   "{c.comment}"
                 </p>
               </div>

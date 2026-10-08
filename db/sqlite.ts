@@ -118,6 +118,10 @@ export function getSqliteD1() {
       delivered_by TEXT,
       delivered_at TEXT,
       cancelled_by TEXT,
+      cancelled_by_id TEXT,
+      cancelled_by_name TEXT,
+      cancelled_by_role TEXT,
+      cancellation_reason TEXT,
       cancelled_at TEXT,
       completed_at TEXT,
       completed_by TEXT,
@@ -225,6 +229,10 @@ export function getSqliteD1() {
   ensureColumn(rawDb, "orders", "delivered_by", "TEXT");
   ensureColumn(rawDb, "orders", "delivered_at", "TEXT");
   ensureColumn(rawDb, "orders", "cancelled_by", "TEXT");
+  ensureColumn(rawDb, "orders", "cancelled_by_id", "TEXT");
+  ensureColumn(rawDb, "orders", "cancelled_by_name", "TEXT");
+  ensureColumn(rawDb, "orders", "cancelled_by_role", "TEXT");
+  ensureColumn(rawDb, "orders", "cancellation_reason", "TEXT");
   ensureColumn(rawDb, "orders", "cancelled_at", "TEXT");
 
   ensureColumn(rawDb, "restaurants", "status", "TEXT DEFAULT 'active'");
