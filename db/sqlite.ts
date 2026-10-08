@@ -146,7 +146,7 @@ export function getSqliteD1() {
         async first<T = unknown>(col?: string): Promise<T | null> {
           try {
             const stmt = rawDb.prepare(queryStr);
-            const row = stmt.get(...boundParams) as any;
+            const row = stmt.get(...(boundParams as any[])) as any;
             if (!row) return null;
             if (col) return row[col] ?? null;
             return row as T;
@@ -158,7 +158,7 @@ export function getSqliteD1() {
         async all<T = unknown>(): Promise<{ results: T[]; meta: { changes: number } }> {
           try {
             const stmt = rawDb.prepare(queryStr);
-            const rows = stmt.all(...boundParams) as T[];
+            const rows = stmt.all(...(boundParams as any[])) as T[];
             return { results: rows || [], meta: { changes: 0 } };
           } catch (err: any) {
             console.error("[sqlite all] error:", err.message, "SQL:", queryStr);
@@ -168,7 +168,7 @@ export function getSqliteD1() {
         async run(): Promise<{ meta: { changes: number } }> {
           try {
             const stmt = rawDb.prepare(queryStr);
-            const res = stmt.run(...boundParams);
+            const res = stmt.run(...(boundParams as any[]));
             return { meta: { changes: Number(res.changes || 0) } };
           } catch (err: any) {
             console.error("[sqlite run] error:", err.message, "SQL:", queryStr);

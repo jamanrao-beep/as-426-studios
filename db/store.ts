@@ -2,10 +2,10 @@ import { getChatGPTUser } from "@/app/chatgpt-auth";
 import { sample } from "@/lib/menu";
 import { getSqliteD1 } from "@/db/sqlite";
 
-export function db() {
+export function db(): D1Database {
   const cfDb = (globalThis as any).DB;
   if (cfDb) return cfDb;
-  return getSqliteD1();
+  return getSqliteD1() as unknown as D1Database;
 }
 
 export type Access = {

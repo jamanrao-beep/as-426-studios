@@ -3,7 +3,7 @@ import { authenticate, encodeSession, AUTH_COOKIE_NAME } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const body = (await req.json()) as Record<string, any>;
     const { email, password } = body || {};
 
     if (!email || !password || typeof email !== "string" || typeof password !== "string") {

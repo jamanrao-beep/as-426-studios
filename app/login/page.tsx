@@ -27,7 +27,7 @@ function LoginForm() {
         body: JSON.stringify({ email: targetEmail, password: targetPass }),
       });
 
-      const data = await res.json();
+      const data = (await res.json()) as any;
       if (!res.ok) {
         throw new Error(data.error || "Login failed. Please check your credentials.");
       }
