@@ -1,11 +1,94 @@
-import { access,db,readMenu,sameOrigin,validSlug } from "@/db/store";
+import { access, db, readMenu, sameOrigin, validSlug } from "@/db/store";
 import { menuSchema } from "@/lib/menu";
-export async function GET(req:Request){try{
- const u=new URL(req.url),id=u.searchParams.get("restaurant"),admin=u.searchParams.get("admin")==="1";
- if(!id||!validSlug(id))return Response.json({error:"Scan your restaurant’s QR code to open its menu."},{status:400});
- if(admin&&!(await access(id)).allowed)return Response.json({error:"You don’t have access to this restaurant."},{status:403});
- const result=await readMenu(id);
- if(!result||(!result.menu.active&&!admin))return Response.json({error:"This menu is not available right now. Please ask the restaurant team."},{status:404});
- return Response.json(result,{headers:{"Cache-Control":"no-store"}});
-}catch(err:any){console.error("[GET /api/menu] Error:", err?.message || err);return Response.json({error:"We couldn’t load the menu. Please try again."},{status:503})}}
-export async function PUT(req:Request){try{if(!sameOrigin(req))return Response.json({error:"Team access required"},{status:403});const body=await req.json() as {menu:unknown,id:string,revision:number};const parsed=menuSchema.safeParse(body.menu);if(!parsed.success||!Number.isInteger(body.revision)||body.revision<0||!validSlug(body.id||""))return Response.json({error:"Please check the restaurant details and prices."},{status:400});if(!(await access(body.id)).allowed)return Response.json({error:"You don’t have access to this restaurant."},{status:403});const ids=parsed.data.dishes.map(d=>d.id);if(new Set(ids).size!==ids.length)return Response.json({error:"Duplicate dish identifiers"},{status:400});const existing=await readMenu(body.id);if(!existing)return Response.json({error:"Restaurant not found"},{status:404});const result=body.revision===0&&body.id==="ember-spice"?await db().prepare("INSERT OR IGNORE INTO menu (id,data,revision) VALUES (?,?,1)").bind(body.id,JSON.stringify(parsed.data)).run():await db().prepare("UPDATE menu SET data = ?, revision = revision + 1 WHERE id = ? AND revision = ?").bind(JSON.stringify(parsed.data),body.id,body.revision).run();if(!result.meta.changes)return Response.json({error:"Another teammate updated this menu. Your draft is kept here; reload to see their changes before saving."},{status:409});return Response.json({menu:parsed.data,revision:body.revision+1});}catch{return Response.json({error:"Couldn’t save. Your changes are still here; please retry."},{status:503})}}
+import { logAudit } from "@/lib/audit";
+
+export async function GET(req: Request) {
+  try {
+    const u = new URL(req.url);
+    const id = u.searchParams.get("restaurant");
+    const admin = u.searchParams.get("admin") === "1";
+
+    if (!id || !validSlug(id)) {
+      return Response.json({ error: "Scan your restaurant’s QR code to open its menu." }, { status: 400 });
+    }
+
+    if (admin) {
+      const a = await access(id);
+      if (!a.allowed && !a.owner) {
+        return Response.json({ error: "You don’t have access to this restaurant." }, { status: 403 });
+      }
+    }
+
+    const result = await readMenu(id);
+    if (!result || (!result.menu.active && !admin)) {
+      return Response.json(
+        { error: "This menu is not available right now. Please ask the restaurant team." },
+        { status: 404 }
+      );
+    }
+
+    return Response.json(result, { headers: { "Cache-Control": "no-store" } });
+  } catch (err: any) {
+    console.error("[GET /api/menu] Error:", err?.message || err);
+    return Response.json({ error: "We couldn’t load the menu. Please try again." }, { status: 503 });
+  }
+}
+
+export async function PUT(req: Request) {
+  try {
+    if (!sameOrigin(req)) return Response.json({ error: "Team access required." }, { status: 403 });
+
+    const body = (await req.json()) as { menu: unknown; id: string; revision: number };
+    const parsed = menuSchema.safeParse(body.menu);
+    if (!parsed.success || !Number.isInteger(body.revision) || body.revision < 0 || !validSlug(body.id || "")) {
+      return Response.json({ error: "Please check the restaurant details and prices." }, { status: 400 });
+    }
+
+    const a = await access(body.id);
+    if (!a.allowed && !a.owner) {
+      return Response.json({ error: "You don’t have access to this restaurant." }, { status: 403 });
+    }
+
+    // Waiters are strictly forbidden from modifying the menu
+    if (a.role === "waiter") {
+      return Response.json({ error: "Waiters are not permitted to edit or publish the menu." }, { status: 403 });
+    }
+
+    const ids = parsed.data.dishes.map((d) => d.id);
+    if (new Set(ids).size !== ids.length) {
+      return Response.json({ error: "Duplicate dish identifiers detected." }, { status: 400 });
+    }
+
+    const existing = await readMenu(body.id);
+    if (!existing) return Response.json({ error: "Restaurant not found." }, { status: 404 });
+
+    const result =
+      body.revision === 0 && body.id === "ember-spice"
+        ? await db().prepare("INSERT OR IGNORE INTO menu (id, data, revision) VALUES (?, ?, 1)").bind(body.id, JSON.stringify(parsed.data)).run()
+        : await db()
+            .prepare("UPDATE menu SET data = ?, revision = revision + 1 WHERE id = ? AND revision = ?")
+            .bind(JSON.stringify(parsed.data), body.id, body.revision)
+            .run();
+
+    if (!result.meta.changes) {
+      return Response.json(
+        { error: "Another teammate updated this menu. Your draft is kept here; reload to see their changes before saving." },
+        { status: 409 }
+      );
+    }
+
+    await logAudit({
+      action: "menu_updated",
+      actorEmail: a.email,
+      actorRole: a.role,
+      targetType: "menu",
+      targetId: body.id,
+      details: { dishCount: parsed.data.dishes.length, active: parsed.data.active },
+    });
+
+    return Response.json({ menu: parsed.data, revision: body.revision + 1 });
+  } catch (err: any) {
+    console.error("[PUT /api/menu] Error:", err?.message || err);
+    return Response.json({ error: "Couldn’t save. Your changes are still here; please retry." }, { status: 503 });
+  }
+}
