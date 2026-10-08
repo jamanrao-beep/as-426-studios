@@ -1,0 +1,64 @@
+AS 426 STUDIOS — UPDATED WEBSITE SOURCE
+
+Exact published source commit:
+ec74c9cf37348dc3bd467da764299e7672e076c2
+
+The source/ folder contains the unchanged tracked files from this commit.
+Both websites share one backend and database; keep this project together.
+
+CUSTOMER WEBSITE
+app/r/[slug]/page.tsx — restaurant-specific customer page
+app/menu-view.tsx — menu interface
+app/cart.tsx — cart and table-number checkout
+app/placed-orders.tsx — customer order tracking
+app/review-form.tsx — private restaurant reviews
+app/taste-quiz.tsx — taste preferences
+app/table-games.tsx — waiting-time games
+
+TEAM WEBSITE
+app/team/team.tsx — manager dashboard and menu management
+app/team/orders.tsx — daily orders, history and delivery confirmation
+app/team/waiters.tsx — waiter names and email permissions
+app/team/waiter-workspace.tsx — restricted waiter workspace
+app/team/sales.tsx — monthly delivered-order sales chart
+app/team/reviews.tsx — customer review inbox
+
+BACKEND AND DATABASE
+app/api/ — API endpoints with restaurant and role permission checks
+db/schema.ts and db/store.ts — schema and access rules
+drizzle/ — database migrations, including order tracking fields
+lib/order-time.ts — daily/monthly boundaries in India time
+lib/customer-orders.ts — browser-held private tracking credentials
+
+SETUP / HANDOFF
+This is a React/TypeScript Vinext application with a Cloudflare D1 database,
+not two standalone HTML files. Read source/README.md for runtime details.
+Use Node.js >=22.13.0 and the pnpm version recorded in package.json;
+install dependencies from pnpm-lock.yaml. The development and build entry
+points are the dev and build scripts in package.json.
+The D1 binding is DB. Set OWNER_EMAIL in the server runtime to the owner's
+sign-in email, and apply the SQL migrations in order to a new database.
+Do not reapply migrations to a database that already has them.
+Production team sign-in currently relies on Sites' ChatGPT authentication.
+Hosting elsewhere requires configuring/replacing that authentication and
+providing the Cloudflare-compatible backend/database; changing a domain
+alone does not replace the sign-in system. Do not trust user-supplied
+identity headers on an independently hosted public server.
+The included hosting manifest identifies the existing Site; use a new
+project registration when creating a separate deployment.
+
+BEHAVIOUR
+Customer order access is saved in the browser used to place the order.
+Orders placed before private tracking was added cannot be recovered by
+this new customer tracker; staff can still view their database records.
+Staff lists start fresh at midnight IST; older records remain in history.
+Managers and assigned waiters can confirm delivery of accepted orders.
+Only managers can accept/cancel orders or see monthly sales reports.
+Monthly sales counts delivered orders by delivery date and menu value;
+it does not verify payment collection, refunds, tax settlement or profit.
+The order history is retained database data, not a separate backup export.
+
+NOT INCLUDED
+Live restaurant/order/customer data, private runtime secrets, installed
+dependencies, Git credentials and database backups are not in this ZIP.
+The production application source, assets, lockfile and migrations are.

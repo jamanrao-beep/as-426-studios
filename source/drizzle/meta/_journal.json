@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1791373538749,
+      "tag": "0000_black_jubilee",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1791377554423,
+      "tag": "0001_even_roulette",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791396096462,
+      "tag": "0002_vengeful_zaran",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1791399767974,
+      "tag": "0003_little_zodiak",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1791400852911,
+      "tag": "0004_peaceful_mandroid",
+      "breakpoints": true
+    }
+  ]
+}

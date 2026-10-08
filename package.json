@@ -1,0 +1,12 @@
+{
+  "name": "as-426-studios",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix source run dev",
+    "build": "npm --prefix source run build",
+    "start": "npm --prefix source run start",
+    "lint": "npm --prefix source run lint",
+    "install:all": "npm --prefix source install"
+  }
+}

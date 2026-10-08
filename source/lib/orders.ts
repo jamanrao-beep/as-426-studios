@@ -1,0 +1,16 @@
+import {z} from "zod";
+import type {Menu} from "./menu";
+export const orderInput=z.object({id:z.string().uuid(),trackingToken:z.string().uuid().optional(),restaurant:z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(60),table:z.string().trim().min(1).max(30),name:z.string().trim().max(80).default(""),notes:z.string().trim().max(500).default(""),items:z.array(z.object({id:z.string().min(1).max(80),quantity:z.number().int().min(1).max(20),unitPrice:z.number().int().min(0).max(10000000)})).min(1).max(50)});
+export type OrderInput=z.infer<typeof orderInput>;
+export type OrderLine={id:string,name:string,quantity:number,unitPrice:number};
+export type OrderStatus="new"|"accepted"|"preparing"|"served"|"cancelled";
+export const transitions:Record<OrderStatus,OrderStatus[]>={new:["accepted","cancelled"],accepted:["preparing","served","cancelled"],preparing:["served","cancelled"],served:[],cancelled:[]};
+export const money=(paise:number)=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:2}).format(paise/100);
+export function priceOrder(menu:Menu,items:OrderInput["items"]){
+ if(!menu.active)throw Error("This restaurant is not taking orders right now.");
+ if(new Set(items.map(i=>i.id)).size!==items.length)throw Error("Each dish should appear only once in your cart.");
+ if(items.reduce((n,i)=>n+i.quantity,0)>100)throw Error("Please ask your server about orders of more than 100 items.");
+ const lines:OrderLine[]=items.map(i=>{const dish=menu.dishes.find(d=>d.id===i.id);if(!dish||!dish.available)throw Error("A selected dish is no longer available. Refresh the menu and update your cart.");const unitPrice=Math.round(dish.price*100);if(unitPrice!==i.unitPrice)throw Error("A dish price has changed. Refresh the menu and review your cart before ordering.");return {id:dish.id,name:dish.name,quantity:i.quantity,unitPrice}});
+ return {lines,total:lines.reduce((n,i)=>n+i.unitPrice*i.quantity,0)};
+}
+export type StoredOrder={id:string,restaurant_id:string,restaurant_name:string,table_label:string,customer_name:string,notes:string,items:OrderLine[],total:number,status:OrderStatus,created_at:string,updated_at:string,completed_at?:string|null,completed_by?:string|null};
