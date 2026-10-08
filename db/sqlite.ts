@@ -88,6 +88,15 @@ export function getSqliteD1() {
       updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS accounts (
+      email TEXT PRIMARY KEY NOT NULL,
+      password TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'admin',
+      name TEXT DEFAULT '' NOT NULL,
+      restaurant_id TEXT,
+      created_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS reviews (
       id TEXT PRIMARY KEY NOT NULL,
       restaurant_id TEXT NOT NULL,
@@ -99,10 +108,35 @@ export function getSqliteD1() {
     );
   `);
 
-  // Seed Admin in members
+  // Seed Super Admin in accounts, members, and restaurant_members
+  rawDb.prepare("INSERT OR REPLACE INTO accounts (email, password, role, name, created_at) VALUES (?, ?, ?, ?, ?)").run(
+    "admin@as426.studios",
+    "admin@009988763366",
+    "admin",
+    "Super Admin",
+    new Date().toISOString()
+  );
+  rawDb.prepare("INSERT OR IGNORE INTO accounts (email, password, role, name, created_at) VALUES (?, ?, ?, ?, ?)").run(
+    "admin@as426.com",
+    "admin123",
+    "admin",
+    "AS 426 Admin",
+    new Date().toISOString()
+  );
+  rawDb.prepare("INSERT OR IGNORE INTO accounts (email, password, role, name, restaurant_id, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(
+    "staff@as426.com",
+    "staff123",
+    "waiter",
+    "Staff Waiter",
+    "ember-spice",
+    new Date().toISOString()
+  );
+
+  rawDb.prepare("INSERT OR IGNORE INTO members (email) VALUES (?)").run("admin@as426.studios");
   rawDb.prepare("INSERT OR IGNORE INTO members (email) VALUES (?)").run("admin@as426.com");
 
   // Seed restaurant_members for ember-spice
+  rawDb.prepare("INSERT OR IGNORE INTO restaurant_members (restaurant_id, email) VALUES (?, ?)").run("ember-spice", "admin@as426.studios");
   rawDb.prepare("INSERT OR IGNORE INTO restaurant_members (restaurant_id, email) VALUES (?, ?)").run("ember-spice", "admin@as426.com");
 
   // Seed Waiter in waiters

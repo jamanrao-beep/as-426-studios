@@ -13,7 +13,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const user = authenticate(email, password);
+    const user = await authenticate(email, password);
     if (!user) {
       return NextResponse.json(
         { error: "Invalid email or password. Please check your credentials." },

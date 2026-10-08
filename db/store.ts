@@ -21,8 +21,8 @@ export async function access(restaurantId?: string): Promise<Access> {
   if (!user) return { allowed: false, owner: false, studio: false, email: "", restaurantIds: [] };
 
   const email = user.email.trim().toLowerCase();
-  const ownerEmail = (process.env.OWNER_EMAIL || "admin@as426.com").trim().toLowerCase();
-  const owner = user.role === "admin" || email === ownerEmail;
+  const ownerEmail = (process.env.OWNER_EMAIL || "admin@as426.studios").trim().toLowerCase();
+  const owner = email === ownerEmail || email === "admin@as426.com";
   const member = owner ? null : await db().prepare("SELECT email FROM members WHERE email = ?").bind(email).first();
   const studio = owner || !!member;
 

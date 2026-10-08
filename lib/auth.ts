@@ -1,21 +1,47 @@
 import { cookies } from "next/headers";
 import { AuthUser, AUTH_COOKIE_NAME, PRESET_ACCOUNTS } from "./auth-constants";
+import { db } from "@/db/store";
 
 export { AUTH_COOKIE_NAME, PRESET_ACCOUNTS, type AuthUser };
 
-export function authenticate(email: string, pass: string): AuthUser | null {
+export async function authenticate(email: string, pass: string): Promise<AuthUser | null> {
   const normalizedEmail = email.trim().toLowerCase();
+
+  // 1. Check SQLite accounts table
+  try {
+    const row = await db()
+      .prepare("SELECT email, password, role, name, restaurant_id FROM accounts WHERE LOWER(email) = ?")
+      .bind(normalizedEmail)
+      .first<{ email: string; password: string; role: string; name: string; restaurant_id?: string | null }>();
+
+    if (row && row.password === pass) {
+      return {
+        userId: row.email,
+        email: row.email,
+        displayName: row.name || (row.role === "admin" ? "Admin / Manager" : "Staff"),
+        role: row.role === "admin" ? "admin" : "waiter",
+        restaurantId: row.restaurant_id || undefined,
+      };
+    }
+  } catch (err) {
+    console.error("Account lookup error:", err);
+  }
+
+  // 2. Fallback to preset accounts
   const found = PRESET_ACCOUNTS.find(
     (acc) => acc.email.toLowerCase() === normalizedEmail && acc.password === pass
   );
-  if (!found) return null;
-  return {
-    userId: found.email,
-    email: found.email,
-    displayName: found.displayName,
-    role: found.role,
-    restaurantId: found.restaurantId,
-  };
+  if (found) {
+    return {
+      userId: found.email,
+      email: found.email,
+      displayName: found.displayName,
+      role: found.role,
+      restaurantId: found.restaurantId,
+    };
+  }
+
+  return null;
 }
 
 export function encodeSession(user: AuthUser): string {
