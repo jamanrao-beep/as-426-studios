@@ -1,6 +1,7 @@
-import { getChatGPTUser } from "@/app/chatgpt-auth";
+import { getAuthUser } from "@/lib/auth";
 import { sample } from "@/lib/menu";
 import { getSqliteD1 } from "@/db/sqlite";
+import { UserRole } from "@/lib/auth-constants";
 
 export function db(): D1Database {
   const cfDb = (globalThis as any).DB;
@@ -10,38 +11,151 @@ export function db(): D1Database {
 
 export type Access = {
   allowed: boolean;
-  owner: boolean;
-  studio: boolean;
+  owner: boolean; // Super Admin
+  studio: boolean; // Super Admin
+  role: UserRole | "";
   email: string;
+  restaurantId?: string;
   restaurantIds: string[];
+  mustChangePassword?: boolean;
 };
 
 export async function access(restaurantId?: string): Promise<Access> {
-  const user = await getChatGPTUser();
-  if (!user) return { allowed: false, owner: false, studio: false, email: "", restaurantIds: [] };
+  const user = await getAuthUser();
+  if (!user) {
+    return {
+      allowed: false,
+      owner: false,
+      studio: false,
+      role: "",
+      email: "",
+      restaurantIds: [],
+      mustChangePassword: false,
+    };
+  }
 
-  const email = user.email.trim().toLowerCase();
-  const ownerEmail = (process.env.OWNER_EMAIL || "admin@as426.studios").trim().toLowerCase();
-  const owner = email === ownerEmail || email === "admin@as426.com";
-  const member = owner ? null : await db().prepare("SELECT email FROM members WHERE email = ?").bind(email).first();
-  const studio = owner || !!member;
+  const isSuperAdmin = user.role === "super_admin";
+  const userRestaurantId = user.restaurantId;
 
-  if (studio) return { allowed: true, owner, studio, email, restaurantIds: [] };
+  if (isSuperAdmin) {
+    // Super Admin has access to all active restaurants
+    const allRestaurants = await db()
+      .prepare("SELECT id FROM restaurants WHERE status != 'archived'")
+      .all<{ id: string }>();
+    const ids = allRestaurants.results.map((r) => r.id);
+    if (!ids.includes("ember-spice")) ids.unshift("ember-spice");
 
-  const result = await db()
-    .prepare(
-      "SELECT rm.restaurant_id FROM restaurant_members rm LEFT JOIN menu m ON m.id = rm.restaurant_id WHERE rm.email = ? AND ((m.id IS NOT NULL AND COALESCE(json_extract(m.data, '$.deleted'), 0) = 0) OR (m.id IS NULL AND rm.restaurant_id = 'ember-spice'))"
-    )
-    .bind(email)
-    .all<{ restaurant_id: string }>();
+    return {
+      allowed: true,
+      owner: true,
+      studio: true,
+      role: "super_admin",
+      email: user.email,
+      restaurantIds: ids,
+      mustChangePassword: !!user.mustChangePassword,
+    };
+  }
 
-  const restaurantIds = result.results.map((r) => r.restaurant_id);
+  // Restaurant Admin / Manager
+  if (user.role === "admin") {
+    const ids = userRestaurantId ? [userRestaurantId] : [];
+    const allowed = restaurantId !== undefined ? userRestaurantId === restaurantId : ids.length > 0;
+    return {
+      allowed,
+      owner: false,
+      studio: false,
+      role: "admin",
+      email: user.email,
+      restaurantId: userRestaurantId,
+      restaurantIds: ids,
+      mustChangePassword: !!user.mustChangePassword,
+    };
+  }
+
+  // Waiter (orders-only)
+  const ids = userRestaurantId ? [userRestaurantId] : [];
   return {
-    allowed: restaurantId !== undefined ? restaurantIds.includes(restaurantId) : restaurantIds.length > 0,
+    allowed: false, // Waiters do not have general manager access
     owner: false,
     studio: false,
-    email,
-    restaurantIds,
+    role: "waiter",
+    email: user.email,
+    restaurantId: userRestaurantId,
+    restaurantIds: ids,
+    mustChangePassword: !!user.mustChangePassword,
+  };
+}
+
+export async function orderAccess(restaurantId?: string, managerOnly = false): Promise<Access> {
+  const user = await getAuthUser();
+  if (!user) {
+    return {
+      allowed: false,
+      owner: false,
+      studio: false,
+      role: "",
+      email: "",
+      restaurantIds: [],
+      mustChangePassword: false,
+    };
+  }
+
+  if (user.role === "super_admin") {
+    return access(restaurantId);
+  }
+
+  if (user.role === "admin") {
+    const ids = user.restaurantId ? [user.restaurantId] : [];
+    const allowed = restaurantId !== undefined ? user.restaurantId === restaurantId : ids.length > 0;
+    return {
+      allowed,
+      owner: false,
+      studio: false,
+      role: "admin",
+      email: user.email,
+      restaurantId: user.restaurantId,
+      restaurantIds: ids,
+      mustChangePassword: !!user.mustChangePassword,
+    };
+  }
+
+  // Waiter
+  if (user.role === "waiter") {
+    if (managerOnly) {
+      return {
+        allowed: false,
+        owner: false,
+        studio: false,
+        role: "waiter",
+        email: user.email,
+        restaurantId: user.restaurantId,
+        restaurantIds: [],
+        mustChangePassword: !!user.mustChangePassword,
+      };
+    }
+
+    const ids = user.restaurantId ? [user.restaurantId] : [];
+    const allowed = restaurantId !== undefined ? user.restaurantId === restaurantId : ids.length > 0;
+    return {
+      allowed,
+      owner: false,
+      studio: false,
+      role: "waiter",
+      email: user.email,
+      restaurantId: user.restaurantId,
+      restaurantIds: ids,
+      mustChangePassword: !!user.mustChangePassword,
+    };
+  }
+
+  return {
+    allowed: false,
+    owner: false,
+    studio: false,
+    role: "",
+    email: user.email,
+    restaurantIds: [],
+    mustChangePassword: false,
   };
 }
 
@@ -56,30 +170,10 @@ export async function readMenu(id: string) {
 
 export function sameOrigin(req: Request) {
   const origin = req.headers.get("origin");
-  if (!origin) return true; // allow same-process server calls or direct API tests
+  if (!origin) return true;
   return origin === new URL(req.url).origin;
 }
 
 export function validSlug(s: string) {
   return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(s) && s.length <= 60;
-}
-
-export async function orderAccess(restaurantId?: string, managerOnly = false): Promise<Access> {
-  const manager = await access(restaurantId);
-  if (manager.studio || managerOnly) return manager;
-  if (!manager.email) return manager;
-
-  const rows = await db()
-    .prepare(
-      "SELECT w.restaurant_id FROM waiters w LEFT JOIN menu m ON m.id = w.restaurant_id WHERE w.email = ? AND ((m.id IS NOT NULL AND COALESCE(json_extract(m.data, '$.deleted'), 0) = 0) OR (m.id IS NULL AND w.restaurant_id = 'ember-spice'))"
-    )
-    .bind(manager.email)
-    .all<{ restaurant_id: string }>();
-
-  const ids = [...new Set([...manager.restaurantIds, ...rows.results.map((r) => r.restaurant_id)])];
-  return {
-    ...manager,
-    restaurantIds: ids,
-    allowed: restaurantId !== undefined ? ids.includes(restaurantId) : ids.length > 0,
-  };
 }

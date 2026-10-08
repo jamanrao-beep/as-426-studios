@@ -35,6 +35,17 @@ function createRawDb(): InstanceType<typeof DatabaseSync> {
   }
 }
 
+function ensureColumn(rawDb: InstanceType<typeof DatabaseSync>, tableName: string, colName: string, colDef: string) {
+  try {
+    const cols = rawDb.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string }>;
+    if (!cols.some((c) => c.name === colName)) {
+      rawDb.exec(`ALTER TABLE ${tableName} ADD COLUMN ${colName} ${colDef}`);
+    }
+  } catch (err: any) {
+    console.error(`Error ensuring column ${colName} on ${tableName}:`, err.message);
+  }
+}
+
 export function getSqliteD1() {
   if (dbInstance) return dbInstance;
   if ((globalThis as any).__sqliteDbInstance) {
@@ -44,12 +55,27 @@ export function getSqliteD1() {
 
   const rawDb = createRawDb();
 
-  // Initialize tables
+  // 1. Initialize core tables
   rawDb.exec(`
     CREATE TABLE IF NOT EXISTS menu (
       id TEXT PRIMARY KEY NOT NULL,
       data TEXT NOT NULL,
       revision INTEGER DEFAULT 1 NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS restaurants (
+      id TEXT PRIMARY KEY NOT NULL,
+      name TEXT NOT NULL,
+      slug TEXT UNIQUE NOT NULL,
+      address TEXT DEFAULT '' NOT NULL,
+      contact_phone TEXT DEFAULT '' NOT NULL,
+      contact_email TEXT DEFAULT '' NOT NULL,
+      welcome_message TEXT DEFAULT '' NOT NULL,
+      note TEXT DEFAULT '' NOT NULL,
+      status TEXT DEFAULT 'active' NOT NULL,
+      archived_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS members (
@@ -82,6 +108,17 @@ export function getSqliteD1() {
       status TEXT DEFAULT 'new' NOT NULL,
       request_hash TEXT NOT NULL,
       tracking_hash TEXT,
+      customer_token TEXT,
+      is_test INTEGER DEFAULT 0 NOT NULL,
+      status_history TEXT,
+      accepted_by TEXT,
+      accepted_at TEXT,
+      preparing_by TEXT,
+      preparing_at TEXT,
+      delivered_by TEXT,
+      delivered_at TEXT,
+      cancelled_by TEXT,
+      cancelled_at TEXT,
       completed_at TEXT,
       completed_by TEXT,
       created_at TEXT NOT NULL,
@@ -89,11 +126,28 @@ export function getSqliteD1() {
     );
 
     CREATE TABLE IF NOT EXISTS accounts (
-      email TEXT PRIMARY KEY NOT NULL,
-      password TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'admin',
+      id TEXT PRIMARY KEY NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
       name TEXT DEFAULT '' NOT NULL,
+      role TEXT NOT NULL DEFAULT 'admin',
       restaurant_id TEXT,
+      status TEXT DEFAULT 'active' NOT NULL,
+      must_change_password INTEGER DEFAULT 0 NOT NULL,
+      session_version INTEGER DEFAULT 1 NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY NOT NULL,
+      action TEXT NOT NULL,
+      actor_id TEXT,
+      actor_email TEXT,
+      actor_role TEXT,
+      target_type TEXT,
+      target_id TEXT,
+      details TEXT,
       created_at TEXT NOT NULL
     );
 
@@ -106,45 +160,163 @@ export function getSqliteD1() {
       created_at TEXT NOT NULL,
       read_at TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS dish_ratings (
+      id TEXT PRIMARY KEY NOT NULL,
+      order_id TEXT NOT NULL,
+      restaurant_id TEXT NOT NULL,
+      dish_id TEXT NOT NULL,
+      dish_name TEXT NOT NULL,
+      rating INTEGER NOT NULL,
+      comment TEXT DEFAULT '' NOT NULL,
+      customer_token TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(order_id, dish_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS dish_insights_notifications (
+      id TEXT PRIMARY KEY NOT NULL,
+      restaurant_id TEXT NOT NULL,
+      date TEXT NOT NULL,
+      best_seller_id TEXT,
+      best_seller_name TEXT,
+      best_seller_qty INTEGER DEFAULT 0 NOT NULL,
+      top_rated_id TEXT,
+      top_rated_name TEXT,
+      top_rated_score REAL,
+      top_rated_count INTEGER DEFAULT 0 NOT NULL,
+      zero_sales_count INTEGER DEFAULT 0 NOT NULL,
+      zero_sales_dishes TEXT DEFAULT '[]' NOT NULL,
+      summary_text TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      UNIQUE(restaurant_id, date)
+    );
+
+    CREATE TABLE IF NOT EXISTS notification_reads (
+      notification_id TEXT NOT NULL,
+      user_email TEXT NOT NULL,
+      read_at TEXT NOT NULL,
+      PRIMARY KEY(notification_id, user_email)
+    );
   `);
 
-  // Seed Super Admin in accounts, members, and restaurant_members
-  rawDb.prepare("INSERT OR REPLACE INTO accounts (email, password, role, name, created_at) VALUES (?, ?, ?, ?, ?)").run(
+  rawDb.exec(`
+    CREATE INDEX IF NOT EXISTS idx_dish_ratings_rest_dish ON dish_ratings(restaurant_id, dish_id);
+    CREATE INDEX IF NOT EXISTS idx_dish_ratings_created ON dish_ratings(created_at);
+    CREATE INDEX IF NOT EXISTS idx_dish_insights_rest_date ON dish_insights_notifications(restaurant_id, date);
+  `);
+
+  // Ensure migrations on existing databases
+  ensureColumn(rawDb, "accounts", "id", "TEXT");
+  ensureColumn(rawDb, "accounts", "password_hash", "TEXT");
+  ensureColumn(rawDb, "accounts", "status", "TEXT DEFAULT 'active'");
+  ensureColumn(rawDb, "accounts", "must_change_password", "INTEGER DEFAULT 0");
+  ensureColumn(rawDb, "accounts", "session_version", "INTEGER DEFAULT 1");
+  ensureColumn(rawDb, "accounts", "updated_at", "TEXT");
+
+  ensureColumn(rawDb, "orders", "customer_token", "TEXT");
+  ensureColumn(rawDb, "orders", "is_test", "INTEGER DEFAULT 0");
+  ensureColumn(rawDb, "orders", "status_history", "TEXT");
+  ensureColumn(rawDb, "orders", "accepted_by", "TEXT");
+  ensureColumn(rawDb, "orders", "accepted_at", "TEXT");
+  ensureColumn(rawDb, "orders", "preparing_by", "TEXT");
+  ensureColumn(rawDb, "orders", "preparing_at", "TEXT");
+  ensureColumn(rawDb, "orders", "delivered_by", "TEXT");
+  ensureColumn(rawDb, "orders", "delivered_at", "TEXT");
+  ensureColumn(rawDb, "orders", "cancelled_by", "TEXT");
+  ensureColumn(rawDb, "orders", "cancelled_at", "TEXT");
+
+  ensureColumn(rawDb, "restaurants", "status", "TEXT DEFAULT 'active'");
+  ensureColumn(rawDb, "restaurants", "archived_at", "TEXT");
+
+  const now = new Date().toISOString();
+
+  // Seed default restaurant Ember & Spice
+  const existingRestaurant = rawDb.prepare("SELECT id FROM restaurants WHERE id = ?").get("ember-spice");
+  if (!existingRestaurant) {
+    rawDb.prepare(`
+      INSERT OR REPLACE INTO restaurants (id, name, slug, address, contact_phone, contact_email, welcome_message, note, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      "ember-spice",
+      "Ember & Spice",
+      "ember-spice",
+      "42 Connaught Place, New Delhi",
+      "+91 98100 12345",
+      "contact@emberspice.com",
+      "Welcome to Ember & Spice. Explore our signature coal-fired kitchen selections.",
+      "Taxes and 5% service charge included. Please inform your server about any allergies.",
+      "active",
+      now,
+      now
+    );
+  }
+
+  // Seed Super Admin
+  rawDb.prepare(`
+    INSERT OR REPLACE INTO accounts (id, email, password_hash, name, role, restaurant_id, status, must_change_password, session_version, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    "acc_super_admin",
     "admin@as426.studios",
-    "admin@009988763366",
-    "admin",
+    "admin@009988763366", // verifyPassword supports both plain text initial seed and scrypt$ hashes
     "Super Admin",
-    new Date().toISOString()
+    "super_admin",
+    null,
+    "active",
+    0,
+    1,
+    now,
+    now
   );
-  rawDb.prepare("INSERT OR IGNORE INTO accounts (email, password, role, name, created_at) VALUES (?, ?, ?, ?, ?)").run(
+
+  // Seed Restaurant Admin (Manager)
+  rawDb.prepare(`
+    INSERT OR REPLACE INTO accounts (id, email, password_hash, name, role, restaurant_id, status, must_change_password, session_version, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    "acc_mgr_ember",
     "admin@as426.com",
     "admin123",
+    "Restaurant Manager",
     "admin",
-    "AS 426 Admin",
-    new Date().toISOString()
+    "ember-spice",
+    "active",
+    0,
+    1,
+    now,
+    now
   );
-  rawDb.prepare("INSERT OR IGNORE INTO accounts (email, password, role, name, restaurant_id, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(
+
+  // Seed Waiter
+  rawDb.prepare(`
+    INSERT OR REPLACE INTO accounts (id, email, password_hash, name, role, restaurant_id, status, must_change_password, session_version, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    "acc_waiter_ember",
     "staff@as426.com",
     "staff123",
+    "Rahul (Staff)",
     "waiter",
-    "Staff Waiter",
     "ember-spice",
-    new Date().toISOString()
+    "active",
+    0,
+    1,
+    now,
+    now
   );
 
+  // Maintain backward-compatibility tables
   rawDb.prepare("INSERT OR IGNORE INTO members (email) VALUES (?)").run("admin@as426.studios");
   rawDb.prepare("INSERT OR IGNORE INTO members (email) VALUES (?)").run("admin@as426.com");
-
-  // Seed restaurant_members for ember-spice
   rawDb.prepare("INSERT OR IGNORE INTO restaurant_members (restaurant_id, email) VALUES (?, ?)").run("ember-spice", "admin@as426.studios");
   rawDb.prepare("INSERT OR IGNORE INTO restaurant_members (restaurant_id, email) VALUES (?, ?)").run("ember-spice", "admin@as426.com");
-
-  // Seed Waiter in waiters
   rawDb.prepare("INSERT OR IGNORE INTO waiters (restaurant_id, email, name, created_at) VALUES (?, ?, ?, ?)").run(
     "ember-spice",
     "staff@as426.com",
     "Rahul (Staff)",
-    new Date().toISOString()
+    now
   );
 
   // Seed Sample Menu
@@ -156,10 +328,9 @@ export function getSqliteD1() {
   // Seed Sample Initial Orders if none exist
   const countRow = rawDb.prepare("SELECT count(*) as count FROM orders").get() as any;
   if (!countRow || countRow.count === 0) {
-    const now = new Date().toISOString();
     const insertOrder = rawDb.prepare(`
-      INSERT INTO orders (id, restaurant_id, restaurant_name, table_label, customer_name, notes, items, total, status, request_hash, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO orders (id, restaurant_id, restaurant_name, table_label, customer_name, notes, items, total, status, request_hash, is_test, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
     `);
     insertOrder.run(
       "ord-101",
@@ -170,7 +341,7 @@ export function getSqliteD1() {
       "Less spicy on the chicken please",
       JSON.stringify([
         { id: "1", name: "Smoked Paneer Tikka", unitPrice: 295, quantity: 1 },
-        { id: "6", name: "Mango & Mint Cooler", unitPrice: 165, quantity: 2 }
+        { id: "6", name: "Mango & Mint Cooler", unitPrice: 165, quantity: 2 },
       ]),
       625,
       "new",
@@ -187,7 +358,7 @@ export function getSqliteD1() {
       "Table near the window",
       JSON.stringify([
         { id: "2", name: "Ghee Roast Chicken", unitPrice: 345, quantity: 1 },
-        { id: "3", name: "Wild Mushroom Kulcha", unitPrice: 245, quantity: 2 }
+        { id: "3", name: "Wild Mushroom Kulcha", unitPrice: 245, quantity: 2 },
       ]),
       835,
       "preparing",
@@ -237,7 +408,7 @@ export function getSqliteD1() {
             console.error("[sqlite run] error:", err.message, "SQL:", queryStr);
             throw err;
           }
-        }
+        },
       };
     },
     async exec(sql: string) {
@@ -250,7 +421,7 @@ export function getSqliteD1() {
         results.push(await s.run());
       }
       return results;
-    }
+    },
   };
 
   (globalThis as any).__sqliteDbInstance = dbInstance;
