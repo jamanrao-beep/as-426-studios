@@ -1,12 +1,163 @@
 "use client";
-import {useEffect,useState} from 'react';
-import {orderKeys} from '@/lib/customer-orders';
-import {money,type StoredOrder} from '@/lib/orders';
-import {orderTime} from '@/lib/order-time';
-export default function PlacedOrders({restaurant}:{restaurant:string}){
- const [rows,setRows]=useState<StoredOrder[]>([]),[open,setOpen]=useState(false),[history,setHistory]=useState(false),[error,setError]=useState(''),[loading,setLoading]=useState(true);
- useEffect(()=>{let alive=true;async function load(){try{const keys=orderKeys(restaurant),all:StoredOrder[]=[];for(let i=0;i<keys.length;i+=40){const r=await fetch('/api/order-status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({restaurant,orders:keys.slice(i,i+40)})});const d=await r.json() as {orders:StoredOrder[],error?:string};if(!r.ok)throw Error(d.error);all.push(...d.orders)}if(alive){setRows(all.sort((a,b)=>b.created_at.localeCompare(a.created_at)));setError('')}}catch(e){if(alive)setError(e instanceof Error?e.message:'Unable to refresh')}finally{if(alive)setLoading(false)}}function placed(){setOpen(true);setHistory(false);load()}load();const t=setInterval(load,8000);window.addEventListener('table-order-placed',placed);window.addEventListener('focus',load);return()=>{alive=false;clearInterval(t);window.removeEventListener('table-order-placed',placed);window.removeEventListener('focus',load)}},[restaurant]);
- const active=rows.filter(o=>!['served','cancelled'].includes(o.status)),shown=history?rows.filter(o=>['served','cancelled'].includes(o.status)):active;
- const labels:Record<string,string>={new:'Pending · awaiting acceptance',accepted:'Accepted · in kitchen queue',preparing:'Being prepared in kitchen',served:'Delivered to your table',cancelled:'Cancelled'};
- return <section className="placed-orders" id="placed-orders"><button className="secondary" aria-expanded={open} onClick={()=>setOpen(!open)}>My placed orders {active.length>0&&`(${active.length})`}</button>{open&&<div className="placed-content"><div className="section-top"><h2>Your orders</h2><div className="category-list"><button className={!history?'chip selected':'chip'} onClick={()=>setHistory(false)}>Placed orders</button><button className={history?'chip selected':'chip'} onClick={()=>setHistory(true)}>Completed & cancelled</button></div></div><p className="muted">Updates every 8 seconds. Orders stay here until staff confirm delivery. Saved for this browser; keep using the same device.</p>{error&&<p className="error" role="alert">{error} Showing the last received status.</p>}{loading&&<p>Loading orders…</p>}{!loading&&!shown.length&&<p>{history?'No completed orders yet.':'No pending orders on this browser.'}</p>}<div className="orders-grid">{shown.map(o=><article className="order-card" key={o.id}><header><div><h3>#{o.id.slice(0,8).toUpperCase()} · Table {o.table_label}</h3><p>Placed: {orderTime(o.created_at)} IST</p></div></header><strong className="order-status" aria-live="polite">{labels[o.status]||o.status}</strong><div className="order-items">{o.items.map(i=><div key={i.id}><span>{i.quantity} × {i.name}</span><span>{money(i.quantity*i.unitPrice)}</span></div>)}</div><div className="cart-total"><strong>Total</strong><strong>{money(o.total)}</strong></div>{o.notes&&<p>Your note: {o.notes}</p>}<p className="muted">{o.completed_at?`Delivered: ${orderTime(o.completed_at)} IST`:`Last updated: ${orderTime(o.updated_at)} IST`}</p></article>)}</div></div>}</section>
+
+import { useEffect, useState } from "react";
+import { orderKeys, type OrderKey } from "@/lib/customer-orders";
+import { money, type StoredOrder } from "@/lib/orders";
+import { orderTime } from "@/lib/order-time";
+import DishRatingWidget from "./dish-rating-widget";
+
+export default function PlacedOrders({ restaurant }: { restaurant: string }) {
+  const [rows, setRows] = useState<StoredOrder[]>([]);
+  const [keysList, setKeysList] = useState<OrderKey[]>([]);
+  const [open, setOpen] = useState(false);
+  const [history, setHistory] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    async function load() {
+      try {
+        const keys = orderKeys(restaurant);
+        if (alive) setKeysList(keys);
+        const all: StoredOrder[] = [];
+        for (let i = 0; i < keys.length; i += 40) {
+          const r = await fetch("/api/order-status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ restaurant, orders: keys.slice(i, i + 40) }),
+          });
+          const d = (await r.json()) as { orders: StoredOrder[]; error?: string };
+          if (!r.ok) throw Error(d.error);
+          all.push(...d.orders);
+        }
+        if (alive) {
+          setRows(all.sort((a, b) => b.created_at.localeCompare(a.created_at)));
+          setError("");
+        }
+      } catch (e) {
+        if (alive) setError(e instanceof Error ? e.message : "Unable to refresh");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }
+
+    function placed() {
+      setOpen(true);
+      setHistory(false);
+      load();
+    }
+
+    load();
+    const t = setInterval(load, 8000);
+    window.addEventListener("table-order-placed", placed);
+    window.addEventListener("focus", load);
+    return () => {
+      alive = false;
+      clearInterval(t);
+      window.removeEventListener("table-order-placed", placed);
+      window.removeEventListener("focus", load);
+    };
+  }, [restaurant]);
+
+  const active = rows.filter((o) => !["served", "cancelled"].includes(o.status));
+  const shown = history ? rows.filter((o) => ["served", "cancelled"].includes(o.status)) : active;
+  const labels: Record<string, string> = {
+    new: "Pending · awaiting acceptance",
+    accepted: "Accepted · in kitchen queue",
+    preparing: "Being prepared in kitchen",
+    served: "Delivered to your table",
+    cancelled: "Cancelled",
+  };
+
+  return (
+    <section className="placed-orders" id="placed-orders">
+      <button className="secondary" aria-expanded={open} onClick={() => setOpen(!open)}>
+        My placed orders {active.length > 0 && `(${active.length})`}
+      </button>
+
+      {open && (
+        <div className="placed-content">
+          <div className="section-top">
+            <h2>Your orders</h2>
+            <div className="category-list">
+              <button className={!history ? "chip selected" : "chip"} onClick={() => setHistory(false)}>
+                Placed orders
+              </button>
+              <button className={history ? "chip selected" : "chip"} onClick={() => setHistory(true)}>
+                Completed & cancelled
+              </button>
+            </div>
+          </div>
+
+          <p className="muted">
+            Updates every 8 seconds. Orders stay here until staff confirm delivery. Saved for this browser; keep using the same device.
+          </p>
+
+          {error && (
+            <p className="error" role="alert">
+              {error} Showing the last received status.
+            </p>
+          )}
+
+          {loading && <p>Loading orders…</p>}
+          {!loading && !shown.length && (
+            <p>{history ? "No completed orders yet." : "No pending orders on this browser."}</p>
+          )}
+
+          <div className="orders-grid">
+            {shown.map((o) => {
+              const matchingKey = keysList.find((k) => k.id === o.id);
+
+              return (
+                <article className="order-card" key={o.id}>
+                  <header>
+                    <div>
+                      <h3>
+                        #{o.id.slice(0, 8).toUpperCase()} · Table {o.table_label}
+                      </h3>
+                      <p>Placed: {orderTime(o.created_at)} IST</p>
+                    </div>
+                  </header>
+
+                  <strong className="order-status" aria-live="polite">
+                    {labels[o.status] || o.status}
+                  </strong>
+
+                  <div className="order-items">
+                    {o.items.map((i) => (
+                      <div key={i.id}>
+                        <span>
+                          {i.quantity} × {i.name}
+                        </span>
+                        <span>{money(i.quantity * i.unitPrice)}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="cart-total">
+                    <strong>Total</strong>
+                    <strong>{money(o.total)}</strong>
+                  </div>
+
+                  {o.notes && <p>Your note: {o.notes}</p>}
+
+                  <p className="muted">
+                    {o.completed_at
+                      ? `Delivered: ${orderTime(o.completed_at)} IST`
+                      : `Last updated: ${orderTime(o.updated_at)} IST`}
+                  </p>
+
+                  {/* Customer Dish Rating Option for Completed Orders */}
+                  {o.status === "served" && matchingKey && (
+                    <DishRatingWidget order={o} token={matchingKey.token} restaurant={restaurant} />
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </section>
+  );
 }
