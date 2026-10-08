@@ -1,0 +1,52 @@
+import { NextResponse } from "next/server";
+import { authenticate, encodeSession, AUTH_COOKIE_NAME } from "@/lib/auth";
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const { email, password } = body || {};
+
+    if (!email || !password || typeof email !== "string" || typeof password !== "string") {
+      return NextResponse.json(
+        { error: "Please enter both email and password." },
+        { status: 400 }
+      );
+    }
+
+    const user = authenticate(email, password);
+    if (!user) {
+      return NextResponse.json(
+        { error: "Invalid email or password. Please check your credentials." },
+        { status: 401 }
+      );
+    }
+
+    const token = encodeSession(user);
+    const response = NextResponse.json({
+      success: true,
+      user: {
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role,
+        restaurantId: user.restaurantId,
+      },
+    });
+
+    response.cookies.set({
+      name: AUTH_COOKIE_NAME,
+      value: token,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60, // 7 days
+    });
+
+    return response;
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: err?.message || "Authentication failed." },
+      { status: 500 }
+    );
+  }
+}
