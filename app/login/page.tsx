@@ -161,13 +161,7 @@ function LoginForm() {
             <input
               type="email"
               autoComplete="email"
-              placeholder={
-                selectedRole === "admin"
-                  ? "Super Admin (leave empty or type manager Gmail)"
-                  : selectedRole === "waiter"
-                  ? "Staff (leave empty or type staff email)"
-                  : "Enter your manager Gmail address"
-              }
+              placeholder="Enter your sign-in email / Gmail"
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
@@ -186,13 +180,7 @@ function LoginForm() {
               type={showPassword ? "text" : "password"}
               required
               autoComplete="current-password"
-              placeholder={
-                selectedRole === "admin" && !email.trim()
-                  ? "Enter Super Admin password"
-                  : selectedRole === "waiter" && !email.trim()
-                  ? "Enter Staff password (staff123)"
-                  : "Enter your account password"
-              }
+              placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
