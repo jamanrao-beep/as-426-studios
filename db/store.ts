@@ -1,11 +1,15 @@
 import { getAuthUser } from "@/lib/auth";
 import { sample } from "@/lib/menu";
 import { getSqliteD1 } from "@/db/sqlite";
+import { getMysqlDb, isMysqlConfigured } from "@/db/mysql";
 import { UserRole } from "@/lib/auth-constants";
 
 export function db(): D1Database {
   const cfDb = (globalThis as any).DB;
   if (cfDb) return cfDb;
+  if (isMysqlConfigured()) {
+    return getMysqlDb() as unknown as D1Database;
+  }
   return getSqliteD1() as unknown as D1Database;
 }
 

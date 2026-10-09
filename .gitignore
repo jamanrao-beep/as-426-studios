@@ -47,3 +47,5 @@ next-env.d.ts
 /.data/
 *.sqlite
 *.db
+/backups/
+/scratch/
