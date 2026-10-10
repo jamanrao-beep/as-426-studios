@@ -54,7 +54,12 @@ export async function GET(req: Request) {
 
     const days = Array.from({ length: range.days }, (_, i) => {
       const day = month + "-" + String(i + 1).padStart(2, "0");
-      return r.results.find((row) => row.day === day) || { day, orders: 0, revenue: 0 };
+      const found = r.results.find((row) => row.day === day);
+      return {
+        day,
+        orders: Number(found?.orders || 0),
+        revenue: Number(found?.revenue || 0),
+      };
     });
 
     const totalOrders = days.reduce((s, d) => s + d.orders, 0);

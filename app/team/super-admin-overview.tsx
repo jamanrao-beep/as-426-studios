@@ -248,7 +248,7 @@ export default function SuperAdminOverview({
             </div>
           </div>
           <div style={{ fontSize: "2rem", fontWeight: 700, margin: "10px 0 6px 0", color: "#fff" }}>
-            {(data?.staff.admins ?? 0) + (data?.staff.waiters ?? 0)}
+            {Number(data?.staff.admins || 0) + Number(data?.staff.waiters || 0)}
           </div>
           <div style={{ display: "flex", gap: 12, fontSize: "0.8rem", color: "#8da092" }}>
             <span>
