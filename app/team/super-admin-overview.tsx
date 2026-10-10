@@ -61,6 +61,52 @@ interface OverviewData {
   disclaimer: string;
 }
 
+function getAuditBadge(action: string) {
+  if (action.includes("order")) {
+    return {
+      label: "Order Status",
+      color: "#38bdf8",
+      bg: "rgba(56, 189, 248, 0.12)",
+      border: "rgba(56, 189, 248, 0.25)",
+      icon: ShoppingBag,
+    };
+  }
+  if (action.includes("menu")) {
+    return {
+      label: "Menu Updated",
+      color: "#fbbf24",
+      bg: "rgba(251, 191, 36, 0.12)",
+      border: "rgba(251, 191, 36, 0.25)",
+      icon: UtensilsCrossed,
+    };
+  }
+  if (action.includes("waiter") || action.includes("manager") || action.includes("account") || action.includes("staff")) {
+    return {
+      label: "Staff Access",
+      color: "#c084fc",
+      bg: "rgba(168, 85, 247, 0.12)",
+      border: "rgba(168, 85, 247, 0.25)",
+      icon: Users,
+    };
+  }
+  if (action.includes("restaurant")) {
+    return {
+      label: "Restaurant",
+      color: "#34d399",
+      bg: "rgba(52, 211, 153, 0.12)",
+      border: "rgba(52, 211, 153, 0.25)",
+      icon: Store,
+    };
+  }
+  return {
+    label: action.replace(/_/g, " "),
+    color: "#94a3b8",
+    bg: "rgba(148, 163, 184, 0.12)",
+    border: "rgba(148, 163, 184, 0.25)",
+    icon: ShieldCheck,
+  };
+}
+
 export default function SuperAdminOverview({
   restaurants,
   onNavigate,
@@ -604,63 +650,146 @@ export default function SuperAdminOverview({
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
         <div
           style={{
-            background: "rgba(255,255,255,0.02)",
-            border: "1px solid rgba(255,255,255,0.06)",
-            borderRadius: 14,
-            padding: 18,
+            background: "linear-gradient(135deg, rgba(20, 26, 23, 0.75), rgba(13, 18, 15, 0.85))",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
+            borderRadius: 16,
+            padding: "22px 24px",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.35)",
+            backdropFilter: "blur(12px)",
           }}
         >
-          <h4 style={{ fontSize: "0.95rem", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-            <Clock size={16} /> Recent Audit Activity
-          </h4>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+            <h4
+              style={{
+                fontSize: "1.05rem",
+                fontWeight: 700,
+                color: "#ffffff",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                margin: 0,
+              }}
+            >
+              <div
+                style={{
+                  background: "rgba(52, 211, 153, 0.15)",
+                  color: "#34d399",
+                  padding: "6px 8px",
+                  borderRadius: 10,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Clock size={16} />
+              </div>
+              Recent Audit Activity
+            </h4>
+            <span
+              style={{
+                fontSize: "0.72rem",
+                color: "#94a3b8",
+                background: "rgba(255, 255, 255, 0.05)",
+                padding: "3px 8px",
+                borderRadius: 6,
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+              }}
+            >
+              Live Security Log
+            </span>
+          </div>
 
           {loading ? (
-            <p className="muted" style={{ fontSize: "0.85rem" }}>Loading audit log...</p>
+            <p style={{ color: "#94a3b8", fontSize: "0.85rem", padding: "12px 0" }}>Loading audit log...</p>
           ) : !data?.recentAudit || data.recentAudit.length === 0 ? (
-            <p className="muted" style={{ fontSize: "0.85rem" }}>No recent audit events recorded.</p>
+            <p style={{ color: "#94a3b8", fontSize: "0.85rem", padding: "12px 0" }}>No recent audit events recorded.</p>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {data.recentAudit.map((log) => (
-                <div
-                  key={log.id}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "8px 12px",
-                    background: "rgba(0,0,0,0.2)",
-                    borderRadius: 8,
-                    fontSize: "0.82rem",
-                    gap: 10,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {data.recentAudit.map((log) => {
+                const badge = getAuditBadge(log.action);
+                const BadgeIcon = badge.icon;
+                const formattedTime = new Date(log.created_at).toLocaleString("en-IN", {
+                  timeZone: "Asia/Kolkata",
+                  dateStyle: "short",
+                  timeStyle: "medium",
+                });
+                const shortTarget =
+                  log.target_type === "order" && log.target_id.length > 8
+                    ? `Order #${log.target_id.slice(0, 8).toUpperCase()}`
+                    : `${log.target_type}: ${log.target_id}`;
+
+                return (
+                  <div
+                    key={log.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "12px 16px",
+                      background: "rgba(255, 255, 255, 0.03)",
+                      border: "1px solid rgba(255, 255, 255, 0.07)",
+                      borderRadius: 10,
+                      fontSize: "0.85rem",
+                      gap: 12,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                          fontSize: "0.72rem",
+                          fontWeight: 700,
+                          letterSpacing: "0.04em",
+                          color: badge.color,
+                          background: badge.bg,
+                          border: `1px solid ${badge.border}`,
+                          padding: "3px 9px",
+                          borderRadius: 6,
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        <BadgeIcon size={12} />
+                        {badge.label}
+                      </span>
+                      <strong style={{ color: "#f8fafc", fontWeight: 600 }}>
+                        {log.actor_email}
+                      </strong>
+                      <span
+                        style={{
+                          color: "#94a3b8",
+                          background: "rgba(0, 0, 0, 0.25)",
+                          padding: "2px 7px",
+                          borderRadius: 5,
+                          fontSize: "0.76rem",
+                          border: "1px solid rgba(255, 255, 255, 0.04)",
+                          fontFamily: "monospace",
+                        }}
+                      >
+                        {shortTarget}
+                      </span>
+                    </div>
                     <span
                       style={{
-                        color: "#6ee7b7",
-                        fontWeight: 600,
-                        textTransform: "uppercase",
-                        fontSize: "0.75rem",
-                        marginRight: 8,
+                        color: "#94a3b8",
+                        fontSize: "0.76rem",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
                       }}
                     >
-                      {log.action.replace(/_/g, " ")}
-                    </span>
-                    <span style={{ color: "#d1d5db" }}>{log.actor_email}</span>
-                    <span className="muted" style={{ marginLeft: 6 }}>
-                      ({log.target_type}: {log.target_id})
+                      <Clock size={12} style={{ color: "#64748b" }} />
+                      {formattedTime}
                     </span>
                   </div>
-                  <span className="muted" style={{ fontSize: "0.75rem" }}>
-                    {new Date(log.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
-          <p className="muted" style={{ fontSize: "0.76rem", marginTop: 14 }}>
+          <p style={{ color: "#64748b", fontSize: "0.78rem", marginTop: 16, lineHeight: 1.5 }}>
             ℹ️ {data?.disclaimer}
           </p>
         </div>
