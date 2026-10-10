@@ -19,6 +19,7 @@ import {
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { orderTime } from "@/lib/order-time";
+import { money } from "@/lib/orders";
 
 interface DishItem {
   id: string;
@@ -319,7 +320,7 @@ export default function DishPerformance({
                 {data.summary.highestValue.winners.map((w) => w.name).join(" / ")}
               </div>
               <div style={{ marginTop: 4, fontSize: "0.85rem", color: "#047857", fontWeight: 700 }}>
-                ₹{data.summary.highestValue.winners[0]?.salesValue.toLocaleString("en-IN")} sales order value
+                {money(data.summary.highestValue.winners[0]?.salesValue || 0)} sales order value
                 {data.summary.highestValue.isTie && (
                   <span style={{ color: "#d97706", marginLeft: 6 }}>(Tied)</span>
                 )}
@@ -492,7 +493,7 @@ export default function DishPerformance({
                         {dish.ordersCount}
                       </td>
                       <td style={{ padding: "12px 10px", textAlign: "right", fontWeight: 700, color: "#047857" }}>
-                        ₹{dish.salesValue.toLocaleString("en-IN")}
+                        {money(dish.salesValue)}
                       </td>
                       <td style={{ padding: "12px 10px" }}>
                         {dish.periodAvgRating !== null ? (
