@@ -1,6 +1,6 @@
 import {z} from "zod";
 import type {Menu} from "./menu";
-export const orderInput=z.object({id:z.string().min(1).max(100),trackingToken:z.string().min(1).max(100).optional(),restaurant:z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(60),table:z.string().trim().min(1).max(30),name:z.string().trim().max(80).default(""),notes:z.string().trim().max(500).default(""),items:z.array(z.object({id:z.string().min(1).max(80),quantity:z.number().int().min(1).max(20),unitPrice:z.number().int().min(0).max(10000000)})).min(1).max(50)});
+export const orderInput=z.object({id:z.string().min(1).max(100),trackingToken:z.string().min(1).max(100).optional(),restaurant:z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(60),table:z.string().trim().min(1).max(30),name:z.string().trim().max(80).default(""),notes:z.string().trim().max(500).default(""),items:z.array(z.object({id:z.string().min(1).max(80),quantity:z.number().int().min(1).max(250),unitPrice:z.number().int().min(0).max(10000000)})).min(1).max(50)});
 export type OrderInput=z.infer<typeof orderInput>;
 export type OrderLine={id:string,name:string,quantity:number,unitPrice:number};
 export type OrderStatus="new"|"accepted"|"preparing"|"served"|"cancelled";
