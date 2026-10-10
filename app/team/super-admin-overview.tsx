@@ -17,6 +17,7 @@ import {
   UtensilsCrossed,
 } from "lucide-react";
 import { toast } from "sonner";
+import { money } from "@/lib/orders";
 
 interface OverviewData {
   restaurants: {
@@ -312,10 +313,10 @@ export default function SuperAdminOverview({
             </div>
           </div>
           <div style={{ fontSize: "2rem", fontWeight: 700, margin: "10px 0 6px 0", color: "#34d399" }}>
-            ₹{(data?.today.deliveredSales ?? 0).toLocaleString("en-IN")}
+            {money(data?.today.deliveredSales ?? 0)}
           </div>
           <div style={{ fontSize: "0.78rem", color: "#8da092" }}>
-            Month Total: ₹{(data?.monthly.deliveredSales ?? 0).toLocaleString("en-IN")}
+            Month Total: {money(data?.monthly.deliveredSales ?? 0)}
           </div>
         </div>
       </div>

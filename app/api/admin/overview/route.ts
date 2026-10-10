@@ -50,10 +50,10 @@ export async function GET(req: Request) {
 
     let todayOrdersQuery = `
       SELECT 
-        COUNT(*) as order_count,
+        COUNT(CASE WHEN COALESCE(is_test, 0) = 0 THEN 1 ELSE NULL END) as order_count,
         SUM(CASE WHEN status = 'served' AND COALESCE(is_test, 0) = 0 THEN total ELSE 0 END) as delivered_sales,
-        SUM(CASE WHEN status = 'served' THEN 1 ELSE 0 END) as delivered_count,
-        SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_count
+        SUM(CASE WHEN status = 'served' AND COALESCE(is_test, 0) = 0 THEN 1 ELSE 0 END) as delivered_count,
+        SUM(CASE WHEN status = 'cancelled' AND COALESCE(is_test, 0) = 0 THEN 1 ELSE 0 END) as cancelled_count
       FROM orders
       WHERE created_at >= ? AND created_at < ?
     `;
@@ -84,9 +84,9 @@ export async function GET(req: Request) {
 
     let monthlyQuery = `
       SELECT 
-        COUNT(*) as total_orders,
+        COUNT(CASE WHEN COALESCE(is_test, 0) = 0 THEN 1 ELSE NULL END) as total_orders,
         SUM(CASE WHEN status = 'served' AND COALESCE(is_test, 0) = 0 THEN total ELSE 0 END) as delivered_sales,
-        SUM(CASE WHEN status = 'served' THEN 1 ELSE 0 END) as delivered_orders
+        SUM(CASE WHEN status = 'served' AND COALESCE(is_test, 0) = 0 THEN 1 ELSE 0 END) as delivered_orders
       FROM orders
       WHERE COALESCE(completed_at, created_at) >= ? AND COALESCE(completed_at, created_at) < ?
     `;
