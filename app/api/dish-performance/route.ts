@@ -333,9 +333,9 @@ export async function GET(req: Request) {
     const unsoldUnavailable = unsoldDishes.filter((d) => !d.currentlyAvailable);
 
     // Totals for the period
-    const totalDishesSold = dishesList.reduce((s, d) => s + d.quantitySold, 0);
-    const totalOrderSalesValue = dishesList.reduce((s, d) => s + d.salesValue, 0);
-    const totalDeliveredOrders = ordersResult.results.length;
+    const totalDishesSold = dishesList.reduce((s, d) => s + Number(d.quantitySold || 0), 0);
+    const totalOrderSalesValue = dishesList.reduce((s, d) => s + Number(d.salesValue || 0), 0);
+    const totalDeliveredOrders = Number(ordersResult.results.length || 0);
 
     return Response.json(
       {

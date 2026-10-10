@@ -5,7 +5,7 @@ export type OrderInput=z.infer<typeof orderInput>;
 export type OrderLine={id:string,name:string,quantity:number,unitPrice:number};
 export type OrderStatus="new"|"accepted"|"preparing"|"served"|"cancelled";
 export const transitions:Record<OrderStatus,OrderStatus[]>={new:["accepted","cancelled"],accepted:["preparing","served","cancelled"],preparing:["served","cancelled"],served:[],cancelled:[]};
-export const money=(paise:number)=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:2}).format(paise/100);
+export const money=(paise:number)=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:2}).format((Number(paise)||0)/100);
 export function priceOrder(menu:Menu,items:OrderInput["items"]){
  if(!menu.active)throw Error("This restaurant is not taking orders right now.");
  if(new Set(items.map(i=>i.id)).size!==items.length)throw Error("Each dish should appear only once in your cart.");

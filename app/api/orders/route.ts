@@ -246,7 +246,7 @@ export async function GET(req: Request) {
 
         for (const row of counts.results) {
           if (row.status in summary) {
-            (summary as any)[row.status] = row.cnt;
+            (summary as any)[row.status] = Number(row.cnt || 0);
           }
         }
       } catch (cntErr) {

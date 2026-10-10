@@ -30,6 +30,14 @@ function getPool(): Pool {
     queueLimit: 0,
     enableKeepAlive: true,
     keepAliveInitialDelay: 10000,
+    decimalNumbers: true,
+    typeCast: function (field: any, next: any) {
+      if (field.type === "NEWDECIMAL" || field.type === "DECIMAL" || field.type === "LONGLONG") {
+        const val = field.string();
+        return val === null ? null : Number(val);
+      }
+      return next();
+    },
     ssl: {
       rejectUnauthorized: false
     }
