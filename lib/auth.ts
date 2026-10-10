@@ -119,34 +119,28 @@ export function encodeSession(user: AuthUser): string {
 
 export function decodeSession(token: string): (AuthUser & { sv?: number }) | null {
   try {
+    if (!token || typeof token !== "string") return null;
     const parts = token.split(".");
-    if (parts.length === 2) {
-      const [payloadB64, sig] = parts;
-      const expectedSig = signPayload(payloadB64);
-      if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expectedSig))) {
-        return null;
-      }
-      const raw = Buffer.from(payloadB64, "base64url").toString("utf-8");
-      const parsed = JSON.parse(raw);
-      if (!parsed || !parsed.email || typeof parsed.email !== "string") return null;
-      if (parsed.exp && parsed.exp < Date.now()) return null;
-      return {
-        userId: parsed.userId || parsed.email,
-        email: parsed.email.toLowerCase(),
-        displayName: parsed.displayName || parsed.email,
-        role: (parsed.role === "super_admin" ? "super_admin" : parsed.role === "admin" ? "admin" : "waiter") as UserRole,
-        restaurantId: parsed.restaurantId,
-        mustChangePassword: !!parsed.mustChangePassword,
-        sessionVersion: parsed.sv || 1,
-        sv: parsed.sv || 1,
-      };
+    if (parts.length !== 2) {
+      // Security: Strictly reject unsigned tokens. No fallback to unsigned base64 payloads.
+      return null;
     }
 
-    // Backward-compatibility: single base64 payload if created before HMAC addition
-    const raw = Buffer.from(token, "base64url").toString("utf-8");
+    const [payloadB64, sig] = parts;
+    if (!payloadB64 || !sig) return null;
+
+    const expectedSig = signPayload(payloadB64);
+    const sigBuf = Buffer.from(sig);
+    const expBuf = Buffer.from(expectedSig);
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+      return null;
+    }
+
+    const raw = Buffer.from(payloadB64, "base64url").toString("utf-8");
     const parsed = JSON.parse(raw);
     if (!parsed || !parsed.email || typeof parsed.email !== "string") return null;
     if (parsed.exp && parsed.exp < Date.now()) return null;
+
     return {
       userId: parsed.userId || parsed.email,
       email: parsed.email.toLowerCase(),
