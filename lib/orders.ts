@@ -9,7 +9,7 @@ export const money=(paise:number)=>new Intl.NumberFormat("en-IN",{style:"currenc
 export function priceOrder(menu:Menu,items:OrderInput["items"]){
  if(!menu.active)throw Error("This restaurant is not taking orders right now.");
  if(new Set(items.map(i=>i.id)).size!==items.length)throw Error("Each dish should appear only once in your cart.");
- if(items.reduce((n,i)=>n+i.quantity,0)>100)throw Error("Please ask your server about orders of more than 100 items.");
+ if(items.reduce((n,i)=>n+i.quantity,0)>250)throw Error("Please ask your server about orders of more than 250 items.");
  const lines:OrderLine[]=items.map(i=>{const dish=menu.dishes.find(d=>d.id===i.id);if(!dish||!dish.available)throw Error("A selected dish is no longer available. Refresh the menu and update your cart.");const unitPrice=Math.round(dish.price*100);if(unitPrice!==i.unitPrice)throw Error("A dish price has changed. Refresh the menu and review your cart before ordering.");return {id:dish.id,name:dish.name,quantity:i.quantity,unitPrice}});
  return {lines,total:lines.reduce((n,i)=>n+i.unitPrice*i.quantity,0)};
 }

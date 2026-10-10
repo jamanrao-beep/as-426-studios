@@ -15,6 +15,11 @@ import {
   ArrowRight,
   ShieldCheck,
   UtensilsCrossed,
+  QrCode,
+  KeyRound,
+  ChefHat,
+  Rocket,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { money } from "@/lib/orders";
@@ -324,56 +329,271 @@ export default function SuperAdminOverview({
       {/* Quick Launch & Onboarding Progress Panel */}
       <div
         style={{
-          background: "rgba(255,255,255,0.02)",
-          border: "1px solid rgba(255,255,255,0.07)",
-          borderRadius: 14,
-          padding: 22,
+          background: "linear-gradient(135deg, rgba(18, 24, 21, 0.75), rgba(12, 17, 14, 0.85))",
+          border: "1px solid rgba(255, 255, 255, 0.08)",
+          borderRadius: 16,
+          padding: "24px 26px",
           marginBottom: 24,
+          backdropFilter: "blur(12px)",
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.35)",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 20,
+            flexWrap: "wrap",
+            gap: 14,
+          }}
+        >
           <div>
-            <h3 style={{ fontSize: "1.1rem", display: "flex", alignItems: "center", gap: 8 }}>
-              <UtensilsCrossed size={18} /> Restaurant Onboarding Checklist & Flow
+            <h3
+              style={{
+                fontSize: "1.15rem",
+                fontWeight: 700,
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                color: "#ffffff",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              <div
+                style={{
+                  background: "rgba(52, 211, 153, 0.15)",
+                  color: "#34d399",
+                  padding: "6px 8px",
+                  borderRadius: 10,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <UtensilsCrossed size={18} />
+              </div>
+              Restaurant Onboarding Flow & Checklist
             </h3>
-            <p className="muted" style={{ fontSize: "0.82rem", marginTop: 2 }}>
+            <p
+              style={{
+                fontSize: "0.84rem",
+                color: "#94a3b8",
+                marginTop: 4,
+                lineHeight: 1.45,
+              }}
+            >
               Standard 9-step hierarchy workflow for adding, provisioning, and activating partner venues.
             </p>
           </div>
-          <button className="primary" onClick={onAddRestaurant} style={{ fontSize: "0.85rem" }}>
-            + Onboard New Restaurant
+          <button
+            className="primary"
+            onClick={onAddRestaurant}
+            style={{
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "10px 18px",
+              background: "linear-gradient(135deg, #10b981, #059669)",
+              border: "1px solid rgba(110, 231, 183, 0.3)",
+              boxShadow: "0 4px 14px rgba(16, 185, 129, 0.35)",
+              borderRadius: 10,
+              cursor: "pointer",
+            }}
+          >
+            <Plus size={16} strokeWidth={2.5} /> Onboard New Restaurant
           </button>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
-          <div style={{ background: "rgba(0,0,0,0.25)", padding: 12, borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)" }}>
-            <div style={{ fontSize: "0.8rem", color: "#38bdf8", fontWeight: 600 }}>STEP 1 - 2</div>
-            <strong style={{ fontSize: "0.88rem", display: "block", marginTop: 2 }}>Restaurant & QR Setup</strong>
-            <p className="muted" style={{ fontSize: "0.76rem", marginTop: 4 }}>
-              Add restaurant, generate stable customer URL and printable QR code immediately.
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
+            gap: 14,
+          }}
+        >
+          {/* STEP 1-2 */}
+          <div
+            style={{
+              background: "linear-gradient(145deg, rgba(56, 189, 248, 0.06), rgba(15, 23, 42, 0.4))",
+              padding: "16px 18px",
+              borderRadius: 12,
+              border: "1px solid rgba(56, 189, 248, 0.2)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span
+                style={{
+                  fontSize: "0.72rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  color: "#38bdf8",
+                  background: "rgba(56, 189, 248, 0.12)",
+                  padding: "3px 8px",
+                  borderRadius: 6,
+                  border: "1px solid rgba(56, 189, 248, 0.25)",
+                }}
+              >
+                STEP 1 – 2
+              </span>
+              <div
+                style={{
+                  color: "#38bdf8",
+                  background: "rgba(56, 189, 248, 0.1)",
+                  padding: 6,
+                  borderRadius: 8,
+                }}
+              >
+                <QrCode size={16} />
+              </div>
+            </div>
+            <strong style={{ fontSize: "0.95rem", color: "#f8fafc", fontWeight: 600 }}>
+              Restaurant & QR Setup
+            </strong>
+            <p style={{ fontSize: "0.8rem", color: "#94a3b8", lineHeight: 1.5, margin: 0 }}>
+              Add restaurant, generate stable customer URL and printable table QR code immediately.
             </p>
           </div>
 
-          <div style={{ background: "rgba(0,0,0,0.25)", padding: 12, borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)" }}>
-            <div style={{ fontSize: "0.8rem", color: "#fbbf24", fontWeight: 600 }}>STEP 3 - 5</div>
-            <strong style={{ fontSize: "0.88rem", display: "block", marginTop: 2 }}>Admin Provisioning</strong>
-            <p className="muted" style={{ fontSize: "0.76rem", marginTop: 4 }}>
-              Create Admin account with temporary password; Admin logs in and changes password.
+          {/* STEP 3-5 */}
+          <div
+            style={{
+              background: "linear-gradient(145deg, rgba(251, 191, 36, 0.06), rgba(28, 22, 10, 0.4))",
+              padding: "16px 18px",
+              borderRadius: 12,
+              border: "1px solid rgba(251, 191, 36, 0.2)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span
+                style={{
+                  fontSize: "0.72rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  color: "#fbbf24",
+                  background: "rgba(251, 191, 36, 0.12)",
+                  padding: "3px 8px",
+                  borderRadius: 6,
+                  border: "1px solid rgba(251, 191, 36, 0.25)",
+                }}
+              >
+                STEP 3 – 5
+              </span>
+              <div
+                style={{
+                  color: "#fbbf24",
+                  background: "rgba(251, 191, 36, 0.1)",
+                  padding: 6,
+                  borderRadius: 8,
+                }}
+              >
+                <KeyRound size={16} />
+              </div>
+            </div>
+            <strong style={{ fontSize: "0.95rem", color: "#f8fafc", fontWeight: 600 }}>
+              Admin Provisioning
+            </strong>
+            <p style={{ fontSize: "0.8rem", color: "#94a3b8", lineHeight: 1.5, margin: 0 }}>
+              Create Admin account with temporary password; Admin logs in and securely sets credentials.
             </p>
           </div>
 
-          <div style={{ background: "rgba(0,0,0,0.25)", padding: 12, borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)" }}>
-            <div style={{ fontSize: "0.8rem", color: "#a78bfa", fontWeight: 600 }}>STEP 6 - 7</div>
-            <strong style={{ fontSize: "0.88rem", display: "block", marginTop: 2 }}>Menu & Waiters</strong>
-            <p className="muted" style={{ fontSize: "0.76rem", marginTop: 4 }}>
-              Admin publishes dishes, sets prices, and provisions waiter accounts for their floor.
+          {/* STEP 6-7 */}
+          <div
+            style={{
+              background: "linear-gradient(145deg, rgba(168, 85, 247, 0.06), rgba(25, 15, 35, 0.4))",
+              padding: "16px 18px",
+              borderRadius: 12,
+              border: "1px solid rgba(168, 85, 247, 0.2)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span
+                style={{
+                  fontSize: "0.72rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  color: "#c084fc",
+                  background: "rgba(168, 85, 247, 0.12)",
+                  padding: "3px 8px",
+                  borderRadius: 6,
+                  border: "1px solid rgba(168, 85, 247, 0.25)",
+                }}
+              >
+                STEP 6 – 7
+              </span>
+              <div
+                style={{
+                  color: "#c084fc",
+                  background: "rgba(168, 85, 247, 0.1)",
+                  padding: 6,
+                  borderRadius: 8,
+                }}
+              >
+                <ChefHat size={16} />
+              </div>
+            </div>
+            <strong style={{ fontSize: "0.95rem", color: "#f8fafc", fontWeight: 600 }}>
+              Menu & Waiters
+            </strong>
+            <p style={{ fontSize: "0.8rem", color: "#94a3b8", lineHeight: 1.5, margin: 0 }}>
+              Admin publishes dishes, sets live prices, and provisions waiter accounts for their floor.
             </p>
           </div>
 
-          <div style={{ background: "rgba(0,0,0,0.25)", padding: 12, borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)" }}>
-            <div style={{ fontSize: "0.8rem", color: "#4ade80", fontWeight: 600 }}>STEP 8 - 9</div>
-            <strong style={{ fontSize: "0.88rem", display: "block", marginTop: 2 }}>Test & Go Live</strong>
-            <p className="muted" style={{ fontSize: "0.76rem", marginTop: 4 }}>
+          {/* STEP 8-9 */}
+          <div
+            style={{
+              background: "linear-gradient(145deg, rgba(52, 211, 153, 0.06), rgba(12, 28, 20, 0.4))",
+              padding: "16px 18px",
+              borderRadius: 12,
+              border: "1px solid rgba(52, 211, 153, 0.2)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span
+                style={{
+                  fontSize: "0.72rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  color: "#34d399",
+                  background: "rgba(52, 211, 153, 0.12)",
+                  padding: "3px 8px",
+                  borderRadius: 6,
+                  border: "1px solid rgba(52, 211, 153, 0.25)",
+                }}
+              >
+                STEP 8 – 9
+              </span>
+              <div
+                style={{
+                  color: "#34d399",
+                  background: "rgba(52, 211, 153, 0.1)",
+                  padding: 6,
+                  borderRadius: 8,
+                }}
+              >
+                <Rocket size={16} />
+              </div>
+            </div>
+            <strong style={{ fontSize: "0.95rem", color: "#f8fafc", fontWeight: 600 }}>
+              Test & Go Live
+            </strong>
+            <p style={{ fontSize: "0.8rem", color: "#94a3b8", lineHeight: 1.5, margin: 0 }}>
               Run isolated test orders (excluded from sales), then activate menu for live guests.
             </p>
           </div>
