@@ -415,69 +415,74 @@ export default function Team({
 
       {/* Sidebar Navigation */}
       <Sidebar collapsible="none" className="admin-sidebar">
-        <a className="brand" href="/">
-          <span className="brandmark">
-            <Utensils size={20} />
-          </span>
-          <span>
-            AS 426<small>STUDIOS</small>
-          </span>
-        </a>
+        <div className="admin-sidebar-header">
+          <a className="brand" href="/">
+            <span className="brandmark">
+              <Utensils size={20} />
+            </span>
+            <span>
+              AS 426<small>STUDIOS</small>
+            </span>
+          </a>
+        </div>
 
-        {/* Restaurant List Section */}
-        <p className="sidebar-label">
-          {isSuperAdmin ? "RESTAURANTS" : "ASSIGNED VENUE"} <span>{restaurants.length}</span>
-        </p>
+        {/* Scrollable Navigation Body */}
+        <div className="admin-sidebar-nav" data-testid="sidebar-nav-scroll">
+          {/* Restaurant List Section */}
+          <p className="sidebar-label">
+            {isSuperAdmin ? "RESTAURANTS" : "ASSIGNED VENUE"} <span>{restaurants.length}</span>
+          </p>
 
-        <div className="restaurant-list">
-          {restaurants.map((r) => (
+          <div className="restaurant-list">
+            {restaurants.map((r) => (
+              <button
+                className={id === r.id ? "restaurant-option active" : "restaurant-option"}
+                key={r.id}
+                onClick={() => {
+                  if (dirty) {
+                    toast.error("Save your changes before switching restaurants.");
+                    return;
+                  }
+                  setId(r.id);
+                  if (tab === "overview") setTab("menu");
+                }}
+              >
+                <Store size={16} />
+                <span>
+                  {r.name}
+                  <small>
+                    {r.active ? "Live menu" : "Paused"} · {r.count} dishes
+                  </small>
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {isSuperAdmin && (
+            <button className="add-restaurant" onClick={() => setCreate(true)}>
+              <Plus size={16} /> Add restaurant
+            </button>
+          )}
+
+          <div className="sidebar-divider" />
+
+          {/* Nav Tabs */}
+          {nav.map((n) => (
             <button
-              className={id === r.id ? "restaurant-option active" : "restaurant-option"}
-              key={r.id}
+              className={tab === n.key ? "nav-item active" : "nav-item"}
+              key={n.key}
               onClick={() => {
-                if (dirty) {
-                  toast.error("Save your changes before switching restaurants.");
-                  return;
-                }
-                setId(r.id);
-                if (tab === "overview") setTab("menu");
+                setTab(n.key);
+                if (n.key === "team") teamLoad().catch((e) => toast.error(e.message));
               }}
             >
-              <Store size={16} />
-              <span>
-                {r.name}
-                <small>
-                  {r.active ? "Live menu" : "Paused"} · {r.count} dishes
-                </small>
-              </span>
+              <n.icon size={18} />
+              {n.label}
             </button>
           ))}
         </div>
 
-        {isSuperAdmin && (
-          <button className="add-restaurant" onClick={() => setCreate(true)}>
-            <Plus size={16} /> Add restaurant
-          </button>
-        )}
-
-        <div className="sidebar-divider" />
-
-        {/* Nav Tabs */}
-        {nav.map((n) => (
-          <button
-            className={tab === n.key ? "nav-item active" : "nav-item"}
-            key={n.key}
-            onClick={() => {
-              setTab(n.key);
-              if (n.key === "team") teamLoad().catch((e) => toast.error(e.message));
-            }}
-          >
-            <n.icon size={18} />
-            {n.label}
-          </button>
-        ))}
-
-        {/* Current User Card */}
+        {/* Current User Card - Pinned at bottom */}
         <div className="sidebar-account">
           <span className="avatar">
             {isSuperAdmin ? "SA" : "M"}
