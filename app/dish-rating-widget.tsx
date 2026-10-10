@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Star, Check, MessageSquare, ChevronDown, ChevronUp } from "lucide-react";
+import { Star, Check, ChevronDown, ChevronUp, Sparkles, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import type { StoredOrder } from "@/lib/orders";
 
@@ -24,6 +24,7 @@ export default function DishRatingWidget({
 }) {
   const [open, setOpen] = useState(false);
   const [ratings, setRatings] = useState<Record<string, number>>({});
+  const [hoverStars, setHoverStars] = useState<Record<string, number>>({});
   const [comments, setComments] = useState<Record<string, string>>({});
   const [savedStatus, setSavedStatus] = useState<Record<string, boolean>>({});
   const [busyDish, setBusyDish] = useState<string | null>(null);
@@ -107,47 +108,121 @@ export default function DishRatingWidget({
     }
   }
 
+  const allRated = order.items.length > 0 && order.items.every((it) => savedStatus[it.id]);
+
   return (
     <div
       style={{
-        marginTop: 14,
-        paddingTop: 12,
-        borderTop: "1px dashed rgba(255,255,255,0.15)",
+        marginTop: 18,
+        paddingTop: 16,
+        borderTop: "1px dashed #d5ded1",
       }}
     >
+      {/* Header Expand/Collapse Trigger */}
       <button
         type="button"
-        className="secondary"
         onClick={() => setOpen(!open)}
         style={{
           width: "100%",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "8px 12px",
-          borderRadius: 8,
-          fontSize: "0.85rem",
-          background: open ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.02)",
+          padding: "12px 16px",
+          borderRadius: 12,
+          border: "1px solid #dce4d9",
+          background: open ? "#f4f8f2" : "#ffffff",
+          cursor: "pointer",
+          transition: "all 0.18s ease",
+          textAlign: "left",
+          boxShadow: open ? "0 2px 8px rgba(23,33,27,0.04)" : "0 1px 3px rgba(23,33,27,0.02)",
         }}
       >
-        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <Star size={15} style={{ color: "#fbbf24", fill: "#fbbf24" }} />
-          <strong>Rate your food</strong>
-          <small className="muted" style={{ marginLeft: 4 }}>
-            (Delivered to your table)
-          </small>
-        </span>
-        {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              background: allRated ? "#ecfdf5" : "#fef3c7",
+              color: allRated ? "#059669" : "#d97706",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            {allRated ? (
+              <Check size={18} style={{ strokeWidth: 2.5 }} />
+            ) : (
+              <Star size={18} style={{ fill: "#d97706" }} />
+            )}
+          </div>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "#17211b" }}>
+                {allRated ? "Dishes Rated" : "Rate your dishes"}
+              </span>
+              <span
+                style={{
+                  fontSize: "0.7rem",
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  padding: "2px 8px",
+                  borderRadius: 12,
+                  background: allRated ? "#d1fae5" : "#eaf4e5",
+                  color: allRated ? "#065f46" : "#3b5828",
+                }}
+              >
+                {allRated ? "Completed" : "Delivered"}
+              </span>
+            </div>
+            <p style={{ fontSize: "0.78rem", color: "#6b786f", margin: "2px 0 0" }}>
+              {allRated
+                ? "Thank you for sharing your feedback with the kitchen team!"
+                : "Help the culinary team perfect each dish on your table"}
+            </p>
+          </div>
+        </div>
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            background: open ? "#e1ebe0" : "#f1f5ee",
+            color: "#384a35",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            transition: "all 0.18s ease",
+          }}
+        >
+          {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </div>
       </button>
 
+      {/* Expanded Rating Cards */}
       {open && (
-        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
-          <p className="muted" style={{ fontSize: "0.78rem", margin: "0 0 4px 0" }}>
-            How was each dish? Your honest ratings help our kitchen team perfect their craft.
+        <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
+          <p
+            style={{
+              fontSize: "0.8rem",
+              color: "#6b786f",
+              margin: "0 2px",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <Sparkles size={14} style={{ color: "#84a34b" }} />
+            How was each item? Select stars and leave a note for the chefs:
           </p>
 
           {order.items.map((item) => {
             const currentStar = ratings[item.id] || 0;
+            const hovered = hoverStars[item.id] !== undefined;
+            const displayStar = hovered ? hoverStars[item.id] : currentStar;
             const currentComment = comments[item.id] || "";
             const isSaved = savedStatus[item.id];
             const isBusy = busyDish === item.id;
@@ -156,67 +231,165 @@ export default function DishRatingWidget({
               <div
                 key={item.id}
                 style={{
-                  background: "rgba(0,0,0,0.25)",
-                  border: "1px solid rgba(255,255,255,0.07)",
-                  borderRadius: 8,
-                  padding: "10px 12px",
+                  background: "#ffffff",
+                  border: isSaved ? "1.5px solid #a7f3d0" : "1.5px solid #e2e8df",
+                  borderRadius: 14,
+                  padding: "16px 18px",
+                  boxShadow: isSaved
+                    ? "0 3px 12px rgba(16,185,129,0.06)"
+                    : "0 2px 10px rgba(23,33,27,0.03)",
+                  transition: "all 0.2s ease",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <strong style={{ fontSize: "0.88rem" }}>{item.name}</strong>
+                {/* Dish Name & Saved Tag */}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 12,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: isSaved ? "#10b981" : "#84aa4e",
+                        display: "inline-block",
+                        flexShrink: 0,
+                      }}
+                    />
+                    <strong
+                      style={{
+                        fontSize: "0.98rem",
+                        color: "#17211b",
+                        fontWeight: 700,
+                        letterSpacing: "-0.01em",
+                      }}
+                    >
+                      {item.name}
+                    </strong>
+                    {item.quantity > 1 && (
+                      <span
+                        style={{
+                          fontSize: "0.72rem",
+                          color: "#5f6e61",
+                          background: "#eef3ec",
+                          padding: "2px 7px",
+                          borderRadius: 6,
+                          fontWeight: 600,
+                        }}
+                      >
+                        ×{item.quantity}
+                      </span>
+                    )}
+                  </div>
+
                   {isSaved && (
                     <span
                       style={{
-                        fontSize: "0.72rem",
-                        color: "#6ee7b7",
-                        display: "flex",
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        color: "#059669",
+                        background: "#ecfdf5",
+                        border: "1px solid #a7f3d0",
+                        padding: "3px 10px",
+                        borderRadius: 20,
+                        display: "inline-flex",
                         alignItems: "center",
-                        gap: 3,
+                        gap: 4,
                       }}
                     >
-                      <Check size={12} /> Rated {currentStar}★
+                      <Check size={13} style={{ strokeWidth: 2.5 }} /> Rated {currentStar}★
                     </span>
                   )}
                 </div>
 
                 {/* 1 to 5 Star Rating Buttons */}
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
-                  {[1, 2, 3, 4, 5].map((s) => {
-                    const active = s <= currentStar;
-                    return (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => {
-                          setRatings((prev) => ({ ...prev, [item.id]: s }));
-                          setSavedStatus((prev) => ({ ...prev, [item.id]: false }));
-                        }}
-                        style={{
-                          background: "transparent",
-                          border: "none",
-                          padding: 2,
-                          cursor: "pointer",
-                          transition: "transform 0.1s ease",
-                        }}
-                        title={`Rate ${s} star${s > 1 ? "s" : ""}`}
-                      >
-                        <Star
-                          size={22}
-                          style={{
-                            color: active ? "#fbbf24" : "rgba(255,255,255,0.25)",
-                            fill: active ? "#fbbf24" : "transparent",
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                    {[1, 2, 3, 4, 5].map((s) => {
+                      const active = s <= displayStar;
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          onMouseEnter={() => setHoverStars((prev) => ({ ...prev, [item.id]: s }))}
+                          onMouseLeave={() =>
+                            setHoverStars((prev) => {
+                              const copy = { ...prev };
+                              delete copy[item.id];
+                              return copy;
+                            })
+                          }
+                          onClick={() => {
+                            setRatings((prev) => ({ ...prev, [item.id]: s }));
+                            setSavedStatus((prev) => ({ ...prev, [item.id]: false }));
                           }}
-                        />
-                      </button>
-                    );
-                  })}
-                  <span style={{ fontSize: "0.8rem", color: "#a5b4a9", marginLeft: 4 }}>
-                    {currentStar > 0 ? `${currentStar} / 5` : "Tap to rate"}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            padding: "4px 3px",
+                            cursor: "pointer",
+                            transition: "transform 0.12s ease",
+                            transform: active ? "scale(1.12)" : "scale(1)",
+                          }}
+                          title={`Rate ${s} star${s > 1 ? "s" : ""}`}
+                        >
+                          <Star
+                            size={26}
+                            style={{
+                              color: active ? "#f59e0b" : "#d1d7ce",
+                              fill: active ? "#f59e0b" : "transparent",
+                              filter: active
+                                ? "drop-shadow(0 2px 4px rgba(245,158,11,0.32))"
+                                : "none",
+                              transition: "all 0.15s ease",
+                            }}
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <span
+                    style={{
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      padding: "4px 10px",
+                      borderRadius: 16,
+                      transition: "all 0.15s ease",
+                      ...(displayStar === 0
+                        ? { background: "#f3f6f1", color: "#6e7d6c" }
+                        : displayStar <= 2
+                        ? { background: "#fef3c7", color: "#92400e" }
+                        : displayStar <= 4
+                        ? { background: "#ecfccb", color: "#3f6212" }
+                        : { background: "#fef9c3", color: "#854d0e", border: "1px solid #fde047" }),
+                    }}
+                  >
+                    {displayStar === 0
+                      ? "Tap to rate"
+                      : displayStar === 1
+                      ? "1 / 5 · Needs improvement"
+                      : displayStar === 2
+                      ? "2 / 5 · Fair"
+                      : displayStar === 3
+                      ? "3 / 5 · Good"
+                      : displayStar === 4
+                      ? "4 / 5 · Delicious! 😋"
+                      : "5 / 5 · Exceptional! 🌟"}
                   </span>
                 </div>
 
                 {/* Optional Written Comment */}
-                <div style={{ marginTop: 8 }}>
+                <div style={{ position: "relative" }}>
                   <input
                     type="text"
                     maxLength={500}
@@ -225,28 +398,92 @@ export default function DishRatingWidget({
                       setComments((prev) => ({ ...prev, [item.id]: e.target.value }));
                       setSavedStatus((prev) => ({ ...prev, [item.id]: false }));
                     }}
-                    placeholder="Optional comment for the chef..."
+                    placeholder="Optional note for the chef (e.g. perfectly spiced, great portion)..."
                     style={{
                       width: "100%",
-                      fontSize: "0.8rem",
-                      background: "rgba(255,255,255,0.04)",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      borderRadius: 6,
-                      padding: "6px 10px",
-                      color: "#fff",
+                      fontSize: "0.85rem",
+                      background: "#fafbf9",
+                      border: "1px solid #d4ded1",
+                      borderRadius: 9,
+                      padding: "9px 12px",
+                      color: "#17211b",
+                      outline: "none",
+                      transition: "all 0.15s ease",
+                      boxSizing: "border-box",
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.background = "#ffffff";
+                      e.currentTarget.style.borderColor = "#689445";
+                      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(104,148,69,0.15)";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.background = "#fafbf9";
+                      e.currentTarget.style.borderColor = "#d4ded1";
+                      e.currentTarget.style.boxShadow = "none";
                     }}
                   />
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                {/* Bottom Action Row */}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 10,
+                    marginTop: 2,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span style={{ fontSize: "0.74rem", color: "#829280" }}>
+                    {currentComment.length > 0
+                      ? `${currentComment.length}/500 chars`
+                      : "Ratings are sent privately to the restaurant"}
+                  </span>
+
                   <button
                     type="button"
-                    className="primary"
                     disabled={isBusy || currentStar === 0 || isSaved}
                     onClick={() => handleSaveRating(item.id)}
-                    style={{ fontSize: "0.78rem", padding: "4px 10px" }}
+                    style={{
+                      fontSize: "0.82rem",
+                      fontWeight: 700,
+                      padding: "8px 16px",
+                      borderRadius: 8,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      cursor: isBusy || currentStar === 0 || isSaved ? "not-allowed" : "pointer",
+                      transition: "all 0.15s ease",
+                      ...(isSaved
+                        ? {
+                            background: "#ecfdf5",
+                            color: "#059669",
+                            border: "1px solid #a7f3d0",
+                          }
+                        : currentStar === 0
+                        ? {
+                            background: "#e8ede5",
+                            color: "#8a9686",
+                            border: "none",
+                          }
+                        : {
+                            background: "#17251e",
+                            color: "#ffffff",
+                            border: "none",
+                            boxShadow: "0 2px 6px rgba(23,37,30,0.18)",
+                          }),
+                    }}
                   >
-                    {isBusy ? "Saving..." : isSaved ? "Saved ✓" : "Submit Rating"}
+                    {isBusy ? (
+                      "Saving..."
+                    ) : isSaved ? (
+                      <>
+                        <Check size={14} style={{ strokeWidth: 2.5 }} /> Saved
+                      </>
+                    ) : (
+                      "Submit Rating"
+                    )}
                   </button>
                 </div>
               </div>
