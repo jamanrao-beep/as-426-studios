@@ -102,6 +102,7 @@ export default function Team({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [dish, setDish] = useState<Dish | null>(null);
+  const [customCategory, setCustomCategory] = useState(false);
 
   // Tab defaults
   const [tab, setTab] = useState<string>(isSuperAdmin ? "overview" : "menu");
@@ -1096,7 +1097,15 @@ export default function Team({
       </AlertDialog>
 
       {/* ADD / EDIT DISH DIALOG */}
-      <Dialog open={!!dish} onOpenChange={(v) => !v && setDish(null)}>
+      <Dialog
+        open={!!dish}
+        onOpenChange={(v) => {
+          if (!v) {
+            setDish(null);
+            setCustomCategory(false);
+          }
+        }}
+      >
         <DialogContent className="editor-modal">
           <DialogTitle>{menu?.dishes.some((d) => d.id === dish?.id) ? "Edit dish" : "Add a dish"}</DialogTitle>
           <DialogDescription>Save the menu after editing to publish your changes.</DialogDescription>
@@ -1112,6 +1121,7 @@ export default function Team({
                     : [...menu.dishes, dish],
                 });
                 setDish(null);
+                setCustomCategory(false);
               }}
             >
               <label>
@@ -1145,19 +1155,116 @@ export default function Team({
                   />
                 </label>
                 <label>
-                  Category
-                  <input
-                    required
-                    maxLength={40}
-                    list="categories"
-                    value={dish.category}
-                    onChange={(e) => setDish({ ...dish, category: e.target.value })}
-                  />
-                  <datalist id="categories">
-                    {[...new Set(menu?.dishes.map((d) => d.category))].map((c) => (
-                      <option key={c} value={c} />
-                    ))}
-                  </datalist>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <span>Category</span>
+                    <button
+                      type="button"
+                      onClick={() => setCustomCategory(!customCategory)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "#4d7335",
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                        padding: 0,
+                      }}
+                    >
+                      {customCategory ? "Choose from list" : "+ Type custom"}
+                    </button>
+                  </div>
+                  {customCategory ? (
+                    <input
+                      required
+                      maxLength={40}
+                      autoFocus
+                      placeholder="e.g. Starters, Main Course, Drinks..."
+                      value={dish.category}
+                      onChange={(e) => setDish({ ...dish, category: e.target.value })}
+                    />
+                  ) : (
+                    <select
+                      required
+                      value={dish.category}
+                      onChange={(e) => {
+                        if (e.target.value === "__custom__") {
+                          setCustomCategory(true);
+                        } else {
+                          setDish({ ...dish, category: e.target.value });
+                        }
+                      }}
+                    >
+                      <option value="" disabled>-- Select a category --</option>
+                      {Array.from(
+                        new Set((menu?.dishes || []).map((d) => d.category?.trim()).filter(Boolean))
+                      ).length > 0 && (
+                        <optgroup label="This Restaurant's Categories">
+                          {Array.from(
+                            new Set((menu?.dishes || []).map((d) => d.category?.trim()).filter(Boolean))
+                          ).map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      <optgroup label="Popular Categories">
+                        {[
+                          "Starters",
+                          "Small plates",
+                          "Big plates",
+                          "Main Course",
+                          "Rice & Biryani",
+                          "Breads & Naan",
+                          "Drinks",
+                          "Beverages",
+                          "Sweet endings",
+                          "Desserts",
+                          "Snacks & Sides",
+                          "Soups & Salads",
+                          "Chef Specials",
+                        ]
+                          .filter(
+                            (c) =>
+                              !(menu?.dishes || []).some(
+                                (d) => d.category?.trim().toLowerCase() === c.toLowerCase()
+                              )
+                          )
+                          .map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                      </optgroup>
+                      {dish.category &&
+                        !(menu?.dishes || []).some(
+                          (d) => d.category?.trim().toLowerCase() === dish.category?.trim().toLowerCase()
+                        ) &&
+                        ![
+                          "starters",
+                          "small plates",
+                          "big plates",
+                          "main course",
+                          "rice & biryani",
+                          "breads & naan",
+                          "drinks",
+                          "beverages",
+                          "sweet endings",
+                          "desserts",
+                          "snacks & sides",
+                          "soups & salads",
+                          "chef specials",
+                        ].includes(dish.category.trim().toLowerCase()) && (
+                          <optgroup label="Current Value">
+                            <option value={dish.category}>{dish.category}</option>
+                          </optgroup>
+                        )}
+                      <optgroup label="Custom">
+                        <option value="__custom__">✏️ + Type custom category...</option>
+                      </optgroup>
+                    </select>
+                  )}
                 </label>
               </div>
               <label>
