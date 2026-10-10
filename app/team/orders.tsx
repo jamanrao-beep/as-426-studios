@@ -69,8 +69,30 @@ export default function Orders({
   }, [restaurant, canEdit, view, date]);
 
   async function update(order: StoredOrder, status: OrderStatus, reason?: string) {
+    const previousStatus = order.status;
+    const previousRows = [...rows];
+
+    // Optimistically update order status immediately for instant visual feedback
+    setRows((prev) =>
+      prev.map((item) =>
+        item.id === order.id
+          ? {
+              ...item,
+              status,
+              updated_at: new Date().toISOString(),
+              cancellation_reason: status === "cancelled" ? reason?.trim() || item.cancellation_reason : item.cancellation_reason,
+            }
+          : item
+      )
+    );
+
+    setCancel(null);
+    setCancelReason("");
+    setCancelError("");
+    setDeliver(null);
     setBusy(order.id);
     setError("");
+
     try {
       const r = await fetch("/api/orders", {
         method: "PATCH",
@@ -78,19 +100,19 @@ export default function Orders({
         body: JSON.stringify({
           restaurant: order.restaurant_id,
           id: order.id,
-          from: order.status,
+          from: previousStatus,
           status,
           reason: status === "cancelled" ? reason?.trim() : undefined,
         }),
       });
       const d = (await r.json()) as { error?: string };
-      if (!r.ok) throw Error(d.error);
-      setCancel(null);
-      setCancelReason("");
-      setCancelError("");
-      setDeliver(null);
-      await load(false, true);
+      if (!r.ok) {
+        setRows(previousRows);
+        throw Error(d.error);
+      }
+      load(false, true);
     } catch (e) {
+      setRows(previousRows);
       setError(e instanceof Error ? e.message : "Couldn’t update order");
     } finally {
       setBusy(null);

@@ -46,10 +46,13 @@ export async function POST(req: Request) {
 
     const requestHash = await hash(JSON.stringify({ ...b, items: [...b.items].sort((a, b) => a.id.localeCompare(b.id)) }));
 
-    const prior = await db()
-      .prepare("SELECT id, request_hash, status, total, table_label, created_at FROM orders WHERE id = ?")
-      .bind(b.id)
-      .first<any>();
+    const [prior, current] = await Promise.all([
+      db()
+        .prepare("SELECT id, request_hash, status, total, table_label, created_at FROM orders WHERE id = ?")
+        .bind(b.id)
+        .first<any>(),
+      readMenu(b.restaurant),
+    ]);
 
     if (prior) {
       if (prior.request_hash !== requestHash) {
@@ -58,7 +61,6 @@ export async function POST(req: Request) {
       return Response.json({ order: receipt(prior) });
     }
 
-    const current = await readMenu(b.restaurant);
     if (!current) return Response.json({ error: "Restaurant unavailable." }, { status: 404 });
 
     // Check if restaurant is active
@@ -477,8 +479,8 @@ export async function PATCH(req: Request) {
       );
     }
 
-    // Atomic structured audit logging
-    await logAudit({
+    // Structured audit logging (asynchronous so waiter response is returned immediately)
+    logAudit({
       action: "order_status_changed",
       actorId,
       actorEmail: actor.email,
@@ -492,6 +494,8 @@ export async function PATCH(req: Request) {
         actorName,
         reason: b.reason ? b.reason.trim() : null,
       },
+    }).catch((err) => {
+      console.error("[audit async error]:", err);
     });
 
     return Response.json({ ok: true, status: b.status });

@@ -274,13 +274,34 @@ export default function WaiterWorkspace({
     };
   }, [assignedRestaurant, view, historyDate, tableFilter, statusFilter, searchQuery]);
 
-  // Order status transition handler
+  // Order status transition handler with optimistic UI updates
   async function handleStatusChange(
     order: StoredOrder,
     targetStatus: OrderStatus,
     reason?: string
   ) {
     if (!assignedRestaurant) return;
+    const previousStatus = order.status;
+    const previousOrders = [...orders];
+
+    // Optimistically update local order state immediately for zero-lag UI feedback
+    setOrders((prev) =>
+      prev.map((item) =>
+        item.id === order.id
+          ? {
+              ...item,
+              status: targetStatus,
+              updated_at: new Date().toISOString(),
+              cancellation_reason:
+                targetStatus === "cancelled" ? reason?.trim() || item.cancellation_reason : item.cancellation_reason,
+            }
+          : item
+      )
+    );
+
+    setDeliverOrder(null);
+    setCancelOrder(null);
+    setCancelReason("");
     setBusyOrderId(order.id);
     setError("");
     setConflictNotice("");
@@ -292,7 +313,7 @@ export default function WaiterWorkspace({
         body: JSON.stringify({
           restaurant: assignedRestaurant,
           id: order.id,
-          from: order.status,
+          from: previousStatus,
           status: targetStatus,
           reason: targetStatus === "cancelled" ? reason?.trim() : undefined,
         }),
@@ -301,20 +322,21 @@ export default function WaiterWorkspace({
       const data = (await res.json()) as { ok?: boolean; error?: string };
 
       if (!res.ok) {
+        // Rollback optimistic update
+        setOrders(previousOrders);
         if (res.status === 409) {
           // Concurrency conflict
           setConflictNotice(data.error || "Order status changed concurrently.");
-          await fetchOrders(false, true);
+          fetchOrders(false, true);
           return;
         }
         throw new Error(data.error || "Failed to update order status.");
       }
 
-      setDeliverOrder(null);
-      setCancelOrder(null);
-      setCancelReason("");
-      await fetchOrders(false, true);
+      // Sync server data in the background
+      fetchOrders(false, true);
     } catch (err: any) {
+      setOrders(previousOrders);
       setError(err?.message || "Status change failed.");
     } finally {
       setBusyOrderId(null);

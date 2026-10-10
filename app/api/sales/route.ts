@@ -26,9 +26,8 @@ export async function GET(req: Request) {
 
     let query = `
       SELECT 
-        substr(datetime(COALESCE(completed_at, updated_at), '+330 minutes'), 1, 10) AS day,
-        COUNT(*) AS orders,
-        SUM(total) AS revenue
+        COALESCE(completed_at, updated_at) AS date_str,
+        total
       FROM orders
       WHERE status = 'served' 
         AND COALESCE(is_test, 0) = 0
@@ -45,22 +44,33 @@ export async function GET(req: Request) {
       params.push(...a.restaurantIds);
     }
 
-    query += " GROUP BY day ORDER BY day";
-
     const r = await db()
       .prepare(query)
       .bind(...params)
-      .all<{ day: string; orders: number; revenue: number }>();
+      .all<{ date_str: string; total: number }>();
 
-    const days = Array.from({ length: range.days }, (_, i) => {
-      const day = month + "-" + String(i + 1).padStart(2, "0");
-      const found = r.results.find((row) => row.day === day);
-      return {
-        day,
-        orders: Number(found?.orders || 0),
-        revenue: Number(found?.revenue || 0),
-      };
-    });
+    // Map each served order to its IST date
+    const dayMap = new Map<string, { orders: number; revenue: number }>();
+    for (let i = 1; i <= range.days; i++) {
+      const d = month + "-" + String(i).padStart(2, "0");
+      dayMap.set(d, { orders: 0, revenue: 0 });
+    }
+
+    for (const row of r.results) {
+      if (!row.date_str) continue;
+      const day = indiaDate(new Date(row.date_str));
+      const entry = dayMap.get(day);
+      if (entry) {
+        entry.orders += 1;
+        entry.revenue += Number(row.total || 0);
+      }
+    }
+
+    const days = Array.from(dayMap.entries()).map(([day, stats]) => ({
+      day,
+      orders: stats.orders,
+      revenue: stats.revenue,
+    }));
 
     const totalOrders = days.reduce((s, d) => s + d.orders, 0);
     const totalRevenue = days.reduce((s, d) => s + d.revenue, 0);
