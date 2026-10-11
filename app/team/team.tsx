@@ -22,6 +22,8 @@ import {
   Copy,
   TrendingUp,
   Sparkles,
+  Menu as MenuIcon,
+  X,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -106,6 +108,7 @@ export default function Team({
 
   // Tab defaults
   const [tab, setTab] = useState<string>(isSuperAdmin ? "overview" : "menu");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // Create restaurant dialog
   const [create, setCreate] = useState(false);
@@ -413,17 +416,60 @@ export default function Team({
     <SidebarProvider className="admin">
       <Toaster richColors />
 
-      {/* Sidebar Navigation */}
-      <Sidebar collapsible="none" className="admin-sidebar">
-        <div className="admin-sidebar-header">
-          <a className="brand" href="/">
-            <span className="brandmark">
-              <Utensils size={20} />
-            </span>
-            <span>
-              AS 426<small>STUDIOS</small>
-            </span>
+      {/* Mobile Top Navigation Bar */}
+      <div className="mobile-admin-header">
+        <button
+          type="button"
+          className="mobile-menu-trigger"
+          onClick={() => setMobileNavOpen(true)}
+          aria-label="Open menu"
+        >
+          <MenuIcon size={22} />
+        </button>
+        <div className="mobile-admin-title">
+          <Utensils size={16} className="mobile-brand-icon" />
+          <span>{tab === "overview" ? "System Overview" : menu?.name || savedName || "AS 426"}</span>
+        </div>
+        <div className="mobile-header-actions">
+          {id && (
+            <a href={"/r/" + id} target="_blank" rel="noreferrer" title="View customer menu" className="mobile-menu-action">
+              <ExternalLink size={16} />
+            </a>
+          )}
+          <a href="/api/auth/logout?return_to=/login" title="Sign out" className="mobile-menu-action">
+            <LogOut size={16} />
           </a>
+        </div>
+      </div>
+
+      {/* Backdrop overlay for smooth mobile drawer */}
+      <div
+        className={`mobile-sidebar-backdrop ${mobileNavOpen ? "open" : ""}`}
+        onClick={() => setMobileNavOpen(false)}
+        aria-hidden="true"
+      />
+
+      {/* Sidebar Navigation */}
+      <Sidebar collapsible="none" className={`admin-sidebar ${mobileNavOpen ? "mobile-open" : ""}`}>
+        <div className="admin-sidebar-header">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+            <a className="brand" href="/" onClick={() => setMobileNavOpen(false)}>
+              <span className="brandmark">
+                <Utensils size={20} />
+              </span>
+              <span>
+                AS 426<small>STUDIOS</small>
+              </span>
+            </a>
+            <button
+              type="button"
+              className="mobile-sidebar-close"
+              onClick={() => setMobileNavOpen(false)}
+              aria-label="Close menu"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Scrollable Navigation Body */}
@@ -445,6 +491,7 @@ export default function Team({
                   }
                   setId(r.id);
                   if (tab === "overview") setTab("menu");
+                  setMobileNavOpen(false);
                 }}
               >
                 <Store size={16} />
@@ -459,7 +506,13 @@ export default function Team({
           </div>
 
           {isSuperAdmin && (
-            <button className="add-restaurant" onClick={() => setCreate(true)}>
+            <button
+              className="add-restaurant"
+              onClick={() => {
+                setCreate(true);
+                setMobileNavOpen(false);
+              }}
+            >
               <Plus size={16} /> Add restaurant
             </button>
           )}
@@ -473,6 +526,7 @@ export default function Team({
               key={n.key}
               onClick={() => {
                 setTab(n.key);
+                setMobileNavOpen(false);
                 if (n.key === "team") teamLoad().catch((e) => toast.error(e.message));
               }}
             >
