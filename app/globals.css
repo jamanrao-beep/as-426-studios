@@ -149,6 +149,57 @@
     min-width: 112px !important;
     justify-content: center !important;
   }
+  .status-toggle-btn {
+    min-width: 84px !important;
+    justify-content: center !important;
+    text-align: center !important;
+  }
+  .order-card-actions {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  .order-card-actions button,
+  .order-card-actions .btn-action {
+    width: 100% !important;
+    min-height: 44px !important;
+  }
+  .waiter-topbar {
+    padding: 0.65rem 0.85rem !important;
+    gap: 0.5rem !important;
+  }
+  .waiter-restaurant-title {
+    font-size: 1rem !important;
+  }
+  .waiter-user-info {
+    display: none !important;
+  }
+  .telemetry-time {
+    display: none !important;
+  }
+  .waiter-orders-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .waiter-controls-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+  .waiter-controls-row .control-item {
+    width: 100% !important;
+  }
+  .waiter-controls-row .control-input,
+  .waiter-controls-row .control-select,
+  .waiter-controls-row .search-box-wrapper,
+  .waiter-controls-row .search-input {
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .waiter-controls-row .sound-toggle-btn,
+  .waiter-controls-row .manual-refresh-btn {
+    width: 100% !important;
+    justify-content: center !important;
+    margin-left: 0 !important;
+  }
 }
 
 .dish-rating-badge {

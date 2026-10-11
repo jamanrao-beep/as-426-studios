@@ -447,10 +447,13 @@ export default function Waiters({
                     </button>
 
                     <button
-                      className="secondary"
+                      className="secondary status-toggle-btn"
                       style={{
                         fontSize: "0.78rem",
                         padding: "6px 10px",
+                        minWidth: 84,
+                        textAlign: "center",
+                        justifyContent: "center",
                         color: w.status === "active" ? "#fca5a5" : "#6ee7b7",
                       }}
                       onClick={() => handleToggleStatus(w)}

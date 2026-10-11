@@ -629,10 +629,13 @@ export default function Managers({
                       </button>
 
                       <button
-                        className="secondary"
+                        className="secondary status-toggle-btn"
                         style={{
                           fontSize: "0.76rem",
                           padding: "5px 9px",
+                          minWidth: 84,
+                          textAlign: "center",
+                          justifyContent: "center",
                           color: m.status === "active" ? "#fca5a5" : "#6ee7b7",
                         }}
                         onClick={() => handleToggleStatus(m)}
