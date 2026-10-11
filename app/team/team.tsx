@@ -492,6 +492,9 @@ export default function Team({
                   setId(r.id);
                   if (tab === "overview") setTab("menu");
                   setMobileNavOpen(false);
+                  if (typeof window !== "undefined") {
+                    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+                  }
                 }}
               >
                 <Store size={16} />
@@ -527,6 +530,9 @@ export default function Team({
               onClick={() => {
                 setTab(n.key);
                 setMobileNavOpen(false);
+                if (typeof window !== "undefined") {
+                  window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+                }
                 if (n.key === "team") teamLoad().catch((e) => toast.error(e.message));
               }}
             >
@@ -656,6 +662,9 @@ export default function Team({
               onNavigate={(t, rId) => {
                 setTab(t);
                 if (rId) setId(rId);
+                if (typeof window !== "undefined") {
+                  window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+                }
               }}
               onAddRestaurant={() => setCreate(true)}
             />
@@ -739,7 +748,7 @@ export default function Team({
                           })
                         }
                       />
-                      <span>{d.available ? "Available" : "Sold out"}</span>
+                      <span className="availability-label">{d.available ? "Available" : "Sold out"}</span>
                     </label>
                     <button className="icon-button" aria-label={`Edit ${d.name}`} onClick={() => setDish({ ...d })}>
                       <Pencil size={17} />

@@ -608,6 +608,9 @@ export default function WaiterWorkspace({
               onClick={() => {
                 setView("today");
                 setStatusFilter("");
+                if (typeof window !== "undefined") {
+                  window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+                }
               }}
             >
               Today’s orders {view === "today" && `(${orders.length})`}
@@ -618,6 +621,9 @@ export default function WaiterWorkspace({
               onClick={() => {
                 setView("unfinished");
                 setStatusFilter("");
+                if (typeof window !== "undefined") {
+                  window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+                }
               }}
             >
               Earlier unfinished orders
@@ -628,6 +634,9 @@ export default function WaiterWorkspace({
               onClick={() => {
                 setView("history");
                 setStatusFilter("");
+                if (typeof window !== "undefined") {
+                  window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+                }
               }}
             >
               Order history
