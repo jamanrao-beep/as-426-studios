@@ -357,7 +357,7 @@ export default function SuperAdminOverview({
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontSize: "0.82rem", color: "#a5b4a9", textTransform: "uppercase", letterSpacing: 0.5 }}>
-              Delivered Sales Value
+              Today's Delivered Sales
             </span>
             <div style={{ background: "rgba(168,85,247,0.15)", padding: 8, borderRadius: 10, color: "#c084fc" }}>
               <TrendingUp size={18} />
