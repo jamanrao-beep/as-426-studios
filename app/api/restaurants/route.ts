@@ -1,5 +1,4 @@
 import { access, db, sameOrigin, validSlug, readMenu } from "@/db/store";
-import { sample } from "@/lib/menu";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
@@ -56,26 +55,6 @@ export async function GET(req: Request) {
         manager_qr_visible: r.manager_qr_visible !== 0,
       };
     });
-
-    // Ensure ember-spice exists in results
-    if (!rows.some((r) => r.id === "ember-spice")) {
-      rows.unshift({
-        id: "ember-spice",
-        name: "Ember & Spice",
-        slug: "ember-spice",
-        address: "42 Connaught Place, New Delhi",
-        contact_phone: "+91 98100 12345",
-        contact_email: "contact@emberspice.com",
-        welcome_message: "Welcome to Ember & Spice.",
-        note: "Taxes and service charge included.",
-        status: "active",
-        manager_qr_visible: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        count: sample.dishes.length,
-        active: true,
-      });
-    }
 
     // Role-based filtering: Super Admin sees all; Restaurant Admin sees ONLY their assigned restaurant
     if (!a.owner) {

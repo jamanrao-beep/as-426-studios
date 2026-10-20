@@ -1,5 +1,4 @@
 import { getAuthUser } from "@/lib/auth";
-import { sample } from "@/lib/menu";
 import { getSqliteD1 } from "@/db/sqlite";
 import { getMysqlDb, isMysqlConfigured } from "@/db/mysql";
 import { UserRole } from "@/lib/auth-constants";
@@ -50,7 +49,6 @@ export async function access(restaurantId?: string): Promise<Access> {
       .prepare("SELECT id FROM restaurants WHERE status != 'archived'")
       .all<{ id: string }>();
     const ids = allRestaurants.results.map((r) => r.id);
-    if (!ids.includes("ember-spice")) ids.unshift("ember-spice");
 
     let restaurantName = "";
     if (restaurantId) {
@@ -66,7 +64,7 @@ export async function access(restaurantId?: string): Promise<Access> {
       userId: user.userId,
       name: user.displayName || user.email,
       email: user.email,
-      restaurantId: restaurantId || "ember-spice",
+      restaurantId: restaurantId || "",
       restaurantName,
       restaurantIds: ids,
       mustChangePassword: !!user.mustChangePassword,
@@ -255,7 +253,7 @@ export async function readMenu(id: string) {
     const menu = JSON.parse(row.data);
     return menu.deleted ? null : { menu, revision: row.revision };
   }
-  return id === "ember-spice" ? { menu: sample, revision: 0 } : null;
+  return null;
 }
 
 export function sameOrigin(req: Request) {

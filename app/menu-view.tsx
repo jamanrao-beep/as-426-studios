@@ -359,7 +359,7 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
         <section className="menu-heading">
           <div className="hero-content">
             <p className="eyebrow">
-              {restaurant === "ember-spice" ? "A TABLE SECRET EXPERIENCE · DEMO" : "WELCOME TO YOUR TABLE"}
+              WELCOME TO YOUR TABLE
             </p>
             <h1>{menu.name}</h1>
             <p className="hero-tagline">{menu.tagline}</p>
