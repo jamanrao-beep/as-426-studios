@@ -20,11 +20,11 @@ function getPool(): Pool {
   }
 
   poolInstance = mysql.createPool({
-    host: process.env.MYSQL_HOST || "srv839.hstgr.io",
+    host: process.env.MYSQL_HOST,
     port: Number(process.env.MYSQL_PORT || 3306),
-    user: process.env.MYSQL_USER || "u580210733_ts_admin",
-    password: process.env.MYSQL_PASSWORD || "Admin@009988763366",
-    database: process.env.MYSQL_DATABASE || "u580210733_table_secret",
+    user: process.env.MYSQL_USER,
+    password: process.env.MYSQL_PASSWORD,
+    database: process.env.MYSQL_DATABASE,
     waitForConnections: true,
     connectionLimit: 15,
     queueLimit: 0,

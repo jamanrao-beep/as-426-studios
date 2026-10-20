@@ -1,13 +1,20 @@
 import mysql from "mysql2/promise";
 import fs from "node:fs";
 import path from "node:path";
+for (const k of ["MYSQL_HOST", "MYSQL_USER", "MYSQL_PASSWORD", "MYSQL_DATABASE"]) {
+  if (!process.env[k]) {
+    console.error(`Missing ${k}. Set the MySQL environment variables before running this script.`);
+    process.exit(1);
+  }
+}
+
 
 const connectionConfig = {
-  host: process.env.MYSQL_HOST || "srv839.hstgr.io",
+  host: process.env.MYSQL_HOST,
   port: Number(process.env.MYSQL_PORT || 3306),
-  user: process.env.MYSQL_USER || "u580210733_ts_admin",
-  password: process.env.MYSQL_PASSWORD || "Admin@009988763366",
-  database: process.env.MYSQL_DATABASE || "u580210733_table_secret",
+  user: process.env.MYSQL_USER,
+  password: process.env.MYSQL_PASSWORD,
+  database: process.env.MYSQL_DATABASE,
   ssl: { rejectUnauthorized: false }
 };
 

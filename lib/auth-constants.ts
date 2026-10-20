@@ -27,7 +27,7 @@ export interface AccountRecord {
 export const AUTH_COOKIE_NAME = "as426_session";
 
 export const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL || "admin@as426.studios";
-export const SUPER_ADMIN_PASSWORD = process.env.SUPER_ADMIN_PASSWORD || "admin@009988763366";
+export const SUPER_ADMIN_PASSWORD = process.env.SUPER_ADMIN_PASSWORD || "";
 
 /**
  * Default preset accounts used for offline fallback and quick initial testing.

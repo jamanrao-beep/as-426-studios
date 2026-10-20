@@ -49,3 +49,5 @@ next-env.d.ts
 *.db
 /backups/
 /scratch/
+
+!.env.example

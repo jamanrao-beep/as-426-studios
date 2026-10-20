@@ -7,9 +7,13 @@ import crypto from "node:crypto";
 
 export { AUTH_COOKIE_NAME, PRESET_ACCOUNTS, type AuthUser };
 
-const SESSION_SECRET = process.env.SESSION_SECRET || "as426-secure-session-secret-key-32chars";
+// In production the secret must come from the environment. The built-in value is for local development only.
+const SESSION_SECRET =
+  process.env.SESSION_SECRET || (process.env.NODE_ENV === "production" ? "" : "as426-dev-only-session-secret-key-32chars");
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 function signPayload(dataStr: string): string {
+  if (!SESSION_SECRET) throw new Error("SESSION_SECRET is not configured on the server.");
   return crypto.createHmac("sha256", SESSION_SECRET).update(dataStr).digest("base64url");
 }
 
@@ -78,7 +82,10 @@ export async function authenticate(
   }
 
   // 3. Fallback to preset accounts (for offline / seed verification)
-  const foundPreset = PRESET_ACCOUNTS.find(
+  // Built-in demo accounts exist for local development only; they are never accepted in production.
+  const foundPreset = IS_PRODUCTION
+    ? undefined
+    : PRESET_ACCOUNTS.find(
     (acc) => acc.email.toLowerCase() === normalizedEmail && acc.password === pass
   );
   if (foundPreset) {

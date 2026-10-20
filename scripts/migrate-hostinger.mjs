@@ -1,12 +1,30 @@
 import mysql from "mysql2/promise";
 import { sample } from "../lib/menu.ts";
+import crypto from "node:crypto";
+
+// Seed passwords come from the environment, or are generated and printed once. Never hard-coded.
+const generated = [];
+function seedHash(envName, label) {
+  const password = process.env[envName] || crypto.randomBytes(9).toString("base64url");
+  if (!process.env[envName]) generated.push(`${label}: ${password}`);
+  const salt = crypto.randomBytes(16).toString("hex");
+  return `scrypt$${salt}$${crypto.scryptSync(password, salt, 64).toString("hex")}`;
+}
+
+for (const k of ["MYSQL_HOST", "MYSQL_USER", "MYSQL_PASSWORD", "MYSQL_DATABASE"]) {
+  if (!process.env[k]) {
+    console.error(`Missing ${k}. Set the MySQL environment variables before running this script.`);
+    process.exit(1);
+  }
+}
+
 
 const pool = mysql.createPool({
-  host: process.env.MYSQL_HOST || "srv839.hstgr.io",
+  host: process.env.MYSQL_HOST,
   port: Number(process.env.MYSQL_PORT || 3306),
-  user: process.env.MYSQL_USER || "u580210733_ts_admin",
-  password: process.env.MYSQL_PASSWORD || "Admin@009988763366",
-  database: process.env.MYSQL_DATABASE || "u580210733_table_secret",
+  user: process.env.MYSQL_USER,
+  password: process.env.MYSQL_PASSWORD,
+  database: process.env.MYSQL_DATABASE,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
@@ -257,11 +275,11 @@ async function migrate() {
     await conn.query(`
       INSERT INTO accounts (id, email, password_hash, name, role, restaurant_id, status, must_change_password, session_version, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash)
+      ON DUPLICATE KEY UPDATE name = VALUES(name)
     `, [
       "acc_super_admin",
       "admin@as426.studios",
-      "admin@009988763366",
+      seedHash("SEED_SUPER_ADMIN_PASSWORD", "Super Admin"),
       "Super Admin",
       "super_admin",
       null,
@@ -276,11 +294,11 @@ async function migrate() {
     await conn.query(`
       INSERT INTO accounts (id, email, password_hash, name, role, restaurant_id, status, must_change_password, session_version, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash)
+      ON DUPLICATE KEY UPDATE name = VALUES(name)
     `, [
       "acc_mgr_ember",
       "admin@as426.com",
-      "admin123",
+      seedHash("SEED_MANAGER_PASSWORD", "Manager"),
       "Restaurant Manager",
       "admin",
       "ember-spice",
@@ -295,11 +313,11 @@ async function migrate() {
     await conn.query(`
       INSERT INTO accounts (id, email, password_hash, name, role, restaurant_id, status, must_change_password, session_version, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash)
+      ON DUPLICATE KEY UPDATE name = VALUES(name)
     `, [
       "acc_waiter_ember",
       "staff@as426.com",
-      "staff123",
+      seedHash("SEED_WAITER_PASSWORD", "Waiter"),
       "Rahul (Staff)",
       "waiter",
       "ember-spice",
@@ -375,6 +393,7 @@ async function migrate() {
     }
 
     console.log("✅ Seed data populated successfully in Hostinger MySQL!");
+    if (generated.length) console.log(["Temporary passwords (shown once, change them after first login):", ...generated].join(String.fromCharCode(10)));
   } catch (err) {
     console.error("❌ Migration error:", err);
     throw err;
