@@ -27,6 +27,17 @@ export async function GET(req: Request) {
       );
     }
 
+    if (!admin) {
+      // Public menus get small image URLs (cacheable) instead of embedded photo data.
+      for (const d of result.menu.dishes as Array<{ id: string; image?: string }>) {
+        if (d.image && d.image.startsWith("data:")) {
+          let h = 0;
+          for (let i = 0; i < d.image.length; i += 97) h = (h * 31 + d.image.charCodeAt(i)) | 0;
+          d.image = `/api/dish-image?restaurant=${encodeURIComponent(id)}&dish=${encodeURIComponent(d.id)}&v=${(h >>> 0).toString(36)}${d.image.length.toString(36)}`;
+        }
+      }
+    }
+
     return Response.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (err: any) {
     console.error("[GET /api/menu] Error:", err?.message || err);

@@ -213,7 +213,22 @@ async function migrate() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
-    console.log("✅ All 12 tables created successfully!");
+    // 13. Table service requests (call waiter / ask for the bill)
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS service_requests (
+        id VARCHAR(64) PRIMARY KEY NOT NULL,
+        restaurant_id VARCHAR(80) NOT NULL,
+        table_label VARCHAR(40) NOT NULL,
+        kind VARCHAR(16) NOT NULL,
+        status VARCHAR(16) NOT NULL,
+        created_at VARCHAR(40) NOT NULL,
+        resolved_at VARCHAR(40),
+        resolved_by VARCHAR(120),
+        INDEX idx_service_requests_rest (restaurant_id, status)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    console.log("✅ All tables created successfully!");
 
     // SEED INITIAL DATA
     const now = new Date().toISOString();
