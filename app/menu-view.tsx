@@ -22,6 +22,10 @@ import {
   Salad,
   Soup,
   UtensilsCrossed,
+  BellRing,
+  Receipt,
+  Languages,
+  Flame as FlameIcon,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import PlacedOrders from "./placed-orders";
@@ -30,6 +34,7 @@ import TableGames from "./table-games";
 import TasteQuiz from "./taste-quiz";
 import { Switch } from "@/components/ui/switch";
 import type { Menu, Dish } from "@/lib/menu";
+import { LANGS, useLang, type Lang } from "@/lib/i18n";
 
 function CategoryIcon({ name }: { name: string }) {
   const v = name.toLowerCase();
@@ -46,7 +51,12 @@ function CategoryIcon({ name }: { name: string }) {
 }
 
 export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: string }) {
+  const { lang, setLang, t } = useLang();
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [popular, setPopular] = useState<string[]>([]);
+  const [large, setLarge] = useState(false);
+  const [svcTable, setSvcTable] = useState("");
+  const [svcMsg, setSvcMsg] = useState("");
   function removeFromCart(id: string) {
     setCart((items) => items.map((i) => (i.id === id ? { ...i, quantity: i.quantity - 1 } : i)).filter((i) => i.quantity > 0));
   }
@@ -84,6 +94,54 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
       setDark(localStorage.getItem("ts-theme") === "dark");
     } catch {}
   }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.tsTheme = dark ? "dark" : "light";
+    return () => {
+      delete document.documentElement.dataset.tsTheme;
+    };
+  }, [dark]);
+
+  useEffect(() => {
+    try {
+      setLarge(localStorage.getItem("ts-large") === "1");
+      const g = localStorage.getItem("ts-guest:" + restaurant);
+      if (g) setSvcTable((JSON.parse(g) as { table?: string }).table || "");
+    } catch {}
+  }, [restaurant]);
+
+  function toggleLarge() {
+    setLarge((v) => {
+      try {
+        localStorage.setItem("ts-large", v ? "0" : "1");
+      } catch {}
+      return !v;
+    });
+  }
+
+  async function requestService(kind: "waiter" | "bill") {
+    const table = svcTable.trim();
+    if (!table) {
+      setSvcMsg("Please enter your table number first.");
+      return;
+    }
+    try {
+      localStorage.setItem("ts-guest:" + restaurant, JSON.stringify({ table, name: "" }));
+    } catch {}
+    try {
+      const r = await fetch("/api/service-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ restaurant, table, kind }),
+      });
+      const d = (await r.json()) as { error?: string };
+      if (!r.ok && r.status !== 429) throw Error(d.error);
+      setSvcMsg(t("Your server has been notified."));
+      setToast(t("Your server has been notified."));
+    } catch (e) {
+      setSvcMsg(e instanceof Error ? e.message : "We couldn’t reach your server. Please wave to them.");
+    }
+  }
 
   function toggleTheme() {
     setDark((d) => {
@@ -149,6 +207,11 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
       const d = (await r.json()) as any;
       if (!r.ok) throw Error(d.error);
       setMenu(d.menu);
+
+      fetch(`/api/popular?restaurant=${encodeURIComponent(restaurant)}`)
+        .then((res) => res.json())
+        .then((data: any) => setPopular(Array.isArray(data?.popular) ? data.popular : []))
+        .catch(() => {});
 
       // Fetch public star rating aggregates for each dish
       fetch(`/api/dish-ratings?restaurant=${encodeURIComponent(restaurant)}&public=1`)
@@ -268,7 +331,7 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
   else if (sort === "top-rated") shown.sort((a, b) => rate(b.id) - rate(a.id));
 
   return (
-    <div className={`customer ts-dining ts-editorial${dark ? " ts-dark" : ""}`}>
+    <div className={`customer ts-dining ts-editorial${dark ? " ts-dark" : ""}${large ? " ts-large" : ""}`}>
       <header className="brandbar">
         <span className="brand">
           <span className="brandmark" aria-hidden="true" />
@@ -280,15 +343,15 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
         <div className="header-actions">
           <button className="header-orders" onClick={toggleTheme} aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}>
             {dark ? <Sun size={17} /> : <Moon size={17} />}
-            <span>{dark ? "Light" : "Dark"}</span>
+            <span>{t(dark ? "Light" : "Dark")}</span>
           </button>
           <button className="header-orders" onClick={shareMenu} aria-label="Share this menu">
             <Share2 size={17} />
-            <span>Share</span>
+            <span>{t("Share")}</span>
           </button>
           <button className="header-orders" onClick={openOrders}>
             <ReceiptText size={17} />
-            <span>My orders</span>
+            <span>{t("My orders")}</span>
           </button>
         </div>
       </header>
@@ -301,12 +364,12 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
             <h1>{menu.name}</h1>
             <p className="hero-tagline">{menu.tagline}</p>
             <a className="hero-browse" href="#restaurant-menu">
-              <span>Find something delicious</span>
+              <span>{t("Find something delicious")}</span>
               <span className="hero-arrow">
                 <ArrowUpRight size={20} />
               </span>
             </a>
-            <span className="hero-endnote">A menu made for a little discovery.</span>
+            <span className="hero-endnote">{t("A menu made for a little discovery.")}</span>
           </div>
           <div className="hero-visual">
             <span className="hero-edition" aria-hidden="true">
@@ -327,12 +390,29 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
 
         <nav className="customer-nav" aria-label="Customer navigation">
           <a href="#restaurant-menu">
-            Menu <ArrowUpRight size={15} />
+            {t("Menu")} <ArrowUpRight size={15} />
           </a>
-          <a href="#your-taste">Taste quiz</a>
-          <a href="#table-games">Table games</a>
-          <a href={"/r/" + encodeURIComponent(restaurant) + "/review"}>Reviews</a>
+          <a href="#your-taste">{t("Taste quiz")}</a>
+          <a href="#table-games">{t("Table games")}</a>
+          <a href={"/r/" + encodeURIComponent(restaurant) + "/review"}>{t("Reviews")}</a>
         </nav>
+
+        <div className="customer-prefs">
+          <label>
+            <Languages size={15} />
+            <span className="sr-only">{t("Language")}</span>
+            <select aria-label={t("Language")} value={lang} onChange={(e) => setLang(e.target.value as Lang)}>
+              {LANGS.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="button" className="chip" aria-pressed={large} onClick={toggleLarge} aria-label={t("Text size")}>
+            <span style={{ fontSize: large ? 17 : 13, fontWeight: 700 }}>Aa</span> <span>{t("Text size")}</span>
+          </button>
+        </div>
 
         <PlacedOrders restaurant={restaurant} />
 
@@ -346,13 +426,13 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
           <section className="secret-banner">
             <div className="secret-copy">
               <span className="pill">
-                <Sparkles size={14} /> SOMETHING SPECIAL
+                <Sparkles size={14} /> {t("SOMETHING SPECIAL")}
               </span>
-              <h2>Your table has a delicious secret.</h2>
-              <p>A little something you won’t find on the regular menu.</p>
+              <h2>{t("Your table has a delicious secret.")}</h2>
+              <p>{t("A little something you won’t find on the regular menu.")}</p>
               <button className="primary" onClick={() => setUnlocked(!unlocked)}>
                 <LockKeyhole size={17} />
-                {unlocked ? "Hide the secret" : "Unlock the secret"}
+                {t(unlocked ? "Hide the secret" : "Unlock the secret")}
               </button>
             </div>
           </section>
@@ -388,11 +468,11 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
         <section className="menu-section" id="restaurant-menu">
           <div className="section-top">
             <div>
-              <p className="eyebrow">FRESH PICKS FOR YOUR TABLE</p>
-              <h2>Find your favourite.</h2>
+              <p className="eyebrow">{t("FRESH PICKS FOR YOUR TABLE")}</p>
+              <h2>{t("Find your favourite.")}</h2>
             </div>
             <label className="switch-label">
-              <Leaf size={16} /> Veg only
+              <Leaf size={16} /> {t("Veg only")}
               <Switch aria-label="Vegetarian dishes only" checked={veg} onCheckedChange={setVeg} />
             </label>
           </div>
@@ -411,28 +491,28 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
                 aria-label="Search dishes"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Find a dish"
+                placeholder={t("Find a dish")}
               />
             </label>
           </div>
 
           <div className="menu-sort">
             <label>
-              Sort by
+              {t("Sort by")}
               <select aria-label="Sort dishes" value={sort} onChange={(e) => setSort(e.target.value)}>
-                <option value="recommended">Recommended</option>
-                <option value="top-rated">Top rated</option>
-                <option value="price-low">Price: low to high</option>
-                <option value="price-high">Price: high to low</option>
+                <option value="recommended">{t("Recommended")}</option>
+                <option value="top-rated">{t("Top rated")}</option>
+                <option value="price-low">{t("Price: low to high")}</option>
+                <option value="price-high">{t("Price: high to low")}</option>
               </select>
             </label>
             <label>
-              Spice
+              {t("Spice")}
               <select aria-label="Spice level" value={spice} onChange={(e) => setSpice(e.target.value)}>
-                <option value="any">Any</option>
-                <option value="mild">Mild</option>
-                <option value="medium">Medium</option>
-                <option value="hot">Hot</option>
+                <option value="any">{t("Any")}</option>
+                <option value="mild">{t("Mild")}</option>
+                <option value="medium">{t("Medium")}</option>
+                <option value="hot">{t("Hot")}</option>
               </select>
             </label>
             <button
@@ -443,20 +523,20 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
                 if (pool.length) setSelected(pool[Math.floor(Math.random() * pool.length)]);
               }}
             >
-              <Shuffle size={16} /> <span>Surprise me</span>
+              <Shuffle size={16} /> <span>{t("Surprise me")}</span>
             </button>
             <button
               className={onlySaved ? "chip selected" : "chip"}
               aria-pressed={onlySaved}
               onClick={() => setOnlySaved(!onlySaved)}
             >
-              <Heart size={16} /> <span>Favourites{saved.length ? ` (${saved.length})` : ""}</span>
+              <Heart size={16} /> <span>{t("Favourites")}{saved.length ? ` (${saved.length})` : ""}</span>
             </button>
           </div>
 
           {allergenList.length > 0 && (
             <div className="allergen-filter" aria-label="Avoid allergens">
-              <span>Avoid:</span>
+              <span>{t("Avoid:")}</span>
               {allergenList.map((a) => (
                 <button
                   key={a}
@@ -474,7 +554,7 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
             <span>
               {shown.length} {shown.length === 1 ? "dish" : "dishes"} to discover
             </span>
-            <span>Prices in ₹</span>
+            <span>{t("Prices in ₹")}</span>
           </div>
 
           <div className="dishes">
@@ -485,14 +565,20 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
               return (
                 <article key={d.id} className={`dish ${!d.available ? "sold-out" : ""}`}>
                   <div className="dish-body">
+                    {d.image && <img className="dish-photo" src={d.image} alt={d.name} loading="lazy" />}
                     <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                      {popular.includes(d.id) && (
+                        <span className="popular-tag">
+                          <Flame size={11} /> {t("Popular")}
+                        </span>
+                      )}
                       <span className={d.veg ? "diet veg" : "diet"}>
-                        {d.veg ? <Leaf size={12} /> : <Flame size={12} />} {d.veg ? "VEG" : "NON-VEG"}{" "}
+                        {d.veg ? <Leaf size={12} /> : <Flame size={12} />} {t(d.veg ? "VEG" : "NON-VEG")}{" "}
                         <span>· {d.category}</span>
                       </span>
                       {ratingInfo && ratingInfo.ratingCount >= 3 && ratingInfo.averageRating >= 4.5 && (
                         <span className="guest-fav">
-                          <Sparkles size={11} /> Guest favourite
+                          <Sparkles size={11} /> {t("Guest favourite")}
                         </span>
                       )}
                       {ratingInfo && ratingInfo.ratingCount > 0 ? (
@@ -500,7 +586,7 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
                           ★ {ratingInfo.averageRating.toFixed(1)} <small>({ratingInfo.ratingCount})</small>
                         </span>
                       ) : (
-                        <span className="dish-rating-badge muted">Not rated yet</span>
+                        <span className="dish-rating-badge muted">{t("Not rated yet")}</span>
                       )}
                     </div>
                     <button
@@ -516,13 +602,13 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
                     <div className="dish-tags">
                       <span>{d.spice} spice</span>
                       <button aria-label={`View ${d.name}`} onClick={() => setSelected(d)}>
-                        Dish details <ArrowUpRight size={13} />
+                        {t("Dish details")} <ArrowUpRight size={13} />
                       </button>
                     </div>
                     <div className="dish-bottom">
                       <strong>₹{d.price}</strong>
                       {!d.available ? (
-                        <span className="unavailable-label">Sold out</span>
+                        <span className="unavailable-label">{t("Sold out")}</span>
                       ) : qty > 0 ? (
                         <div className="dish-quantity">
                           <button aria-label={`Remove one ${d.name}`} onClick={() => removeFromCart(d.id)}>
@@ -535,7 +621,7 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
                         </div>
                       ) : (
                         <button className="add-dish" onClick={() => addToCart(d.id)} aria-label={`Add ${d.name} to cart`}>
-                          Add to order <Plus size={16} />
+                          {t("Add to order")} <Plus size={16} />
                         </button>
                       )}
                     </div>
@@ -565,18 +651,18 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
                 setCategory("All dishes");
               }}
             >
-              Clear filters
+              {t("Clear filters")}
             </button>
           )}
         </section>
 
         <section className="customer-review-invite">
           <div>
-            <h2>How did we do?</h2>
+            <h2>{t("How did we do?")}</h2>
             <p>Send your thoughts directly to {menu.name}.</p>
           </div>
           <a className="primary" href={"/r/" + encodeURIComponent(restaurant) + "/review"}>
-            Leave a review
+            {t("Leave a review")}
           </a>
         </section>
 
@@ -596,6 +682,30 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
           </div>
         )}
 
+        <section className="table-service" id="table-service">
+          <h2>{t("Need something at your table?")}</h2>
+          <div className="table-service-row">
+            <input
+              aria-label={t("Table number")}
+              value={svcTable}
+              maxLength={30}
+              onChange={(e) => setSvcTable(e.target.value)}
+              placeholder={t("Table number")}
+            />
+            <button className="secondary" onClick={() => requestService("waiter")}>
+              <BellRing size={16} /> {t("Call waiter")}
+            </button>
+            <button className="secondary" onClick={() => requestService("bill")}>
+              <Receipt size={16} /> {t("Ask for the bill")}
+            </button>
+          </div>
+          {svcMsg && (
+            <p className="muted" role="status">
+              {svcMsg}
+            </p>
+          )}
+        </section>
+
         <footer>
           <span>
             Good food. Better moments.
@@ -611,6 +721,7 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
 
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
         <DialogContent className="dish-modal">
+          {selected?.image && <img className="dish-photo-large" src={selected.image} alt={selected.name} />}
           <DialogTitle>{selected?.name}</DialogTitle>
           <DialogDescription>{selected?.description}</DialogDescription>
 
@@ -639,7 +750,7 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
             }}
           >
             <Plus size={16} />
-            Add to cart
+            {t("Add to cart")}
           </button>
           <button
             className="secondary"
@@ -649,7 +760,7 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
             }}
           >
             <Heart size={16} />
-            Save to my favourites
+            {t("Save to my favourites")}
           </button>
         </DialogContent>
       </Dialog>
@@ -665,7 +776,7 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
         </button>
       )}
 
-      <Cart restaurant={restaurant} menu={menu} items={cart} onChange={setCart} onRefresh={load} />
+      <Cart restaurant={restaurant} menu={menu} items={cart} onChange={setCart} onRefresh={load} avoid={avoid} />
     </div>
   );
 }

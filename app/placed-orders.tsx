@@ -1,18 +1,81 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { orderKeys, type OrderKey } from "@/lib/customer-orders";
 import { money, type StoredOrder } from "@/lib/orders";
 import { orderTime } from "@/lib/order-time";
 import DishRatingWidget from "./dish-rating-widget";
+import { useLang } from "@/lib/i18n";
 
 export default function PlacedOrders({ restaurant }: { restaurant: string }) {
+  const { t } = useLang();
+  const [alertsOn, setAlertsOn] = useState(false);
+  const prevStatus = useRef<Record<string, string>>({});
+  const alertsRef = useRef(false);
+  const [statusToast, setStatusToast] = useState("");
   const [rows, setRows] = useState<StoredOrder[]>([]);
   const [keysList, setKeysList] = useState<OrderKey[]>([]);
   const [open, setOpen] = useState(false);
   const [history, setHistory] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+
+  function notifyStatus(o: StoredOrder) {
+    const text: Record<string, string> = {
+      accepted: "Your order was accepted",
+      preparing: "Your order is being prepared",
+      served: "Your order is at your table",
+      cancelled: "Your order was cancelled",
+    };
+    const msg = `#${o.id.slice(0, 8).toUpperCase()} · ${text[o.status] || o.status}`;
+    try {
+      const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new Ctx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 660;
+      gain.gain.value = 0.07;
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
+    } catch {}
+    try {
+      navigator.vibrate?.(200);
+      if ("Notification" in window && Notification.permission === "granted") new Notification("Table Secret", { body: msg });
+    } catch {}
+    setStatusToast(msg);
+  }
+
+  async function toggleAlerts() {
+    if (alertsRef.current) {
+      alertsRef.current = false;
+      setAlertsOn(false);
+      try { localStorage.setItem("ts-alerts", "0"); } catch {}
+      return;
+    }
+    try {
+      if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission();
+    } catch {}
+    alertsRef.current = true;
+    setAlertsOn(true);
+    try { localStorage.setItem("ts-alerts", "1"); } catch {}
+  }
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("ts-alerts") === "1") {
+        alertsRef.current = true;
+        setAlertsOn(true);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (!statusToast) return;
+    const t = setTimeout(() => setStatusToast(""), 6000);
+    return () => clearTimeout(t);
+  }, [statusToast]);
 
   useEffect(() => {
     let alive = true;
@@ -32,6 +95,11 @@ export default function PlacedOrders({ restaurant }: { restaurant: string }) {
           all.push(...d.orders);
         }
         if (alive) {
+          for (const o of all) {
+            const before = prevStatus.current[o.id];
+            if (alertsRef.current && before && before !== o.status) notifyStatus(o);
+            prevStatus.current[o.id] = o.status;
+          }
           setRows(all.sort((a, b) => b.created_at.localeCompare(a.created_at)));
           setError("");
         }
@@ -72,23 +140,33 @@ export default function PlacedOrders({ restaurant }: { restaurant: string }) {
 
   return (
     <section className="placed-orders" id="placed-orders">
+      {statusToast && (
+        <div className="status-toast" role="status">
+          {statusToast}
+        </div>
+      )}
       <button className="secondary" aria-expanded={open} onClick={() => setOpen(!open)}>
-        My placed orders {active.length > 0 && `(${active.length})`}
+        {t("My placed orders")} {active.length > 0 && `(${active.length})`}
       </button>
 
       {open && (
         <div className="placed-content">
           <div className="section-top">
-            <h2>Your orders</h2>
+            <h2>{t("Your orders")}</h2>
             <div className="category-list">
               <button className={!history ? "chip selected" : "chip"} onClick={() => setHistory(false)}>
-                Placed orders
+                {t("Placed orders")}
               </button>
               <button className={history ? "chip selected" : "chip"} onClick={() => setHistory(true)}>
-                Completed & cancelled
+                {t("Completed & cancelled")}
               </button>
             </div>
           </div>
+
+          <button type="button" className={alertsOn ? "chip selected" : "chip"} aria-pressed={alertsOn} onClick={toggleAlerts}>
+            {alertsOn ? "🔔 " : "🔕 "}
+            {t(alertsOn ? "Order alerts on" : "Order alerts off")}
+          </button>
 
           <p className="muted">
             Updates every 8 seconds. Orders stay here until staff confirm delivery. Saved for this browser; keep using the same device.
@@ -100,7 +178,12 @@ export default function PlacedOrders({ restaurant }: { restaurant: string }) {
             </p>
           )}
 
-          {loading && <p>Loading orders…</p>}
+          {loading && (
+            <div className="skeleton-wrap" aria-hidden="true">
+              <span className="skeleton sk-card" />
+              <span className="skeleton sk-card" />
+            </div>
+          )}
           {!loading && !shown.length && (
             <p>{history ? "No completed orders yet." : "No pending orders on this browser."}</p>
           )}
@@ -121,7 +204,7 @@ export default function PlacedOrders({ restaurant }: { restaurant: string }) {
                   </header>
 
                   <strong className="order-status" aria-live="polite">
-                    {labels[o.status] || o.status}
+                    {t(labels[o.status] || o.status)}
                   </strong>
 
                   <div className="order-items">
@@ -186,7 +269,7 @@ export default function PlacedOrders({ restaurant }: { restaurant: string }) {
                       )
                     }
                   >
-                    Order again
+                    {t("Order again")}
                   </button>
 
                   {/* Customer Dish Rating Option for Completed Orders */}

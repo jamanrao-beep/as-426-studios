@@ -1,5 +1,6 @@
 "use client";
 
+import ServiceRequests from "./service-requests";
 import { useState, useEffect, useRef, useMemo } from "react";
 import {
   Utensils,
@@ -725,6 +726,8 @@ export default function WaiterWorkspace({
             </button>
           </div>
         </section>
+
+        {assignedRestaurant && <ServiceRequests restaurant={assignedRestaurant} />}
 
         {/* 4. Orders Grid Display */}
         <section className="waiter-orders-list-section">

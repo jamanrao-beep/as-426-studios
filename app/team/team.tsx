@@ -42,6 +42,7 @@ import { Sidebar, SidebarProvider } from "@/components/ui/sidebar";
 import Sales from "./sales";
 import Orders from "./orders";
 import OrderAlerts from "./order-alerts";
+import ServiceRequests from "./service-requests";
 import Waiters from "./waiters";
 import Reviews from "./reviews";
 import RestaurantAccess from "./restaurant-access";
@@ -51,6 +52,20 @@ import DishPerformance from "./dish-performance";
 import DishInsights from "./dish-insights";
 import QRCode from "qrcode";
 import type { Dish, Menu } from "@/lib/menu";
+
+async function resizeDishPhoto(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, 640 / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  for (const q of [0.78, 0.65, 0.5, 0.38]) {
+    const url = canvas.toDataURL("image/jpeg", q);
+    if (url.length < 110000) return url;
+  }
+  throw Error("too large");
+}
 
 interface Restaurant {
   id: string;
@@ -1055,6 +1070,7 @@ export default function Team({
           )}
 
           {/* ORDERS & LIVE ALERTS */}
+          {id && tab === "orders" && <ServiceRequests key={"sr-" + id} restaurant={id} />}
           {id && tab === "orders" && <Orders key={id} restaurant={id} canEdit />}
 
           {/* WAITERS MANAGEMENT */}
@@ -1334,6 +1350,33 @@ export default function Team({
                     </select>
                   )}
                 </label>
+              </div>
+              <div className="dish-photo-field">
+                <span>Dish photo (optional)</span>
+                {dish.image ? (
+                  <div className="dish-photo-preview">
+                    <img src={dish.image} alt="Dish preview" />
+                    <button type="button" className="secondary" onClick={() => setDish({ ...dish, image: "" })}>
+                      Remove photo
+                    </button>
+                  </div>
+                ) : (
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!file) return;
+                      try {
+                        const image = await resizeDishPhoto(file);
+                        setDish((d) => (d ? { ...d, image } : d));
+                      } catch {
+                        setError("Couldn’t read that image. Try a JPG or PNG photo.");
+                      }
+                    }}
+                  />
+                )}
               </div>
               <label>
                 Allergens
