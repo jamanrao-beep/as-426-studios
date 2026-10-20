@@ -1110,8 +1110,6 @@
   margin-top: 2rem;
 }
 
-
-
 .brandmark>svg,.waiter-brand-icon>svg{display:none}
 .waiter-brand-icon{background:#df4d03 url(/logo.jpg) center/cover no-repeat!important}
 .mobile-brand-icon{display:none!important}
@@ -1434,3 +1432,20 @@
 .ts-dark .dish-quantity{background:#2d251d;border-color:#4a4036;color:#f1e8da}
 .ts-dark .guest-fav{background:#4a3519;color:#f1cf9a}
 .ts-dark .hero-visual:before{opacity:.35}
+@media(max-width:700px){
+.ts-dining .menu-tools{position:static;padding:0}
+.ts-dining .menu-sort{flex-wrap:nowrap;overflow-x:auto;gap:8px;padding-bottom:4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.ts-dining .menu-sort::-webkit-scrollbar{display:none}
+.ts-dining .menu-sort>*{flex:0 0 auto;white-space:nowrap}
+.ts-dining .menu-sort label{font-size:12px}
+.ts-dining .allergen-filter{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.ts-dining .allergen-filter .chip{flex:0 0 auto}
+.ts-dining .back-to-top{bottom:84px;right:12px}
+.ts-dining .ts-toast{max-width:calc(100vw - 32px);text-align:center}
+}
+.ts-dark .hero-browse,.ts-dark .hero-browse span{color:#f1e8da!important;border-color:#8a6c4c!important}
+.ts-dark .hero-arrow{background:#f1e8da;color:#201810}
+.ts-dark .eyebrow,.ts-dark .menu-heading .eyebrow,.ts-dark .section-top .eyebrow{color:#c9a47a!important}
+.ts-dark .discovery-seal{background:#2d251d;color:#f1e8da}
+.ts-dark .discovery-seal>span{color:#f1e8da}
+.ts-dark .customer-review-invite .primary,.ts-dark .add-dish{background:#c9925b!important;color:#201810!important}
