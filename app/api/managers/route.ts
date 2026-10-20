@@ -1,5 +1,4 @@
 import { access, db, sameOrigin } from "@/db/store";
-import { SUPER_ADMIN_EMAIL } from "@/lib/auth-constants";
 import { hashPassword, generateTemporaryPassword } from "@/lib/password";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
@@ -67,7 +66,8 @@ export async function POST(req: Request) {
     const now = new Date().toISOString();
 
     // Prevent modifying Super Admin account via this endpoint
-    if (email === SUPER_ADMIN_EMAIL.toLowerCase() && action !== "edit") {
+    const target = await db().prepare("SELECT role FROM accounts WHERE LOWER(email) = ?").bind(email).first<{ role: string }>();
+    if (target?.role === "super_admin" && action !== "edit") {
       return Response.json({ error: "Super Admin account cannot be modified or deleted here." }, { status: 400 });
     }
 
@@ -91,7 +91,7 @@ export async function POST(req: Request) {
           INSERT INTO accounts (id, email, password_hash, name, role, restaurant_id, status, must_change_password, session_version, created_at, updated_at)
           VALUES (?, ?, ?, ?, 'admin', ?, 'active', 1, 1, ?, ?)
         `)
-        .bind(accId, email, passHash, name || "Restaurant Manager", restaurant_id, now, now)
+        .bind(accId, email, passHash, name || email, restaurant_id, now, now)
         .run();
 
       // Legacy compatibility table
@@ -109,7 +109,7 @@ export async function POST(req: Request) {
 
       return Response.json({
         ok: true,
-        account: { id: accId, email, name: name || "Restaurant Manager", restaurant_id, temporary_password: tempPass },
+        account: { id: accId, email, name: name || email, restaurant_id, temporary_password: tempPass },
       });
     }
 

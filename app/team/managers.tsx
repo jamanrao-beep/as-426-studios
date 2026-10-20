@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { SUPER_ADMIN_EMAIL } from "@/lib/auth-constants";
 
 interface ManagerAccount {
   id: string;
@@ -116,7 +115,7 @@ export default function Managers({
           action: "create",
           email: email.trim(),
           temporary_password: password.trim() || undefined,
-          name: name.trim() || "Restaurant Manager",
+          name: name.trim() || email.trim(),
           restaurant_id: restaurantId,
         }),
       });
@@ -172,7 +171,7 @@ export default function Managers({
         open: true,
         email: m.email,
         temporaryPassword: data.temporary_password,
-        restaurantName: restObj?.name || m.restaurant_id || "Assigned Restaurant",
+        restaurantName: restObj?.name || m.restaurant_id || "",
       });
 
       await load();
@@ -296,7 +295,7 @@ export default function Managers({
   }
 
   async function handleRemove(targetEmail: string) {
-    if (targetEmail.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()) {
+    if (managers.find((m) => m.email.toLowerCase() === targetEmail.toLowerCase())?.role === "super_admin") {
       toast.error("Super Admin account cannot be removed.");
       return;
     }
@@ -460,7 +459,7 @@ export default function Managers({
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {managers.map((m) => {
-              const isSuper = m.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
+              const isSuper = m.role === "super_admin";
               const restObj = restaurants.find((r) => r.id === m.restaurant_id);
 
               return (
@@ -547,7 +546,7 @@ export default function Managers({
                       <span>{m.email}</span>
                       {!isSuper && (
                         <span>
-                          📍 Assigned: <strong style={{ color: "#0f172a" }}>{restObj?.name || m.restaurant_id || "Unassigned"}</strong>
+                          📍 Assigned: <strong style={{ color: "#0f172a" }}>{restObj?.name || m.restaurant_id || "No restaurant assigned"}</strong>
                         </span>
                       )}
                       {!isSuper && restObj && m.restaurant_id && (

@@ -198,7 +198,7 @@ export async function GET(req: Request) {
           const at = allTimeMap.get(item.id);
           entry = {
             id: item.id,
-            name: item.name || "Historical Dish",
+            name: item.name || item.id,
             category: "Archived / Unlisted",
             currentlyAvailable: false,
             onCurrentMenu: false,
@@ -236,7 +236,7 @@ export async function GET(req: Request) {
         const at = allTimeMap.get(r.dish_id);
         entry = {
           id: r.dish_id,
-          name: r.dish_name || "Historical Dish",
+          name: r.dish_name || r.dish_id,
           category: "Archived / Unlisted",
           currentlyAvailable: false,
           onCurrentMenu: false,

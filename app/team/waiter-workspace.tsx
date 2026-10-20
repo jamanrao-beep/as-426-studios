@@ -88,7 +88,7 @@ export default function WaiterWorkspace({
   isWaiter?: boolean;
 }) {
   const displayName = name || email;
-  const displayRestaurant = restaurantName || assignedRestaurant || "Assigned Restaurant";
+  const displayRestaurant = restaurantName || assignedRestaurant || "";
 
   // Navigation views: "today", "unfinished", "history"
   const [view, setView] = useState<"today" | "unfinished" | "history">("today");

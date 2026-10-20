@@ -57,7 +57,7 @@ async function ensureDailySummary(restaurantId: string, targetDate: string) {
     try {
       const items = JSON.parse(o.items) as Array<{ id: string; name: string; quantity: number }>;
       for (const i of items) {
-        const curr = qtyMap.get(i.id) || { name: i.name || "Dish", qty: 0 };
+        const curr = qtyMap.get(i.id) || { name: i.name || i.id, qty: 0 };
         curr.qty += Number(i.quantity) || 1;
         qtyMap.set(i.id, curr);
       }

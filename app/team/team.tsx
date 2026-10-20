@@ -443,7 +443,7 @@ export default function Team({
         </button>
         <div className="mobile-admin-title">
           <Utensils size={16} className="mobile-brand-icon" />
-          <span>{tab === "overview" ? "System Overview" : menu?.name || savedName || "AS 426"}</span>
+          <span>{tab === "overview" ? "System Overview" : menu?.name || savedName || ""}</span>
         </div>
         <div className="mobile-header-actions">
           {id && (

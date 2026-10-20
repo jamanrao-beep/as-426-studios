@@ -27,6 +27,6 @@ export async function GET(req: Request) {
       .map(([id]) => id);
     return Response.json({ popular }, { headers: { "Cache-Control": "public, max-age=60" } });
   } catch {
-    return Response.json({ popular: [] });
+    return Response.json({ error: "Unavailable" }, { status: 503 });
   }
 }

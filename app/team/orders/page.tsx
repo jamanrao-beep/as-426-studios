@@ -21,7 +21,7 @@ export default async function Page() {
           email={a.email}
           name={a.name || a.email}
           assignedRestaurant={a.restaurantId}
-          restaurantName={a.restaurantName || a.restaurantId || "Restaurant"}
+          restaurantName={a.restaurantName || a.restaurantId || ""}
           isWaiter={a.role === "waiter"}
         />
       );

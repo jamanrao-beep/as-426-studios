@@ -9,6 +9,9 @@ export function db(): D1Database {
   if (isMysqlConfigured()) {
     return getMysqlDb() as unknown as D1Database;
   }
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Database is not configured: set MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD and MYSQL_DATABASE.");
+  }
   return getSqliteD1() as unknown as D1Database;
 }
 

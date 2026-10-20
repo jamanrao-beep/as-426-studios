@@ -182,7 +182,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "You can only rate dishes that were included in your delivered order." }, { status: 400 });
     }
 
-    const dishName = matchingItem.name || "Dish";
+    const dishName = matchingItem.name || matchingItem.id;
     const now = new Date().toISOString();
     const ratingId = "drate_" + crypto.randomBytes(8).toString("hex");
 

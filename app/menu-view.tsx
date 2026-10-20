@@ -50,7 +50,7 @@ function CategoryIcon({ name }: { name: string }) {
   return <Icon size={22} strokeWidth={1.5} />;
 }
 
-export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: string }) {
+export default function MenuView({ restaurant }: { restaurant: string }) {
   const { lang, setLang, t } = useLang();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [popular, setPopular] = useState<string[]>([]);

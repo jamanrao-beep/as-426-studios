@@ -116,7 +116,7 @@ export async function POST(req: Request) {
         contact_phone || "",
         contact_email || "",
         welcome_message || `Welcome to ${name}.`,
-        note || "Please tell your server about any allergies.",
+        note || "",
         now,
         now
       )
@@ -126,8 +126,8 @@ export async function POST(req: Request) {
     const initialMenu = {
       name,
       active: true,
-      tagline: welcome_message || "Welcome to our table.",
-      note: note || "Please tell your server about any allergies.",
+      tagline: welcome_message || "",
+      note: note || "",
       dishes: [],
     };
     await db()

@@ -35,7 +35,7 @@ export default async function Page() {
         studio={a.studio}
         email={a.email}
         assignedRestaurant={a.restaurantId}
-        userRole={a.role || "admin"}
+        userRole={a.role}
       />
     );
   } catch (err: any) {

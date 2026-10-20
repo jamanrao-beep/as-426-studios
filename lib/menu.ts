@@ -3,12 +3,3 @@ export const dishSchema=z.object({id:z.string().min(1).max(80),name:z.string().t
 export const menuSchema=z.object({active:z.boolean(),name:z.string().trim().min(1).max(70),tagline:z.string().trim().max(120),note:z.string().max(200),dishes:z.array(dishSchema).max(200)});
 export type Dish=z.infer<typeof dishSchema>;
 export type Menu=z.infer<typeof menuSchema>;
-export const sample:Menu={active:true,name:"Ember & Spice",tagline:"A little fire. A lot of flavour.",note:"Sample menu • Prices include taxes. Tell your server about any allergies.",dishes:[
-{id:"1",name:"Smoked Paneer Tikka",description:"Charred paneer, hung-curd marinade, mint chutney and a squeeze of lime.",price:295,category:"Small plates",veg:true,available:true,secret:false,allergens:"Milk",spice:"medium",taste:"savoury"},
-{id:"2",name:"Ghee Roast Chicken",description:"Mangalorean spices, curry leaves and a rich, slow-roasted finish.",price:345,category:"Small plates",veg:false,available:true,secret:false,allergens:"Milk",spice:"medium",taste:"savoury"},
-{id:"3",name:"Wild Mushroom Kulcha",description:"Tandoor-baked bread filled with mushrooms, cheese and fresh herbs.",price:245,category:"Small plates",veg:true,available:true,secret:false,allergens:"Wheat, milk",spice:"mild",taste:"savoury"},
-{id:"4",name:"Dum Biryani",description:"Fragrant basmati rice, tender chicken, saffron and cooling raita.",price:395,category:"Big plates",veg:false,available:true,secret:false,allergens:"Milk",spice:"medium",taste:"savoury"},
-{id:"5",name:"Dal Makhani & Garlic Naan",description:"Slow-simmered black lentils, finished with butter. Made for comfort.",price:325,category:"Big plates",veg:true,available:true,secret:false,allergens:"Milk, wheat",spice:"mild",taste:"savoury"},
-{id:"6",name:"Mango & Mint Cooler",description:"Mango, fresh mint and lime, topped with sparkling water.",price:165,category:"Drinks",veg:true,available:true,secret:false,allergens:"",spice:"mild",taste:"refreshing"},
-{id:"7",name:"Filter Coffee Tiramisu",description:"A South Indian twist on the classic, with coffee-soaked sponge.",price:225,category:"Sweet endings",veg:true,available:false,secret:false,allergens:"Milk, wheat",spice:"mild",taste:"sweet"},
-{id:"8",name:"The Chef’s Secret Plate",description:"Smoked paneer tikka, mini mushroom kulcha and a mango cooler. A little of our favourites, all on one tray.",price:449,category:"Secret menu",veg:true,available:true,secret:true,allergens:"Milk, wheat",spice:"mild",taste:"savoury"}]};

@@ -1,16 +1,13 @@
 import { cookies } from "next/headers";
-import { AuthUser, AUTH_COOKIE_NAME, PRESET_ACCOUNTS, UserRole } from "./auth-constants";
+import { AuthUser, AUTH_COOKIE_NAME, UserRole } from "./auth-constants";
 import { db } from "@/db/store";
 import { verifyPassword } from "./password";
 import { rateLimit, clearRateLimit } from "./rate-limit";
 import crypto from "node:crypto";
 
-export { AUTH_COOKIE_NAME, PRESET_ACCOUNTS, type AuthUser };
+export { AUTH_COOKIE_NAME, type AuthUser };
 
-// In production the secret must come from the environment. The built-in value is for local development only.
-const SESSION_SECRET =
-  process.env.SESSION_SECRET || (process.env.NODE_ENV === "production" ? "" : "as426-dev-only-session-secret-key-32chars");
-const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const SESSION_SECRET = process.env.SESSION_SECRET || "";
 
 function signPayload(dataStr: string): string {
   if (!SESSION_SECRET) throw new Error("SESSION_SECRET is not configured on the server.");
@@ -79,28 +76,7 @@ export async function authenticate(
     }
   } catch (err) {
     console.error("DB authentication lookup failed:", err);
-  }
-
-  // 3. Fallback to preset accounts (for offline / seed verification)
-  // Built-in demo accounts exist for local development only; they are never accepted in production.
-  const foundPreset = IS_PRODUCTION
-    ? undefined
-    : PRESET_ACCOUNTS.find(
-    (acc) => acc.email.toLowerCase() === normalizedEmail && acc.password === pass
-  );
-  if (foundPreset) {
-    clearRateLimit(`login:${clientIp}:${normalizedEmail}`);
-    return {
-      user: {
-        userId: foundPreset.email,
-        email: foundPreset.email,
-        displayName: foundPreset.displayName,
-        role: foundPreset.role,
-        restaurantId: foundPreset.restaurantId,
-        mustChangePassword: false,
-        sessionVersion: 1,
-      },
-    };
+    throw err;
   }
 
   return { user: null, error: "Invalid email or password." };

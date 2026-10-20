@@ -2,7 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
-import { sample } from "@/lib/menu";
+import crypto from "node:crypto";
 
 let dbInstance: any = null;
 
@@ -242,140 +242,20 @@ export function getSqliteD1() {
 
   const now = new Date().toISOString();
 
-  // Seed default restaurant Ember & Spice
-  const existingRestaurant = rawDb.prepare("SELECT id FROM restaurants WHERE id = ?").get("ember-spice");
-  if (!existingRestaurant) {
-    rawDb.prepare(`
-      INSERT OR REPLACE INTO restaurants (id, name, slug, address, contact_phone, contact_email, welcome_message, note, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      "ember-spice",
-      "Ember & Spice",
-      "ember-spice",
-      "42 Connaught Place, New Delhi",
-      "+91 98100 12345",
-      "contact@emberspice.com",
-      "Welcome to Ember & Spice. Explore our signature coal-fired kitchen selections.",
-      "Taxes and 5% service charge included. Please inform your server about any allergies.",
-      "active",
-      now,
-      now
-    );
-  }
-
-  // Seed Super Admin
-  rawDb.prepare(`
-    INSERT OR REPLACE INTO accounts (id, email, password_hash, name, role, restaurant_id, status, must_change_password, session_version, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    "acc_super_admin",
-    "admin@as426.studios",
-    "admin@009988763366", // verifyPassword supports both plain text initial seed and scrypt$ hashes
-    "Super Admin",
-    "super_admin",
-    null,
-    "active",
-    0,
-    1,
-    now,
-    now
-  );
-
-  // Seed Restaurant Admin (Manager)
-  rawDb.prepare(`
-    INSERT OR REPLACE INTO accounts (id, email, password_hash, name, role, restaurant_id, status, must_change_password, session_version, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    "acc_mgr_ember",
-    "admin@as426.com",
-    "admin123",
-    "Restaurant Manager",
-    "admin",
-    "ember-spice",
-    "active",
-    0,
-    1,
-    now,
-    now
-  );
-
-  // Seed Waiter
-  rawDb.prepare(`
-    INSERT OR REPLACE INTO accounts (id, email, password_hash, name, role, restaurant_id, status, must_change_password, session_version, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    "acc_waiter_ember",
-    "staff@as426.com",
-    "staff123",
-    "Rahul (Staff)",
-    "waiter",
-    "ember-spice",
-    "active",
-    0,
-    1,
-    now,
-    now
-  );
-
-  // Maintain backward-compatibility tables
-  rawDb.prepare("INSERT OR IGNORE INTO members (email) VALUES (?)").run("admin@as426.studios");
-  rawDb.prepare("INSERT OR IGNORE INTO members (email) VALUES (?)").run("admin@as426.com");
-  rawDb.prepare("INSERT OR IGNORE INTO restaurant_members (restaurant_id, email) VALUES (?, ?)").run("ember-spice", "admin@as426.studios");
-  rawDb.prepare("INSERT OR IGNORE INTO restaurant_members (restaurant_id, email) VALUES (?, ?)").run("ember-spice", "admin@as426.com");
-  rawDb.prepare("INSERT OR IGNORE INTO waiters (restaurant_id, email, name, created_at) VALUES (?, ?, ?, ?)").run(
-    "ember-spice",
-    "staff@as426.com",
-    "Rahul (Staff)",
-    now
-  );
-
-  // Seed Sample Menu
-  const existingMenu = rawDb.prepare("SELECT id FROM menu WHERE id = ?").get("ember-spice");
-  if (!existingMenu) {
-    rawDb.prepare("INSERT INTO menu (id, data, revision) VALUES (?, ?, 1)").run("ember-spice", JSON.stringify(sample));
-  }
-
-  // Seed Sample Initial Orders if none exist
-  const countRow = rawDb.prepare("SELECT count(*) as count FROM orders").get() as any;
-  if (!countRow || countRow.count === 0) {
-    const insertOrder = rawDb.prepare(`
-      INSERT INTO orders (id, restaurant_id, restaurant_name, table_label, customer_name, notes, items, total, status, request_hash, is_test, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
-    `);
-    insertOrder.run(
-      "ord-101",
-      "ember-spice",
-      "Ember & Spice",
-      "4",
-      "Aarav Sharma",
-      "Less spicy on the chicken please",
-      JSON.stringify([
-        { id: "1", name: "Smoked Paneer Tikka", unitPrice: 295, quantity: 1 },
-        { id: "6", name: "Mango & Mint Cooler", unitPrice: 165, quantity: 2 },
-      ]),
-      625,
-      "new",
-      "req-hash-1",
-      now,
-      now
-    );
-    insertOrder.run(
-      "ord-102",
-      "ember-spice",
-      "Ember & Spice",
-      "2",
-      "Priya Patel",
-      "Table near the window",
-      JSON.stringify([
-        { id: "2", name: "Ghee Roast Chicken", unitPrice: 345, quantity: 1 },
-        { id: "3", name: "Wild Mushroom Kulcha", unitPrice: 245, quantity: 2 },
-      ]),
-      835,
-      "preparing",
-      "req-hash-2",
-      now,
-      now
-    );
+  // Local development only: no sample restaurants, menus or orders are created.
+  // To sign in locally, set DEV_ADMIN_EMAIL and DEV_ADMIN_PASSWORD and a Super Admin is created once.
+  const devEmail = (process.env.DEV_ADMIN_EMAIL || "").trim().toLowerCase();
+  const devPassword = process.env.DEV_ADMIN_PASSWORD || "";
+  if (devEmail && devPassword) {
+    const exists = rawDb.prepare("SELECT id FROM accounts WHERE LOWER(email) = ?").get(devEmail);
+    if (!exists) {
+      const salt = crypto.randomBytes(16).toString("hex");
+      const hash = `scrypt$${salt}$${crypto.scryptSync(devPassword, salt, 64).toString("hex")}`;
+      rawDb.prepare(`
+        INSERT INTO accounts (id, email, password_hash, name, role, restaurant_id, status, must_change_password, session_version, created_at, updated_at)
+        VALUES (?, ?, ?, ?, 'super_admin', NULL, 'active', 0, 1, ?, ?)
+      `).run("acc_dev_admin", devEmail, hash, devEmail, now, now);
+    }
   }
 
   // D1 compatibility wrapper

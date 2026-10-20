@@ -251,25 +251,6 @@ async function migrate() {
     // SEED INITIAL DATA
     const now = new Date().toISOString();
 
-    // 1. Seed Restaurant Ember & Spice
-    await conn.query(`
-      INSERT INTO restaurants (id, name, slug, address, contact_phone, contact_email, welcome_message, note, status, manager_qr_visible, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
-      ON DUPLICATE KEY UPDATE name = VALUES(name), updated_at = VALUES(updated_at)
-    `, [
-      "ember-spice",
-      "Ember & Spice",
-      "ember-spice",
-      "42 Connaught Place, New Delhi",
-      "+91 98100 12345",
-      "contact@emberspice.com",
-      "Welcome to Ember & Spice. Explore our signature coal-fired kitchen selections.",
-      "Taxes and 5% service charge included. Please inform your server about any allergies.",
-      "active",
-      now,
-      now
-    ]);
-
     // 2. Seed Accounts
     // Super Admin
     await conn.query(`
@@ -290,109 +271,7 @@ async function migrate() {
       now
     ]);
 
-    // Manager
-    await conn.query(`
-      INSERT INTO accounts (id, email, password_hash, name, role, restaurant_id, status, must_change_password, session_version, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE name = VALUES(name)
-    `, [
-      "acc_mgr_ember",
-      "admin@as426.com",
-      seedHash("SEED_MANAGER_PASSWORD", "Manager"),
-      "Restaurant Manager",
-      "admin",
-      "ember-spice",
-      "active",
-      0,
-      1,
-      now,
-      now
-    ]);
-
-    // Waiter
-    await conn.query(`
-      INSERT INTO accounts (id, email, password_hash, name, role, restaurant_id, status, must_change_password, session_version, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE name = VALUES(name)
-    `, [
-      "acc_waiter_ember",
-      "staff@as426.com",
-      seedHash("SEED_WAITER_PASSWORD", "Waiter"),
-      "Rahul (Staff)",
-      "waiter",
-      "ember-spice",
-      "active",
-      0,
-      1,
-      now,
-      now
-    ]);
-
-    // 3. Backward compatibility tables
-    await conn.query(`INSERT IGNORE INTO members (email) VALUES (?)`, ["admin@as426.studios"]);
-    await conn.query(`INSERT IGNORE INTO members (email) VALUES (?)`, ["admin@as426.com"]);
-    await conn.query(`INSERT IGNORE INTO restaurant_members (restaurant_id, email) VALUES (?, ?)`, ["ember-spice", "admin@as426.studios"]);
-    await conn.query(`INSERT IGNORE INTO restaurant_members (restaurant_id, email) VALUES (?, ?)`, ["ember-spice", "admin@as426.com"]);
-    await conn.query(`
-      INSERT INTO waiters (restaurant_id, email, name, created_at)
-      VALUES (?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE name = VALUES(name)
-    `, ["ember-spice", "staff@as426.com", "Rahul (Staff)", now]);
-
-    // 4. Menu
-    await conn.query(`
-      INSERT INTO menu (id, data, revision)
-      VALUES (?, ?, 1)
-      ON DUPLICATE KEY UPDATE revision = VALUES(revision)
-    `, ["ember-spice", JSON.stringify(sample)]);
-
-    // 5. Initial orders if empty
-    const [orderCountRows] = await conn.query("SELECT COUNT(*) as count FROM orders");
-    if (orderCountRows[0].count === 0) {
-      await conn.query(`
-        INSERT INTO orders (id, restaurant_id, restaurant_name, table_label, customer_name, notes, items, total, status, request_hash, is_test, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
-      `, [
-        "ord-101",
-        "ember-spice",
-        "Ember & Spice",
-        "4",
-        "Aarav Sharma",
-        "Less spicy on the chicken please",
-        JSON.stringify([
-          { id: "1", name: "Smoked Paneer Tikka", unitPrice: 295, quantity: 1 },
-          { id: "6", name: "Mango & Mint Cooler", unitPrice: 165, quantity: 2 },
-        ]),
-        625,
-        "new",
-        "req-hash-1",
-        now,
-        now
-      ]);
-
-      await conn.query(`
-        INSERT INTO orders (id, restaurant_id, restaurant_name, table_label, customer_name, notes, items, total, status, request_hash, is_test, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
-      `, [
-        "ord-102",
-        "ember-spice",
-        "Ember & Spice",
-        "2",
-        "Priya Patel",
-        "Table near the window",
-        JSON.stringify([
-          { id: "2", name: "Ghee Roast Chicken", unitPrice: 345, quantity: 1 },
-          { id: "3", name: "Wild Mushroom Kulcha", unitPrice: 245, quantity: 2 },
-        ]),
-        835,
-        "preparing",
-        "req-hash-2",
-        now,
-        now
-      ]);
-    }
-
-    console.log("✅ Seed data populated successfully in Hostinger MySQL!");
+    console.log("✅ Super Admin account created. No sample restaurants, menus or orders were added.");
     if (generated.length) console.log(["Temporary passwords (shown once, change them after first login):", ...generated].join(String.fromCharCode(10)));
   } catch (err) {
     console.error("❌ Migration error:", err);

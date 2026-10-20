@@ -52,24 +52,6 @@ async function resetClean() {
 
     const now = new Date().toISOString();
 
-    // 3. Insert default restaurant Ember & Spice
-    await conn.query(`
-      INSERT INTO restaurants (id, name, slug, address, contact_phone, contact_email, welcome_message, note, status, manager_qr_visible, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
-    `, [
-      "ember-spice",
-      "Ember & Spice",
-      "ember-spice",
-      "42 Connaught Place, New Delhi",
-      "+91 98100 12345",
-      "contact@emberspice.com",
-      "Welcome to Ember & Spice. Explore our signature coal-fired kitchen selections.",
-      "Taxes and 5% service charge included. Please inform your server about any allergies.",
-      "active",
-      now,
-      now
-    ]);
-
     // 4. Insert clean Super Admin
     await conn.query(`
       INSERT INTO accounts (id, email, password_hash, name, role, restaurant_id, status, must_change_password, session_version, created_at, updated_at)
@@ -85,57 +67,11 @@ async function resetClean() {
       now
     ]);
 
-    // 5. Insert clean Manager
-    await conn.query(`
-      INSERT INTO accounts (id, email, password_hash, name, role, restaurant_id, status, must_change_password, session_version, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'active', 0, 1, ?, ?)
-    `, [
-      "acc_mgr_ember",
-      "admin@as426.com",
-      seedHash("SEED_MANAGER_PASSWORD", "Manager"),
-      "Restaurant Manager",
-      "admin",
-      "ember-spice",
-      now,
-      now
-    ]);
-
-    // 6. Insert clean Waiter
-    await conn.query(`
-      INSERT INTO accounts (id, email, password_hash, name, role, restaurant_id, status, must_change_password, session_version, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'active', 0, 1, ?, ?)
-    `, [
-      "acc_waiter_ember",
-      "staff@as426.com",
-      seedHash("SEED_WAITER_PASSWORD", "Waiter"),
-      "Rahul (Staff)",
-      "waiter",
-      "ember-spice",
-      now,
-      now
-    ]);
-
-    // 7. Insert mapping rows
-    await conn.query(`INSERT INTO members (email) VALUES (?)`, ["admin@as426.studios"]);
-    await conn.query(`INSERT INTO members (email) VALUES (?)`, ["admin@as426.com"]);
-    await conn.query(`INSERT INTO restaurant_members (restaurant_id, email) VALUES (?, ?)`, ["ember-spice", "admin@as426.studios"]);
-    await conn.query(`INSERT INTO restaurant_members (restaurant_id, email) VALUES (?, ?)`, ["ember-spice", "admin@as426.com"]);
-    await conn.query(`
-      INSERT INTO waiters (restaurant_id, email, name, created_at)
-      VALUES (?, ?, ?, ?)
-    `, ["ember-spice", "staff@as426.com", "Rahul (Staff)", now]);
-
-    // 8. Insert clean Ember & Spice menu
-    await conn.query(`
-      INSERT INTO menu (id, data, revision)
-      VALUES (?, ?, 1)
-    `, ["ember-spice", JSON.stringify(sample)]);
-
     console.log("✅ Database successfully reset to clean testing state!");
     console.log("   - Orders: 0");
     console.log("   - Ratings: 0");
     console.log("   - Reviews: 0");
-    console.log("   Seeded accounts: admin@as426.studios, admin@as426.com, staff@as426.com");
+    console.log("   Seeded account: admin@as426.studios (Super Admin). Create restaurants, managers and waiters from the dashboard.");
     if (generated.length) console.log(["Temporary passwords (shown once, change them after first login):", ...generated].join(String.fromCharCode(10)));
   } finally {
     await conn.end();
