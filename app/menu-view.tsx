@@ -10,6 +10,7 @@ import {
   Minus,
   Search,
   Heart,
+  Shuffle,
   ArrowUpRight,
   ReceiptText,
   Coffee,
@@ -70,6 +71,8 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
   const [saved, setSaved] = useState<string[]>([]);
   const [sort, setSort] = useState("recommended");
   const [onlySaved, setOnlySaved] = useState(false);
+  const [spice, setSpice] = useState("any");
+  const [avoid, setAvoid] = useState<string[]>([]);
   const [dishRatings, setDishRatings] = useState<Record<string, { averageRating: number; ratingCount: number }>>({});
 
   async function load() {
@@ -163,11 +166,25 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
   const regular = menu.dishes.filter((d) => !d.secret);
   const secrets = menu.dishes.filter((d) => d.secret && d.available);
   const categories = ["All dishes", ...new Set(regular.map((d) => d.category))];
+  const allergenList = [
+    ...new Set(
+      regular.flatMap((d) =>
+        (d.allergens || "")
+          .split(/[,/;]/)
+          .map((a) => a.trim())
+          .filter((a) => a && !/^(none|nil|n\/a)$/i.test(a))
+      )
+    ),
+  ].sort();
+  const hasAvoided = (d: Dish) =>
+    avoid.some((a) => (d.allergens || "").toLowerCase().split(/[,/;]/).map((x) => x.trim()).includes(a.toLowerCase()));
   const shown = regular.filter(
     (d) =>
       (category === "All dishes" || d.category === category) &&
       (!veg || d.veg) &&
       (!onlySaved || saved.includes(d.id)) &&
+      (spice === "any" || d.spice === spice) &&
+      !hasAvoided(d) &&
       `${d.name} ${d.description}`.toLowerCase().includes(query.toLowerCase())
   );
   const rate = (id: string) => dishRatings[id]?.averageRating || 0;
@@ -324,6 +341,25 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
                 <option value="price-high">Price: high to low</option>
               </select>
             </label>
+            <label>
+              Spice
+              <select aria-label="Spice level" value={spice} onChange={(e) => setSpice(e.target.value)}>
+                <option value="any">Any</option>
+                <option value="mild">Mild</option>
+                <option value="medium">Medium</option>
+                <option value="hot">Hot</option>
+              </select>
+            </label>
+            <button
+              className="chip"
+              disabled={!shown.some((d) => d.available)}
+              onClick={() => {
+                const pool = shown.filter((d) => d.available);
+                if (pool.length) setSelected(pool[Math.floor(Math.random() * pool.length)]);
+              }}
+            >
+              <Shuffle size={16} /> <span>Surprise me</span>
+            </button>
             <button
               className={onlySaved ? "chip selected" : "chip"}
               aria-pressed={onlySaved}
@@ -332,6 +368,22 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
               <Heart size={16} /> <span>Favourites{saved.length ? ` (${saved.length})` : ""}</span>
             </button>
           </div>
+
+          {allergenList.length > 0 && (
+            <div className="allergen-filter" aria-label="Avoid allergens">
+              <span>Avoid:</span>
+              {allergenList.map((a) => (
+                <button
+                  key={a}
+                  className={avoid.includes(a) ? "chip selected" : "chip"}
+                  aria-pressed={avoid.includes(a)}
+                  onClick={() => setAvoid((x) => (x.includes(a) ? x.filter((y) => y !== a) : [...x, a]))}
+                >
+                  <span>{a}</span>
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="menu-results" aria-live="polite">
             <span>
@@ -411,13 +463,15 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
             </div>
           )}
 
-          {(query || veg || onlySaved || category !== "All dishes") && (
+          {(query || veg || onlySaved || spice !== "any" || avoid.length > 0 || category !== "All dishes") && (
             <button
               className="reset-menu"
               onClick={() => {
                 setQuery("");
                 setVeg(false);
                 setOnlySaved(false);
+                setSpice("any");
+                setAvoid([]);
                 setCategory("All dishes");
               }}
             >
