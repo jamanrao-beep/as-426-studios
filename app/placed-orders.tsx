@@ -178,6 +178,17 @@ export default function PlacedOrders({ restaurant }: { restaurant: string }) {
                     </div>
                   )}
 
+                  <button
+                    className="secondary reorder-button"
+                    onClick={() =>
+                      window.dispatchEvent(
+                        new CustomEvent("table-reorder", { detail: o.items.map((i) => ({ id: i.id, quantity: i.quantity })) })
+                      )
+                    }
+                  >
+                    Order again
+                  </button>
+
                   {/* Customer Dish Rating Option for Completed Orders */}
                   {o.status === "served" && matchingKey && (
                     <DishRatingWidget order={o} token={matchingKey.token} restaurant={restaurant} />

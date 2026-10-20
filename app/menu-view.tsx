@@ -84,6 +84,25 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
   }, []);
 
   useEffect(() => {
+    function reorder(e: Event) {
+      const items = (e as CustomEvent<CartItem[]>).detail || [];
+      const available = items.filter((i) => menu?.dishes.some((d) => d.id === i.id && d.available));
+      setCart((cur) => {
+        const next = [...cur];
+        for (const i of available) {
+          const at = next.findIndex((n) => n.id === i.id);
+          if (at >= 0) next[at] = { ...next[at], quantity: Math.min(20, next[at].quantity + i.quantity) };
+          else next.push({ id: i.id, quantity: Math.min(20, i.quantity) });
+        }
+        return next;
+      });
+      setToast(available.length ? "Items added to your cart" : "Those dishes aren’t available right now");
+    }
+    window.addEventListener("table-reorder", reorder);
+    return () => window.removeEventListener("table-reorder", reorder);
+  }, [menu]);
+
+  useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(""), 2200);
     return () => clearTimeout(t);
