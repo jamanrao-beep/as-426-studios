@@ -11,6 +11,8 @@ import {
   Search,
   Heart,
   Shuffle,
+  Share2,
+  ArrowUp,
   ArrowUpRight,
   ReceiptText,
   Coffee,
@@ -72,6 +74,34 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
   const [sort, setSort] = useState("recommended");
   const [onlySaved, setOnlySaved] = useState(false);
   const [spice, setSpice] = useState("any");
+  const [toast, setToast] = useState("");
+  const [showTop, setShowTop] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setShowTop(window.scrollY > 700);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(""), 2200);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  async function shareMenu() {
+    const url = window.location.href.split("#")[0];
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: menu?.name || "Table Secret", url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setToast("Menu link copied");
+    } catch {
+      setToast("Couldn’t share the link");
+    }
+  }
   const [avoid, setAvoid] = useState<string[]>([]);
   const [dishRatings, setDishRatings] = useState<Record<string, { averageRating: number; ratingCount: number }>>({});
 
@@ -151,6 +181,14 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
   if (!menu) {
     return (
       <main className="access">
+        {!error && (
+          <div className="skeleton-wrap" aria-hidden="true">
+            <span className="skeleton sk-title" />
+            <span className="skeleton sk-line" />
+            <span className="skeleton sk-card" />
+            <span className="skeleton sk-card" />
+          </div>
+        )}
         <h1>{error ? "We’ll be right with you." : "Setting your table…"}</h1>
         <p role="status">{error}</p>
         {error && (
@@ -202,10 +240,16 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
             <small className="brand-byline">BY AS 426 STUDIOS</small>
           </span>
         </span>
-        <button className="header-orders" onClick={openOrders}>
-          <ReceiptText size={17} />
-          <span>My orders</span>
-        </button>
+        <div className="header-actions">
+          <button className="header-orders" onClick={shareMenu} aria-label="Share this menu">
+            <Share2 size={17} />
+            <span>Share</span>
+          </button>
+          <button className="header-orders" onClick={openOrders}>
+            <ReceiptText size={17} />
+            <span>My orders</span>
+          </button>
+        </div>
       </header>
       <main>
         <section className="menu-heading">
@@ -563,6 +607,17 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
           </button>
         </DialogContent>
       </Dialog>
+
+      {toast && (
+        <div className="ts-toast" role="status">
+          {toast}
+        </div>
+      )}
+      {showTop && (
+        <button className="back-to-top" aria-label="Back to top" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+          <ArrowUp size={18} />
+        </button>
+      )}
 
       <Cart restaurant={restaurant} menu={menu} items={cart} onChange={setCart} onRefresh={load} />
     </div>

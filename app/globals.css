@@ -1396,3 +1396,17 @@
 .ts-dining .menu-sort select{min-height:40px;padding:0 10px;border:1px solid #dfd5c6;border-radius:10px;background:#fffdf7;font:inherit;font-size:14px;color:inherit}
 .ts-dining .allergen-filter{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px;font-size:12px;color:#80725f}
 .ts-dining .allergen-filter .chip{padding:6px 12px;min-height:34px;font-size:12px}
+.ts-dining .header-actions{display:flex;align-items:center;gap:4px}
+.ts-dining .dish{transition:transform .2s,box-shadow .2s,border-color .2s;animation:ts-rise .45s ease both}
+.ts-dining .dish:hover{transform:translateY(-3px);box-shadow:0 12px 28px -14px rgba(76,57,42,.35);border-color:#d9c6ad}
+.ts-dining .favourite-button{transition:transform .15s,background .15s}
+.ts-dining .favourite-button:active{transform:scale(1.25)}
+.ts-dining .menu-tools{position:sticky;top:0;z-index:15;background:#fbf7ef;padding:10px 0}
+.ts-dining .back-to-top{position:fixed;right:16px;bottom:88px;z-index:30;width:44px;height:44px;border-radius:50%;border:1px solid #d9c6ad;background:#fffcf6;color:#62482f;display:grid;place-items:center;box-shadow:0 6px 18px -8px rgba(0,0,0,.35)}
+.ts-dining .ts-toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);z-index:60;background:#45372c;color:#fff7e9;padding:11px 18px;border-radius:999px;font-size:13px;animation:ts-rise .25s ease both}
+.skeleton-wrap{display:grid;gap:14px;margin-bottom:24px}
+.skeleton{display:block;border-radius:12px;background:linear-gradient(90deg,#eee6d9 25%,#f7f1e6 50%,#eee6d9 75%);background-size:200% 100%;animation:ts-shimmer 1.3s infinite linear}
+.sk-title{height:34px;width:55%}.sk-line{height:16px;width:80%}.sk-card{height:110px}
+@keyframes ts-shimmer{to{background-position:-200% 0}}
+@keyframes ts-rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media(max-width:520px){.ts-dining .header-actions .header-orders span{display:none}.ts-dining .header-actions .header-orders svg{display:block!important}}
