@@ -107,8 +107,8 @@ export default function Waiters({
       const restObj = restaurants.find((r) => r.id === effectiveRest);
       setCredentialModal({
         open: true,
-        email: data.email,
-        temporaryPassword: data.temporary_password,
+        email: data.waiter?.email || email.trim(),
+        temporaryPassword: data.waiter?.temporary_password || data.temporary_password,
         restaurantName: restObj?.name || effectiveRest,
       });
 
@@ -170,7 +170,7 @@ export default function Waiters({
       const restObj = restaurants.find((r) => r.id === w.restaurant_id);
       setCredentialModal({
         open: true,
-        email: data.email,
+        email: w.email,
         temporaryPassword: data.temporary_password,
         restaurantName: restObj?.name || w.restaurant_id,
       });
