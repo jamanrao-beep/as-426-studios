@@ -93,7 +93,7 @@ export default function DishInsights({
           <span
             style={{
               fontSize: "0.78rem",
-              background: "#3b82f6",
+              background: "#df4d03",
               color: "#fff",
               padding: "4px 10px",
               borderRadius: 12,

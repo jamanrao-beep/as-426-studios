@@ -361,7 +361,7 @@ export default function Managers({
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <label>
-            <span style={{ fontSize: "0.85rem", color: "#a5b4a9" }}>Admin Name *</span>
+            <span style={{ fontSize: "0.85rem", color: "#bda69c" }}>Admin Name *</span>
             <input
               required
               maxLength={80}
@@ -373,7 +373,7 @@ export default function Managers({
             />
           </label>
           <label>
-            <span style={{ fontSize: "0.85rem", color: "#a5b4a9" }}>Email / Gmail Address *</span>
+            <span style={{ fontSize: "0.85rem", color: "#bda69c" }}>Email / Gmail Address *</span>
             <input
               required
               type="email"
@@ -389,7 +389,7 @@ export default function Managers({
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
           <label>
-            <span style={{ fontSize: "0.85rem", color: "#a5b4a9" }}>Assign Restaurant *</span>
+            <span style={{ fontSize: "0.85rem", color: "#bda69c" }}>Assign Restaurant *</span>
             <select
               required
               value={restaurantId}
@@ -397,9 +397,9 @@ export default function Managers({
               disabled={busy}
               style={{
                 width: "100%",
-                background: "#131a15",
-                color: "#e8efe9",
-                border: "1px solid #2a382f",
+                background: "#1d1410",
+                color: "#f1e9e6",
+                border: "1px solid #3e2c24",
                 padding: "8px 12px",
                 borderRadius: 8,
                 marginTop: 4,
@@ -416,7 +416,7 @@ export default function Managers({
 
           <label>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: "0.85rem", color: "#a5b4a9" }}>Temporary Website Password</span>
+              <span style={{ fontSize: "0.85rem", color: "#bda69c" }}>Temporary Website Password</span>
               <button
                 type="button"
                 onClick={generatePassword}
@@ -488,7 +488,7 @@ export default function Managers({
                             fontSize: "0.72rem",
                             padding: "2px 8px",
                             borderRadius: 12,
-                            background: "#0284c7",
+                            background: "#df4d03",
                             color: "#ffffff",
                             fontWeight: 600,
                           }}
@@ -675,7 +675,7 @@ export default function Managers({
           <div
             style={{
               background: "rgba(0,0,0,0.3)",
-              border: "1px solid #2e3c33",
+              border: "1px solid #423028",
               borderRadius: 8,
               padding: 14,
               marginTop: 12,
@@ -757,9 +757,9 @@ export default function Managers({
                 onChange={(e) => setReassignRestaurantId(e.target.value)}
                 style={{
                   width: "100%",
-                  background: "#131a15",
-                  color: "#e8efe9",
-                  border: "1px solid #2a382f",
+                  background: "#1d1410",
+                  color: "#f1e9e6",
+                  border: "1px solid #3e2c24",
                   padding: "8px 12px",
                   borderRadius: 8,
                   marginTop: 4,

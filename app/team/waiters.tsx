@@ -239,9 +239,9 @@ export default function Waiters({
               value={selectedRest}
               onChange={(e) => setSelectedRest(e.target.value)}
               style={{
-                background: "#1c2621",
-                color: "#e8efe9",
-                border: "1px solid #2e3c33",
+                background: "#2a1d18",
+                color: "#f1e9e6",
+                border: "1px solid #423028",
                 padding: "6px 12px",
                 borderRadius: 8,
                 fontSize: "0.85rem",
@@ -275,16 +275,16 @@ export default function Waiters({
 
         {isSuperAdmin && !selectedRest && (
           <label style={{ display: "block", marginBottom: 12 }}>
-            <span style={{ fontSize: "0.85rem", color: "#a5b4a9" }}>Assign Restaurant *</span>
+            <span style={{ fontSize: "0.85rem", color: "#bda69c" }}>Assign Restaurant *</span>
             <select
               required
               value={selectedRest}
               onChange={(e) => setSelectedRest(e.target.value)}
               style={{
                 width: "100%",
-                background: "#131a15",
-                color: "#e8efe9",
-                border: "1px solid #2a382f",
+                background: "#1d1410",
+                color: "#f1e9e6",
+                border: "1px solid #3e2c24",
                 padding: "8px 12px",
                 borderRadius: 8,
                 marginTop: 4,
@@ -302,7 +302,7 @@ export default function Waiters({
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <label>
-            <span style={{ fontSize: "0.85rem", color: "#a5b4a9" }}>Full Name *</span>
+            <span style={{ fontSize: "0.85rem", color: "#bda69c" }}>Full Name *</span>
             <input
               required
               maxLength={80}
@@ -314,7 +314,7 @@ export default function Waiters({
             />
           </label>
           <label>
-            <span style={{ fontSize: "0.85rem", color: "#a5b4a9" }}>Email Address (Gmail / Email) *</span>
+            <span style={{ fontSize: "0.85rem", color: "#bda69c" }}>Email Address (Gmail / Email) *</span>
             <input
               required
               type="email"
@@ -330,7 +330,7 @@ export default function Waiters({
 
         <div style={{ marginTop: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-            <span style={{ fontSize: "0.85rem", color: "#a5b4a9" }}>Temporary Website Password</span>
+            <span style={{ fontSize: "0.85rem", color: "#bda69c" }}>Temporary Website Password</span>
             <button
               type="button"
               onClick={generatePass}
@@ -425,7 +425,7 @@ export default function Waiters({
                         </span>
                       )}
                     </div>
-                    <div style={{ display: "flex", gap: 12, marginTop: 4, fontSize: "0.82rem", color: "#8da092" }}>
+                    <div style={{ display: "flex", gap: 12, marginTop: 4, fontSize: "0.82rem", color: "#ac8e81" }}>
                       <span>{w.email}</span>
                       {isSuperAdmin && restObj && (
                         <span>
@@ -493,7 +493,7 @@ export default function Waiters({
           <div
             style={{
               background: "rgba(0,0,0,0.3)",
-              border: "1px solid #2e3c33",
+              border: "1px solid #423028",
               borderRadius: 8,
               padding: 14,
               marginTop: 12,

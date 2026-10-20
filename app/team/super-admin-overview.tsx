@@ -65,7 +65,7 @@ function getAuditBadge(action: string) {
   if (action.includes("order")) {
     return {
       label: "Order Status",
-      color: "#38bdf8",
+      color: "#ff8a4c",
       bg: "rgba(56, 189, 248, 0.12)",
       border: "rgba(56, 189, 248, 0.25)",
       icon: ShoppingBag,
@@ -159,7 +159,7 @@ export default function SuperAdminOverview({
         }}
       >
         <div>
-          <span className="access-badge" style={{ background: "#0284c7", color: "#fff", border: "none" }}>
+          <span className="access-badge" style={{ background: "#df4d03", color: "#fff", border: "none" }}>
             <ShieldCheck size={16} /> SUPER ADMIN OVERVIEW
           </span>
           <h2 style={{ fontSize: "1.6rem", marginTop: 8, marginBottom: 4 }}>System Overview & Analytics</h2>
@@ -187,9 +187,9 @@ export default function SuperAdminOverview({
               value={selectedRest}
               onChange={(e) => setSelectedRest(e.target.value)}
               style={{
-                background: "#131a15",
-                color: "#e8efe9",
-                border: "1px solid #2a382f",
+                background: "#1d1410",
+                color: "#f1e9e6",
+                border: "1px solid #3e2c24",
                 padding: "6px 10px",
                 borderRadius: 8,
                 fontSize: "0.82rem",
@@ -212,9 +212,9 @@ export default function SuperAdminOverview({
               onChange={(e) => setSelectedDate(e.target.value)}
               placeholder="Date (IST)"
               style={{
-                background: "#131a15",
-                color: "#e8efe9",
-                border: "1px solid #2a382f",
+                background: "#1d1410",
+                color: "#f1e9e6",
+                border: "1px solid #3e2c24",
                 padding: "5px 10px",
                 borderRadius: 8,
                 fontSize: "0.82rem",
@@ -250,7 +250,7 @@ export default function SuperAdminOverview({
         {/* Total Restaurants */}
         <div
           style={{
-            background: "linear-gradient(135deg, rgba(20,28,24,0.9), rgba(16,22,19,0.95))",
+            background: "linear-gradient(135deg, rgba(31,21,17,0.9), rgba(24,17,14,0.95))",
             border: "1px solid rgba(255,255,255,0.08)",
             borderRadius: 14,
             padding: 20,
@@ -260,17 +260,17 @@ export default function SuperAdminOverview({
           onClick={() => onNavigate("settings")}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "0.82rem", color: "#a5b4a9", textTransform: "uppercase", letterSpacing: 0.5 }}>
+            <span style={{ fontSize: "0.82rem", color: "#bda69c", textTransform: "uppercase", letterSpacing: 0.5 }}>
               Restaurants
             </span>
-            <div style={{ background: "rgba(59,130,246,0.15)", padding: 8, borderRadius: 10, color: "#60a5fa" }}>
+            <div style={{ background: "rgba(59,130,246,0.15)", padding: 8, borderRadius: 10, color: "#ff8a4c" }}>
               <Store size={18} />
             </div>
           </div>
           <div style={{ fontSize: "2rem", fontWeight: 700, margin: "10px 0 6px 0", color: "#fff" }}>
             {data?.restaurants.total ?? "--"}
           </div>
-          <div style={{ display: "flex", gap: 12, fontSize: "0.8rem", color: "#8da092" }}>
+          <div style={{ display: "flex", gap: 12, fontSize: "0.8rem", color: "#ac8e81" }}>
             <span>
               🟢 <strong style={{ color: "#6ee7b7" }}>{data?.restaurants.active ?? 0}</strong> Active
             </span>
@@ -283,7 +283,7 @@ export default function SuperAdminOverview({
         {/* Staff Hierarchy */}
         <div
           style={{
-            background: "linear-gradient(135deg, rgba(20,28,24,0.9), rgba(16,22,19,0.95))",
+            background: "linear-gradient(135deg, rgba(31,21,17,0.9), rgba(24,17,14,0.95))",
             border: "1px solid rgba(255,255,255,0.08)",
             borderRadius: 14,
             padding: 20,
@@ -292,7 +292,7 @@ export default function SuperAdminOverview({
           onClick={() => onNavigate("managers")}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "0.82rem", color: "#a5b4a9", textTransform: "uppercase", letterSpacing: 0.5 }}>
+            <span style={{ fontSize: "0.82rem", color: "#bda69c", textTransform: "uppercase", letterSpacing: 0.5 }}>
               Staff Accounts
             </span>
             <div style={{ background: "rgba(16,185,129,0.15)", padding: 8, borderRadius: 10, color: "#34d399" }}>
@@ -302,7 +302,7 @@ export default function SuperAdminOverview({
           <div style={{ fontSize: "2rem", fontWeight: 700, margin: "10px 0 6px 0", color: "#fff" }}>
             {Number(data?.staff.admins || 0) + Number(data?.staff.waiters || 0)}
           </div>
-          <div style={{ display: "flex", gap: 12, fontSize: "0.8rem", color: "#8da092" }}>
+          <div style={{ display: "flex", gap: 12, fontSize: "0.8rem", color: "#ac8e81" }}>
             <span>
               👔 <strong>{data?.staff.admins ?? 0}</strong> Admins
             </span>
@@ -315,7 +315,7 @@ export default function SuperAdminOverview({
         {/* Today's Orders */}
         <div
           style={{
-            background: "linear-gradient(135deg, rgba(20,28,24,0.9), rgba(16,22,19,0.95))",
+            background: "linear-gradient(135deg, rgba(31,21,17,0.9), rgba(24,17,14,0.95))",
             border: "1px solid rgba(255,255,255,0.08)",
             borderRadius: 14,
             padding: 20,
@@ -324,7 +324,7 @@ export default function SuperAdminOverview({
           onClick={() => onNavigate("orders")}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "0.82rem", color: "#a5b4a9", textTransform: "uppercase", letterSpacing: 0.5 }}>
+            <span style={{ fontSize: "0.82rem", color: "#bda69c", textTransform: "uppercase", letterSpacing: 0.5 }}>
               Today's Orders
             </span>
             <div style={{ background: "rgba(245,158,11,0.15)", padding: 8, borderRadius: 10, color: "#fbbf24" }}>
@@ -334,7 +334,7 @@ export default function SuperAdminOverview({
           <div style={{ fontSize: "2rem", fontWeight: 700, margin: "10px 0 6px 0", color: "#fff" }}>
             {data?.today.orderCount ?? "--"}
           </div>
-          <div style={{ display: "flex", gap: 12, fontSize: "0.8rem", color: "#8da092" }}>
+          <div style={{ display: "flex", gap: 12, fontSize: "0.8rem", color: "#ac8e81" }}>
             <span>
               ✅ <strong style={{ color: "#6ee7b7" }}>{data?.today.deliveredCount ?? 0}</strong> Delivered
             </span>
@@ -347,7 +347,7 @@ export default function SuperAdminOverview({
         {/* Delivered Sales */}
         <div
           style={{
-            background: "linear-gradient(135deg, rgba(20,28,24,0.9), rgba(16,22,19,0.95))",
+            background: "linear-gradient(135deg, rgba(31,21,17,0.9), rgba(24,17,14,0.95))",
             border: "1px solid rgba(255,255,255,0.08)",
             borderRadius: 14,
             padding: 20,
@@ -356,7 +356,7 @@ export default function SuperAdminOverview({
           onClick={() => onNavigate("sales")}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "0.82rem", color: "#a5b4a9", textTransform: "uppercase", letterSpacing: 0.5 }}>
+            <span style={{ fontSize: "0.82rem", color: "#bda69c", textTransform: "uppercase", letterSpacing: 0.5 }}>
               Today's Delivered Sales
             </span>
             <div style={{ background: "rgba(168,85,247,0.15)", padding: 8, borderRadius: 10, color: "#c084fc" }}>
@@ -366,7 +366,7 @@ export default function SuperAdminOverview({
           <div style={{ fontSize: "2rem", fontWeight: 700, margin: "10px 0 6px 0", color: "#34d399" }}>
             {money(data?.today.deliveredSales ?? 0)}
           </div>
-          <div style={{ fontSize: "0.78rem", color: "#8da092" }}>
+          <div style={{ fontSize: "0.78rem", color: "#ac8e81" }}>
             Month Total: {money(data?.monthly.deliveredSales ?? 0)}
           </div>
         </div>
@@ -375,7 +375,7 @@ export default function SuperAdminOverview({
       {/* Quick Launch & Onboarding Progress Panel */}
       <div
         style={{
-          background: "linear-gradient(135deg, rgba(18, 24, 21, 0.75), rgba(12, 17, 14, 0.85))",
+          background: "linear-gradient(135deg, rgba(27,19,15, 0.75), rgba(19,13,10, 0.85))",
           border: "1px solid rgba(255, 255, 255, 0.08)",
           borderRadius: 16,
           padding: "24px 26px",
@@ -478,7 +478,7 @@ export default function SuperAdminOverview({
                   fontSize: "0.72rem",
                   fontWeight: 700,
                   letterSpacing: "0.08em",
-                  color: "#38bdf8",
+                  color: "#ff8a4c",
                   background: "rgba(56, 189, 248, 0.12)",
                   padding: "3px 8px",
                   borderRadius: 6,
@@ -489,7 +489,7 @@ export default function SuperAdminOverview({
               </span>
               <div
                 style={{
-                  color: "#38bdf8",
+                  color: "#ff8a4c",
                   background: "rgba(56, 189, 248, 0.1)",
                   padding: 6,
                   borderRadius: 8,
@@ -601,7 +601,7 @@ export default function SuperAdminOverview({
           {/* STEP 8-9 */}
           <div
             style={{
-              background: "linear-gradient(145deg, rgba(52, 211, 153, 0.06), rgba(12, 28, 20, 0.4))",
+              background: "linear-gradient(145deg, rgba(52, 211, 153, 0.06), rgba(31,16,9, 0.4))",
               padding: "16px 18px",
               borderRadius: 12,
               border: "1px solid rgba(52, 211, 153, 0.2)",
@@ -650,7 +650,7 @@ export default function SuperAdminOverview({
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
         <div
           style={{
-            background: "linear-gradient(135deg, rgba(20, 26, 23, 0.75), rgba(13, 18, 15, 0.85))",
+            background: "linear-gradient(135deg, rgba(29,21,17, 0.75), rgba(20,14,11, 0.85))",
             border: "1px solid rgba(255, 255, 255, 0.08)",
             borderRadius: 16,
             padding: "22px 24px",

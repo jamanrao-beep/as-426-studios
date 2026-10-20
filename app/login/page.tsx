@@ -2,7 +2,7 @@
 
 import { useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Utensils, Shield, UserCheck, Lock, Mail, ArrowRight, Eye, EyeOff, CheckCircle2 } from "lucide-react";
+import { Utensils, Lock, Mail, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 
 function LoginForm() {
   const router = useRouter();
@@ -16,14 +16,11 @@ function LoginForm() {
   const [error, setError] = useState("");
   const passwordInputRef = useRef<HTMLInputElement>(null);
 
-  const isManager = email.trim().toLowerCase() === "admin@as426.com";
-  const isStaff = email.trim().toLowerCase() === "staff@as426.com";
-
   async function handleLogin() {
     const targetEmail = email.trim();
 
     if (!targetEmail) {
-      setError("Please select a workspace role or enter your sign-in email.");
+      setError("Please enter your sign-in email.");
       return;
     }
     if (!password) {
@@ -62,24 +59,6 @@ function LoginForm() {
     }
   }
 
-  function selectManagerRole() {
-    setEmail("admin@as426.com");
-    setPassword("");
-    setError("");
-    setTimeout(() => {
-      passwordInputRef.current?.focus();
-    }, 50);
-  }
-
-  function selectStaffRole() {
-    setEmail("staff@as426.com");
-    setPassword("");
-    setError("");
-    setTimeout(() => {
-      passwordInputRef.current?.focus();
-    }, 50);
-  }
-
   return (
     <div className="login-card">
       <div className="login-header">
@@ -89,7 +68,7 @@ function LoginForm() {
         </span>
         <h1>Sign in to Table Secret</h1>
         <p>
-          Select your workspace role or enter your credentials to open the dashboard.
+          Enter your credentials to open your dashboard.
         </p>
       </div>
 
@@ -98,60 +77,6 @@ function LoginForm() {
           {error}
         </div>
       )}
-
-      {/* Role Selection Quick-Toggles */}
-      <div className="preset-accounts-section">
-        <p className="eyebrow preset-label">1. CHOOSE WORKSPACE ROLE</p>
-        <div className="preset-grid">
-          <button
-            type="button"
-            className={`preset-card preset-admin ${isManager ? "selected" : ""}`}
-            onClick={selectManagerRole}
-            disabled={loading}
-          >
-            <div className="preset-card-top">
-              <span className="preset-icon">
-                <Shield size={18} />
-              </span>
-              <span className="preset-role-badge">
-                {isManager ? "Selected ✓" : "Manager"}
-              </span>
-            </div>
-            <h3>Restaurant Manager</h3>
-            <p className="preset-desc">Full restaurant manager access: Manage menus, dishes, orders, waiters and customer reviews.</p>
-            <div className="preset-action">
-              <span>{isManager ? "Manager email filled · Enter password below" : "Select Restaurant Manager"}</span>
-              <ArrowRight size={14} />
-            </div>
-          </button>
-
-          <button
-            type="button"
-            className={`preset-card preset-waiter ${isStaff ? "selected" : ""}`}
-            onClick={selectStaffRole}
-            disabled={loading}
-          >
-            <div className="preset-card-top">
-              <span className="preset-icon">
-                <UserCheck size={18} />
-              </span>
-              <span className="preset-role-badge">
-                {isStaff ? "Selected ✓" : "Staff"}
-              </span>
-            </div>
-            <h3>Staff / Waiter Workspace</h3>
-            <p className="preset-desc">Streamlined table orders feed, alerts and delivery confirmation.</p>
-            <div className="preset-action">
-              <span>{isStaff ? "Staff email filled · Enter password below" : "Select Staff"}</span>
-              <ArrowRight size={14} />
-            </div>
-          </button>
-        </div>
-      </div>
-
-      <div className="login-divider">
-        <span>2. ENTER CREDENTIALS TO SIGN IN</span>
-      </div>
 
       {/* Login Form */}
       <form
@@ -200,13 +125,7 @@ function LoginForm() {
         </label>
 
         <button type="submit" className="primary login-submit" disabled={loading}>
-          {loading
-            ? "Signing in…"
-            : isManager
-            ? "Sign In as Restaurant Manager"
-            : isStaff
-            ? "Sign In as Staff"
-            : "Sign In"}
+          {loading ? "Signing in…" : "Sign In"}
         </button>
       </form>
 

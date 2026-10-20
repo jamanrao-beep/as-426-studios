@@ -115,7 +115,7 @@ export default function DishRatingWidget({
       style={{
         marginTop: 18,
         paddingTop: 16,
-        borderTop: "1px dashed #d5ded1",
+        borderTop: "1px dashed #e3d3cc",
       }}
     >
       {/* Header Expand/Collapse Trigger */}
@@ -129,12 +129,12 @@ export default function DishRatingWidget({
           justifyContent: "space-between",
           padding: "12px 16px",
           borderRadius: 12,
-          border: "1px solid #dce4d9",
-          background: open ? "#f4f8f2" : "#ffffff",
+          border: "1px solid #e8dbd5",
+          background: open ? "#f9f3f1" : "#ffffff",
           cursor: "pointer",
           transition: "all 0.18s ease",
           textAlign: "left",
-          boxShadow: open ? "0 2px 8px rgba(23,33,27,0.04)" : "0 1px 3px rgba(23,33,27,0.02)",
+          boxShadow: open ? "0 2px 8px rgba(37,25,19,0.04)" : "0 1px 3px rgba(37,25,19,0.02)",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -159,7 +159,7 @@ export default function DishRatingWidget({
           </div>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "#17211b" }}>
+              <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "#251913" }}>
                 {allRated ? "Dishes Rated" : "Rate your dishes"}
               </span>
               <span
@@ -170,8 +170,8 @@ export default function DishRatingWidget({
                   letterSpacing: "0.04em",
                   padding: "2px 8px",
                   borderRadius: 12,
-                  background: allRated ? "#d1fae5" : "#eaf4e5",
-                  color: allRated ? "#065f46" : "#3b5828",
+                  background: allRated ? "#d1fae5" : "#f7e8e2",
+                  color: allRated ? "#065f46" : "#62321e",
                 }}
               >
                 {allRated ? "Completed" : "Delivered"}
@@ -189,8 +189,8 @@ export default function DishRatingWidget({
             width: 28,
             height: 28,
             borderRadius: 8,
-            background: open ? "#e1ebe0" : "#f1f5ee",
-            color: "#384a35",
+            background: open ? "#eee2dd" : "#f7efec",
+            color: "#52382d",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -215,7 +215,7 @@ export default function DishRatingWidget({
               gap: 6,
             }}
           >
-            <Sparkles size={14} style={{ color: "#84a34b" }} />
+            <Sparkles size={14} style={{ color: "#b65e38" }} />
             How was each item? Select stars and leave a note for the chefs:
           </p>
 
@@ -232,12 +232,12 @@ export default function DishRatingWidget({
                 key={item.id}
                 style={{
                   background: "#ffffff",
-                  border: isSaved ? "1.5px solid #a7f3d0" : "1.5px solid #e2e8df",
+                  border: isSaved ? "1.5px solid #a7f3d0" : "1.5px solid #ebe0dc",
                   borderRadius: 14,
                   padding: "16px 18px",
                   boxShadow: isSaved
                     ? "0 3px 12px rgba(16,185,129,0.06)"
-                    : "0 2px 10px rgba(23,33,27,0.03)",
+                    : "0 2px 10px rgba(37,25,19,0.03)",
                   transition: "all 0.2s ease",
                   display: "flex",
                   flexDirection: "column",
@@ -260,7 +260,7 @@ export default function DishRatingWidget({
                         width: 8,
                         height: 8,
                         borderRadius: "50%",
-                        background: isSaved ? "#10b981" : "#84aa4e",
+                        background: isSaved ? "#10b981" : "#bd623b",
                         display: "inline-block",
                         flexShrink: 0,
                       }}
@@ -268,7 +268,7 @@ export default function DishRatingWidget({
                     <strong
                       style={{
                         fontSize: "0.98rem",
-                        color: "#17211b",
+                        color: "#251913",
                         fontWeight: 700,
                         letterSpacing: "-0.01em",
                       }}
@@ -279,8 +279,8 @@ export default function DishRatingWidget({
                       <span
                         style={{
                           fontSize: "0.72rem",
-                          color: "#5f6e61",
-                          background: "#eef3ec",
+                          color: "#795f54",
+                          background: "#f5edea",
                           padding: "2px 7px",
                           borderRadius: 6,
                           fontWeight: 600,
@@ -345,7 +345,7 @@ export default function DishRatingWidget({
                           <Star
                             size={26}
                             style={{
-                              color: active ? "#f59e0b" : "#d1d7ce",
+                              color: active ? "#f59e0b" : "#dccfc9",
                               fill: active ? "#f59e0b" : "transparent",
                               filter: active
                                 ? "drop-shadow(0 2px 4px rgba(245,158,11,0.32))"
@@ -366,11 +366,11 @@ export default function DishRatingWidget({
                       borderRadius: 16,
                       transition: "all 0.15s ease",
                       ...(displayStar === 0
-                        ? { background: "#f3f6f1", color: "#6e7d6c" }
+                        ? { background: "#f8f2ef", color: "#8a6c5f" }
                         : displayStar <= 2
                         ? { background: "#fef3c7", color: "#92400e" }
                         : displayStar <= 4
-                        ? { background: "#ecfccb", color: "#3f6212" }
+                        ? { background: "#fce2cb", color: "#623712" }
                         : { background: "#fef9c3", color: "#854d0e", border: "1px solid #fde047" }),
                     }}
                   >
@@ -402,23 +402,23 @@ export default function DishRatingWidget({
                     style={{
                       width: "100%",
                       fontSize: "0.85rem",
-                      background: "#fafbf9",
-                      border: "1px solid #d4ded1",
+                      background: "#fcf9f8",
+                      border: "1px solid #e3d3cc",
                       borderRadius: 9,
                       padding: "9px 12px",
-                      color: "#17211b",
+                      color: "#251913",
                       outline: "none",
                       transition: "all 0.15s ease",
                       boxSizing: "border-box",
                     }}
                     onFocus={(e) => {
                       e.currentTarget.style.background = "#ffffff";
-                      e.currentTarget.style.borderColor = "#689445";
-                      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(104,148,69,0.15)";
+                      e.currentTarget.style.borderColor = "#a55634";
+                      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(165,86,52,0.15)";
                     }}
                     onBlur={(e) => {
-                      e.currentTarget.style.background = "#fafbf9";
-                      e.currentTarget.style.borderColor = "#d4ded1";
+                      e.currentTarget.style.background = "#fcf9f8";
+                      e.currentTarget.style.borderColor = "#e3d3cc";
                       e.currentTarget.style.boxShadow = "none";
                     }}
                   />
@@ -435,7 +435,7 @@ export default function DishRatingWidget({
                     flexWrap: "wrap",
                   }}
                 >
-                  <span style={{ fontSize: "0.74rem", color: "#829280" }}>
+                  <span style={{ fontSize: "0.74rem", color: "#9f8073" }}>
                     {currentComment.length > 0
                       ? `${currentComment.length}/500 chars`
                       : "Ratings are sent privately to the restaurant"}
@@ -463,15 +463,15 @@ export default function DishRatingWidget({
                           }
                         : currentStar === 0
                         ? {
-                            background: "#e8ede5",
-                            color: "#8a9686",
+                            background: "#f0e6e2",
+                            color: "#a2867a",
                             border: "none",
                           }
                         : {
-                            background: "#17251e",
+                            background: "#291a13",
                             color: "#ffffff",
                             border: "none",
-                            boxShadow: "0 2px 6px rgba(23,37,30,0.18)",
+                            boxShadow: "0 2px 6px rgba(41,26,19,0.18)",
                           }),
                     }}
                   >

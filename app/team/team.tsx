@@ -255,7 +255,7 @@ export default function Team({
     QRCode.toDataURL(url, {
       width: 600,
       margin: 4,
-      color: { dark: "#17211b", light: "#ffffff" },
+      color: { dark: "#251913", light: "#ffffff" },
     })
       .then(setQr)
       .catch(() => setQr(""));
@@ -1247,7 +1247,7 @@ export default function Team({
                       style={{
                         background: "none",
                         border: "none",
-                        color: "#4d7335",
+                        color: "#804228",
                         fontSize: "0.75rem",
                         fontWeight: 600,
                         cursor: "pointer",
