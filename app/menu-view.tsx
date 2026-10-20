@@ -12,6 +12,8 @@ import {
   Heart,
   Shuffle,
   Share2,
+  Moon,
+  Sun,
   ArrowUp,
   ArrowUpRight,
   ReceiptText,
@@ -75,6 +77,22 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
   const [onlySaved, setOnlySaved] = useState(false);
   const [spice, setSpice] = useState("any");
   const [toast, setToast] = useState("");
+  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    try {
+      setDark(localStorage.getItem("ts-theme") === "dark");
+    } catch {}
+  }, []);
+
+  function toggleTheme() {
+    setDark((d) => {
+      try {
+        localStorage.setItem("ts-theme", d ? "light" : "dark");
+      } catch {}
+      return !d;
+    });
+  }
   const [showTop, setShowTop] = useState(false);
 
   useEffect(() => {
@@ -250,7 +268,7 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
   else if (sort === "top-rated") shown.sort((a, b) => rate(b.id) - rate(a.id));
 
   return (
-    <div className="customer ts-dining ts-editorial">
+    <div className={`customer ts-dining ts-editorial${dark ? " ts-dark" : ""}`}>
       <header className="brandbar">
         <span className="brand">
           <span className="brandmark" aria-hidden="true" />
@@ -260,6 +278,10 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
           </span>
         </span>
         <div className="header-actions">
+          <button className="header-orders" onClick={toggleTheme} aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}>
+            {dark ? <Sun size={17} /> : <Moon size={17} />}
+            <span>{dark ? "Light" : "Dark"}</span>
+          </button>
           <button className="header-orders" onClick={shareMenu} aria-label="Share this menu">
             <Share2 size={17} />
             <span>Share</span>
@@ -468,6 +490,11 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
                         {d.veg ? <Leaf size={12} /> : <Flame size={12} />} {d.veg ? "VEG" : "NON-VEG"}{" "}
                         <span>· {d.category}</span>
                       </span>
+                      {ratingInfo && ratingInfo.ratingCount >= 3 && ratingInfo.averageRating >= 4.5 && (
+                        <span className="guest-fav">
+                          <Sparkles size={11} /> Guest favourite
+                        </span>
+                      )}
                       {ratingInfo && ratingInfo.ratingCount > 0 ? (
                         <span className="dish-rating-badge">
                           ★ {ratingInfo.averageRating.toFixed(1)} <small>({ratingInfo.ratingCount})</small>

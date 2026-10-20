@@ -1416,3 +1416,21 @@
 .bill-helper .chip{padding:6px 12px;min-height:34px;font-size:12px;display:inline-flex;align-items:center;justify-content:center}
 .bill-helper p{font-size:12px;margin:0}
 .reorder-button{margin-top:10px;width:100%;min-height:40px;font-size:13px}
+.ts-dining .guest-fav{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:#f6e3c4;color:#8a5a1f}
+.ts-dark.ts-editorial,.ts-dark.ts-dining{--ink:#f1e8da;--line:#3b342c;background:#17130f;color:#f1e8da}
+.ts-dark .brandbar,.ts-dark .customer-nav,.ts-dark .customer-nav a,.ts-dark .customer-nav a:first-child{border-color:#3b342c!important;background:transparent!important;color:#e8dcc9!important}
+.ts-dark .brand,.ts-dark .editorial-wordmark,.ts-dark .menu-heading h1,.ts-dark .section-top h2,.ts-dark .dish h3,.ts-dark .customer-review-invite h2,.ts-dark .taste-invite h2,.ts-dark .waiting-invite h2{color:#f5ecdd!important}
+.ts-dark .hero-tagline,.ts-dark .dish p,.ts-dark .menu-note,.ts-dark footer,.ts-dark .menu-results,.ts-dark .muted,.ts-dark .menu-sort label,.ts-dark .allergen-filter,.ts-dark .hero-endnote{color:#b5a58f!important}
+.ts-dark .menu-tools{background:#17130f}
+.ts-dark .dish,.ts-dark .placed-content,.ts-dark .order-card{background:#221c16!important;border-color:#3b342c!important;color:#f1e8da}
+.ts-dark .dish-bottom{border-color:#3b342c}.ts-dark .dish-bottom strong{color:#f5ecdd}
+.ts-dark .dish-tags>span,.ts-dark .favourite-button{background:#2d251d;color:#d9c4a3}
+.ts-dark .search,.ts-dark .menu-sort select,.ts-dark .placed-orders>.secondary{background:#221c16!important;border-color:#3b342c!important;color:#f1e8da!important}
+.ts-dark .search input{color:#f1e8da}
+.ts-dark .chip,.ts-dark .menu-tools .chip{background:transparent;border-color:#4a4036;color:#e8dcc9}
+.ts-dark .chip.selected,.ts-dark .menu-tools .chip.selected{background:#c9925b;color:#201810;border-color:#c9925b}
+.ts-dark .taste-invite,.ts-dark .waiting-invite,.ts-dark .shortlist,.ts-dark .secret-reveal{background:#221c16;border-color:#3b342c;color:#f1e8da}
+.ts-dark .header-orders{color:#e8dcc9}
+.ts-dark .dish-quantity{background:#2d251d;border-color:#4a4036;color:#f1e8da}
+.ts-dark .guest-fav{background:#4a3519;color:#f1cf9a}
+.ts-dark .hero-visual:before{opacity:.35}
