@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { AuthUser, AUTH_COOKIE_NAME, UserRole } from "./auth-constants";
 import { db } from "@/db/store";
 import { verifyPassword } from "./password";
@@ -145,7 +145,12 @@ export function decodeSession(token: string): (AuthUser & { sv?: number }) | nul
 export async function getAuthUser(): Promise<AuthUser | null> {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+    let token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+    if (!token) {
+      // The mobile app sends its session token as a bearer header instead of a cookie.
+      const bearer = (await headers()).get("authorization") || "";
+      if (/^Bearer\s+/i.test(bearer)) token = bearer.replace(/^Bearer\s+/i, "").trim();
+    }
     if (!token) return null;
     const session = decodeSession(token);
     if (!session) return null;

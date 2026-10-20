@@ -30,8 +30,12 @@ export async function POST(req: Request) {
     const user = result.user;
     const token = encodeSession(user);
 
+    // The mobile app cannot use the httpOnly cookie, so it asks for the token in the response body.
+    const isMobile = req.headers.get("x-client") === "mobile";
+
     const response = NextResponse.json({
       success: true,
+      ...(isMobile ? { token } : {}),
       mustChangePassword: !!user.mustChangePassword,
       user: {
         userId: user.userId,

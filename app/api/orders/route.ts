@@ -1,5 +1,6 @@
 import { indiaDate, dayRange } from "@/lib/order-time";
 import { access, orderAccess, db, readMenu, sameOrigin, validSlug } from "@/db/store";
+import { notifyRestaurantStaff } from "@/lib/push-server";
 import { orderInput, priceOrder, transitions, type OrderStatus } from "@/lib/orders";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
@@ -112,6 +113,14 @@ export async function POST(req: Request) {
         .first<any>();
       if (concurrent?.request_hash === requestHash) return Response.json({ order: receipt(concurrent) });
       return Response.json({ error: "The menu changed while you ordered. Refresh it and review your cart." }, { status: 409 });
+    }
+
+    if (!isTestOrder) {
+      const summary = priced.lines.map((l) => `${l.quantity}× ${l.name}`).join(", ").slice(0, 120);
+      await Promise.race([
+        notifyRestaurantStaff(b.restaurant, `New order · Table ${b.table}`, summary, { type: "order", orderId: b.id }),
+        new Promise((r) => setTimeout(r, 2500)),
+      ]);
     }
 
     return Response.json(

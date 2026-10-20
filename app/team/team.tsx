@@ -6,6 +6,7 @@ import {
   Utensils,
   LockKeyhole,
   ExternalLink,
+  Smartphone,
   Check,
   Settings2,
   QrCode,
@@ -43,6 +44,7 @@ import Sales from "./sales";
 import Orders from "./orders";
 import OrderAlerts from "./order-alerts";
 import ServiceRequests from "./service-requests";
+import AppControls from "./app-controls";
 import Waiters from "./waiters";
 import Reviews from "./reviews";
 import RestaurantAccess from "./restaurant-access";
@@ -413,6 +415,7 @@ export default function Team({
         { key: "settings", label: "Restaurant details", icon: Settings2 },
         { key: "qr", label: "QR & customer link", icon: QrCode },
         ...(id ? [{ key: "restaurant-access", label: "Access permissions", icon: Users }] : []),
+        { key: "app", label: "Mobile app", icon: Smartphone },
         { key: "team", label: "Studio team access", icon: Users },
       ]
     : [
@@ -641,6 +644,8 @@ export default function Team({
                     ? "Make this experience their own."
                     : tab === "qr"
                     ? "One scan. Their next favourite dish."
+                    : tab === "app"
+                    ? "Decide what managers and waiters can do in the phone app."
                     : "The right people, behind every menu."}
                 </p>
               </div>
@@ -655,6 +660,7 @@ export default function Team({
                 tab !== "sales" &&
                 tab !== "dish-performance" &&
                 tab !== "dish-insights" &&
+                tab !== "app" &&
                 tab !== "overview" && (
                   <button className="primary" onClick={save} disabled={!dirty || busy}>
                     <Save size={16} />
@@ -1070,6 +1076,7 @@ export default function Team({
           )}
 
           {/* ORDERS & LIVE ALERTS */}
+          {isSuperAdmin && tab === "app" && <AppControls />}
           {id && tab === "orders" && <ServiceRequests key={"sr-" + id} restaurant={id} />}
           {id && tab === "orders" && <Orders key={id} restaurant={id} canEdit />}
 

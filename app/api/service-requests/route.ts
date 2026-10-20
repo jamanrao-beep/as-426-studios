@@ -1,5 +1,6 @@
-import { access, db, sameOrigin, validSlug } from "@/db/store";
+import { orderAccess, db, sameOrigin, validSlug } from "@/db/store";
 import { rateLimit } from "@/lib/rate-limit";
+import { notifyRestaurantStaff } from "@/lib/push-server";
 import { z } from "zod";
 import crypto from "node:crypto";
 
@@ -62,6 +63,10 @@ export async function POST(req: Request) {
         .prepare("INSERT INTO service_requests (id, restaurant_id, table_label, kind, status, created_at) VALUES (?, ?, ?, ?, 'open', ?)")
         .bind(crypto.randomUUID(), restaurant, table, kind, new Date().toISOString())
         .run();
+      await Promise.race([
+        notifyRestaurantStaff(restaurant, `Table ${table}`, kind === "bill" ? "Wants the bill" : "Needs a waiter", { type: "service", kind }),
+        new Promise((r) => setTimeout(r, 2500)),
+      ]);
     }
     return Response.json({ ok: true });
   } catch (err: any) {
@@ -75,8 +80,11 @@ export async function GET(req: Request) {
   try {
     const restaurant = new URL(req.url).searchParams.get("restaurant") || "";
     if (!validSlug(restaurant)) return Response.json({ error: "Invalid restaurant" }, { status: 400 });
-    const a = await access(restaurant);
+    const a = await orderAccess(restaurant);
     if (!a.allowed && !a.owner) return Response.json({ error: "Team access required." }, { status: 403 });
+    if (!a.owner && !a.restaurantIds.includes(restaurant) && a.restaurantId !== restaurant) {
+      return Response.json({ error: "You can only see requests for your own restaurant." }, { status: 403 });
+    }
     await ensureTable();
     const rows = await db()
       .prepare("SELECT id, table_label, kind, created_at FROM service_requests WHERE restaurant_id = ? AND status = 'open' ORDER BY created_at ASC LIMIT 50")
@@ -95,8 +103,11 @@ export async function PATCH(req: Request) {
     if (!sameOrigin(req)) return Response.json({ error: "Request rejected" }, { status: 403 });
     const p = z.object({ restaurant: z.string().refine(validSlug), id: z.string().min(1).max(64) }).safeParse(await req.json());
     if (!p.success) return Response.json({ error: "Invalid request" }, { status: 400 });
-    const a = await access(p.data.restaurant);
+    const a = await orderAccess(p.data.restaurant);
     if (!a.allowed && !a.owner) return Response.json({ error: "Team access required." }, { status: 403 });
+    if (!a.owner && !a.restaurantIds.includes(p.data.restaurant) && a.restaurantId !== p.data.restaurant) {
+      return Response.json({ error: "You can only update requests for your own restaurant." }, { status: 403 });
+    }
     await ensureTable();
     await db()
       .prepare("UPDATE service_requests SET status = 'done', resolved_at = ?, resolved_by = ? WHERE id = ? AND restaurant_id = ?")

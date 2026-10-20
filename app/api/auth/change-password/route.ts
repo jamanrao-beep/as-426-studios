@@ -80,6 +80,7 @@ export async function POST(req: Request) {
 
     const response = NextResponse.json({
       success: true,
+      ...(req.headers.get("x-client") === "mobile" ? { token: newToken } : {}),
       message: "Password changed successfully.",
       user: {
         email: updatedUser.email,
