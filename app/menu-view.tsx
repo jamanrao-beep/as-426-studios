@@ -1,7 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Utensils, LockKeyhole, Sparkles, Leaf, Flame, Plus, Check, Search, Star } from "lucide-react";
+import {
+  LockKeyhole,
+  Sparkles,
+  Leaf,
+  Flame,
+  Plus,
+  Minus,
+  Search,
+  Heart,
+  ArrowUpRight,
+  ReceiptText,
+  Coffee,
+  CakeSlice,
+  Salad,
+  Soup,
+  UtensilsCrossed,
+} from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import PlacedOrders from "./placed-orders";
 import Cart, { type CartItem } from "./cart";
@@ -10,8 +26,32 @@ import TasteQuiz from "./taste-quiz";
 import { Switch } from "@/components/ui/switch";
 import type { Menu, Dish } from "@/lib/menu";
 
+function CategoryIcon({ name }: { name: string }) {
+  const v = name.toLowerCase();
+  const Icon = /drink|beverage|coffee/.test(v)
+    ? Coffee
+    : /sweet|dessert/.test(v)
+    ? CakeSlice
+    : /small|starter|salad/.test(v)
+    ? Salad
+    : /big|main|rice|biryani/.test(v)
+    ? Soup
+    : UtensilsCrossed;
+  return <Icon size={22} strokeWidth={1.5} />;
+}
+
 export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: string }) {
   const [cart, setCart] = useState<CartItem[]>([]);
+  function removeFromCart(id: string) {
+    setCart((items) => items.map((i) => (i.id === id ? { ...i, quantity: i.quantity - 1 } : i)).filter((i) => i.quantity > 0));
+  }
+  function toggleSaved(id: string) {
+    setSaved((items) => (items.includes(id) ? items.filter((x) => x !== id) : [...items, id]));
+  }
+  function openOrders() {
+    window.dispatchEvent(new Event("table-open-orders"));
+    document.getElementById("placed-orders")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
   function addToCart(id: string) {
     setCart((items) =>
       items.some((i) => i.id === id)
@@ -28,6 +68,8 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
   const [unlocked, setUnlocked] = useState(false);
   const [selected, setSelected] = useState<Dish | null>(null);
   const [saved, setSaved] = useState<string[]>([]);
+  const [sort, setSort] = useState("recommended");
+  const [onlySaved, setOnlySaved] = useState(false);
   const [dishRatings, setDishRatings] = useState<Record<string, { averageRating: number; ratingCount: number }>>({});
 
   async function load() {
@@ -51,6 +93,19 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
       setError(e instanceof Error ? e.message : "Couldn’t load menu");
     }
   }
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(`ts-favourites:${restaurant}`);
+      if (raw) setSaved(JSON.parse(raw));
+    } catch {}
+  }, [restaurant]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(`ts-favourites:${restaurant}`, JSON.stringify(saved));
+    } catch {}
+  }, [saved, restaurant]);
 
   useEffect(() => {
     load();
@@ -112,58 +167,91 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
     (d) =>
       (category === "All dishes" || d.category === category) &&
       (!veg || d.veg) &&
+      (!onlySaved || saved.includes(d.id)) &&
       `${d.name} ${d.description}`.toLowerCase().includes(query.toLowerCase())
   );
+  const rate = (id: string) => dishRatings[id]?.averageRating || 0;
+  if (sort === "price-low") shown.sort((a, b) => a.price - b.price);
+  else if (sort === "price-high") shown.sort((a, b) => b.price - a.price);
+  else if (sort === "top-rated") shown.sort((a, b) => rate(b.id) - rate(a.id));
 
   return (
-    <div className="customer">
+    <div className="customer ts-dining ts-editorial">
       <header className="brandbar">
         <span className="brand">
-          <span className="brandmark">
-            <Utensils size={20} />
+          <span className="brandmark" aria-hidden="true" />
+          <span className="editorial-wordmark">
+            table secret<span className="brand-period">.</span>
+            <small className="brand-byline">BY AS 426 STUDIOS</small>
           </span>
-          TABLE SECRET
         </span>
-        <span className="top-label">BY AS 426 STUDIOS</span>
+        <button className="header-orders" onClick={openOrders}>
+          <ReceiptText size={17} />
+          <span>My orders</span>
+        </button>
       </header>
       <main>
         <section className="menu-heading">
-          <div>
+          <div className="hero-content">
             <p className="eyebrow">
-              {restaurant === "ember-spice" ? "SAMPLE RESTAURANT · EXPLORE THE EXPERIENCE" : "WELCOME TO YOUR TABLE"}
+              {restaurant === "ember-spice" ? "A TABLE SECRET EXPERIENCE · DEMO" : "WELCOME TO YOUR TABLE"}
             </p>
             <h1>{menu.name}</h1>
-            <p>{menu.tagline}</p>
+            <p className="hero-tagline">{menu.tagline}</p>
+            <a className="hero-browse" href="#restaurant-menu">
+              <span>Find something delicious</span>
+              <span className="hero-arrow">
+                <ArrowUpRight size={20} />
+              </span>
+            </a>
+            <span className="hero-endnote">A menu made for a little discovery.</span>
           </div>
-          <span className="menu-seal">
-            Made to
-            <br />
-            <em>be discovered.</em>
-          </span>
+          <div className="hero-visual">
+            <span className="hero-edition" aria-hidden="true">
+              THE TABLE EDIT
+            </span>
+            <img className="restaurant-cover" src="/food.jpg" alt="Illustrative restaurant dish" />
+            <span className="hero-photo-note">Illustrative food photography</span>
+            <span className="discovery-seal" aria-hidden="true">
+              <Sparkles size={23} strokeWidth={1} />
+              <span>
+                Stay curious.
+                <br />
+                Eat well.
+              </span>
+            </span>
+          </div>
         </section>
 
+        <nav className="customer-nav" aria-label="Customer navigation">
+          <a href="#restaurant-menu">
+            Menu <ArrowUpRight size={15} />
+          </a>
+          <a href="#your-taste">Taste quiz</a>
+          <a href="#table-games">Table games</a>
+          <a href={"/r/" + encodeURIComponent(restaurant) + "/review"}>Reviews</a>
+        </nav>
+
         <PlacedOrders restaurant={restaurant} />
+
+        {error && (
+          <p className="error" role="alert">
+            {error} · Menu may be out of date. <button onClick={load}>Refresh menu</button>
+          </p>
+        )}
 
         {secrets.length > 0 && (
           <section className="secret-banner">
             <div className="secret-copy">
               <span className="pill">
-                <Sparkles size={14} /> THE OFF-MENU EDIT
+                <Sparkles size={14} /> SOMETHING SPECIAL
               </span>
-              <h2>
-                Your table has
-                <br />
-                a delicious secret.
-              </h2>
+              <h2>Your table has a delicious secret.</h2>
               <p>A little something you won’t find on the regular menu.</p>
               <button className="primary" onClick={() => setUnlocked(!unlocked)}>
                 <LockKeyhole size={17} />
                 {unlocked ? "Hide the secret" : "Unlock the secret"}
               </button>
-            </div>
-            <div className="food-photo">
-              <img src="/food.jpg" alt="Illustrative paneer tikka served on a black plate" />
-              <span className="photo-caption">A taste of something unexpected</span>
             </div>
           </section>
         )}
@@ -186,12 +274,21 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
           </section>
         )}
 
-        <TasteQuiz menu={menu} onPick={setSelected} />
-        <TableGames />
+        <div className="customer-extras">
+          <div id="your-taste">
+            <TasteQuiz menu={menu} onPick={setSelected} />
+          </div>
+          <div id="table-games">
+            <TableGames />
+          </div>
+        </div>
 
-        <section className="menu-section">
+        <section className="menu-section" id="restaurant-menu">
           <div className="section-top">
-            <h2>Find your next favourite</h2>
+            <div>
+              <p className="eyebrow">FRESH PICKS FOR YOUR TABLE</p>
+              <h2>Find your favourite.</h2>
+            </div>
             <label className="switch-label">
               <Leaf size={16} /> Veg only
               <Switch aria-label="Vegetarian dishes only" checked={veg} onCheckedChange={setVeg} />
@@ -200,12 +297,9 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
           <div className="menu-tools">
             <div className="category-list" aria-label="Menu categories">
               {categories.map((c) => (
-                <button
-                  className={category === c ? "chip selected" : "chip"}
-                  key={c}
-                  onClick={() => setCategory(c)}
-                >
-                  {c}
+                <button className={category === c ? "chip selected" : "chip"} key={c} onClick={() => setCategory(c)}>
+                  <CategoryIcon name={c} />
+                  <span>{c}</span>
                 </button>
               ))}
             </div>
@@ -220,20 +314,45 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
             </label>
           </div>
 
+          <div className="menu-sort">
+            <label>
+              Sort by
+              <select aria-label="Sort dishes" value={sort} onChange={(e) => setSort(e.target.value)}>
+                <option value="recommended">Recommended</option>
+                <option value="top-rated">Top rated</option>
+                <option value="price-low">Price: low to high</option>
+                <option value="price-high">Price: high to low</option>
+              </select>
+            </label>
+            <button
+              className={onlySaved ? "chip selected" : "chip"}
+              aria-pressed={onlySaved}
+              onClick={() => setOnlySaved(!onlySaved)}
+            >
+              <Heart size={16} /> <span>Favourites{saved.length ? ` (${saved.length})` : ""}</span>
+            </button>
+          </div>
+
+          <div className="menu-results" aria-live="polite">
+            <span>
+              {shown.length} {shown.length === 1 ? "dish" : "dishes"} to discover
+            </span>
+            <span>Prices in ₹</span>
+          </div>
+
           <div className="dishes">
-            {shown.map((d, i) => {
+            {shown.map((d) => {
               const ratingInfo = dishRatings[d.id];
+              const qty = cart.find((i) => i.id === d.id)?.quantity || 0;
+              const isSaved = saved.includes(d.id);
               return (
                 <article key={d.id} className={`dish ${!d.available ? "sold-out" : ""}`}>
-                  <div className="dish-number">{String(i + 1).padStart(2, "0")}</div>
                   <div className="dish-body">
                     <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                       <span className={d.veg ? "diet veg" : "diet"}>
                         {d.veg ? <Leaf size={12} /> : <Flame size={12} />} {d.veg ? "VEG" : "NON-VEG"}{" "}
                         <span>· {d.category}</span>
                       </span>
-
-                      {/* Customer Dish Star Rating Badge */}
                       {ratingInfo && ratingInfo.ratingCount > 0 ? (
                         <span className="dish-rating-badge">
                           ★ {ratingInfo.averageRating.toFixed(1)} <small>({ratingInfo.ratingCount})</small>
@@ -242,39 +361,41 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
                         <span className="dish-rating-badge muted">Not rated yet</span>
                       )}
                     </div>
-
+                    <button
+                      className={`favourite-button ${isSaved ? "is-saved" : ""}`}
+                      aria-label={`${isSaved ? "Remove" : "Save"} ${d.name} ${isSaved ? "from" : "to"} favourites`}
+                      aria-pressed={isSaved}
+                      onClick={() => toggleSaved(d.id)}
+                    >
+                      <Heart size={18} />
+                    </button>
                     <h3>{d.name}</h3>
                     <p>{d.description}</p>
+                    <div className="dish-tags">
+                      <span>{d.spice} spice</span>
+                      <button aria-label={`View ${d.name}`} onClick={() => setSelected(d)}>
+                        Dish details <ArrowUpRight size={13} />
+                      </button>
+                    </div>
                     <div className="dish-bottom">
                       <strong>₹{d.price}</strong>
-                      <button
-                        disabled={!d.available}
-                        onClick={() => addToCart(d.id)}
-                        aria-label={`Add ${d.name} to cart`}
-                      >
-                        Add{" "}
-                        {cart.find((item) => item.id === d.id)?.quantity
-                          ? `(${cart.find((item) => item.id === d.id)?.quantity})`
-                          : ""}
-                        <Plus size={16} />
-                      </button>
-                      <button
-                        disabled={!d.available}
-                        aria-label={`View ${d.name}`}
-                        onClick={() => setSelected(d)}
-                      >
-                        {!d.available ? (
-                          "Sold out"
-                        ) : saved.includes(d.id) ? (
-                          <>
-                            <Check size={16} /> On your list
-                          </>
-                        ) : (
-                          <>
-                            Take a look <Plus size={16} />
-                          </>
-                        )}
-                      </button>
+                      {!d.available ? (
+                        <span className="unavailable-label">Sold out</span>
+                      ) : qty > 0 ? (
+                        <div className="dish-quantity">
+                          <button aria-label={`Remove one ${d.name}`} onClick={() => removeFromCart(d.id)}>
+                            <Minus size={16} />
+                          </button>
+                          <span aria-live="polite">{qty}</span>
+                          <button aria-label={`Add one ${d.name}`} onClick={() => addToCart(d.id)}>
+                            <Plus size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <button className="add-dish" onClick={() => addToCart(d.id)} aria-label={`Add ${d.name} to cart`}>
+                          Add to order <Plus size={16} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </article>
@@ -288,6 +409,20 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
                 ? "No dishes match. Try another category or search."
                 : "The chef is preparing this menu. Please check back soon."}
             </div>
+          )}
+
+          {(query || veg || onlySaved || category !== "All dishes") && (
+            <button
+              className="reset-menu"
+              onClick={() => {
+                setQuery("");
+                setVeg(false);
+                setOnlySaved(false);
+                setCategory("All dishes");
+              }}
+            >
+              Clear filters
+            </button>
           )}
         </section>
 
@@ -318,7 +453,11 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
         )}
 
         <footer>
-          <span>Curated by {menu.name}</span>
+          <span>
+            Good food. Better moments.
+            <br />
+            Curated by {menu.name}
+          </span>
           <span>TABLE SECRET / AS 426 STUDIOS</span>
           <a href="https://www.sahib-nyc.com/" target="_blank" rel="noreferrer">
             Illustrative photo: Sahib
@@ -365,7 +504,7 @@ export default function MenuView({ restaurant = "ember-spice" }: { restaurant?: 
               setSelected(null);
             }}
           >
-            <Plus size={16} />
+            <Heart size={16} />
             Save to my favourites
           </button>
         </DialogContent>
