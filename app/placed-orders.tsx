@@ -80,6 +80,7 @@ export default function PlacedOrders({ restaurant }: { restaurant: string }) {
   useEffect(() => {
     let alive = true;
     async function load() {
+      if (typeof document !== "undefined" && document.hidden) return;
       try {
         const keys = orderKeys(restaurant);
         if (alive) setKeysList(keys);

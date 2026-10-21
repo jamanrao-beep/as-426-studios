@@ -98,6 +98,15 @@ export default function WaiterWorkspace({
   const [tableFilter, setTableFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [dTable, setDTable] = useState<string>("");
+  const [dSearch, setDSearch] = useState<string>("");
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDTable(tableFilter);
+      setDSearch(searchQuery);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [tableFilter, searchQuery]);
 
   // Orders data
   const [orders, setOrders] = useState<StoredOrder[]>([]);
@@ -184,14 +193,14 @@ export default function WaiterWorkspace({
       if (view === "history" && historyDate) {
         params.set("date", historyDate);
       }
-      if (tableFilter.trim()) {
-        params.set("table", tableFilter.trim());
+      if (dTable.trim()) {
+        params.set("table", dTable.trim());
       }
       if (statusFilter.trim()) {
         params.set("status", statusFilter.trim());
       }
-      if (searchQuery.trim()) {
-        params.set("search", searchQuery.trim());
+      if (dSearch.trim()) {
+        params.set("search", dSearch.trim());
       }
 
       const res = await fetch(`/api/orders?${params.toString()}`);
@@ -273,7 +282,7 @@ export default function WaiterWorkspace({
       requestVersionRef.current++;
       clearInterval(interval);
     };
-  }, [assignedRestaurant, view, historyDate, tableFilter, statusFilter, searchQuery]);
+  }, [assignedRestaurant, view, historyDate, dTable, statusFilter, dSearch]);
 
   // Order status transition handler with optimistic UI updates
   async function handleStatusChange(

@@ -1,5 +1,6 @@
 import { orderAccess, db, sameOrigin, validSlug } from "@/db/store";
 import { rateLimit } from "@/lib/rate-limit";
+import { after } from "next/server";
 import { notifyRestaurantStaff } from "@/lib/push-server";
 import { z } from "zod";
 import crypto from "node:crypto";
@@ -63,10 +64,9 @@ export async function POST(req: Request) {
         .prepare("INSERT INTO service_requests (id, restaurant_id, table_label, kind, status, created_at) VALUES (?, ?, ?, ?, 'open', ?)")
         .bind(crypto.randomUUID(), restaurant, table, kind, new Date().toISOString())
         .run();
-      await Promise.race([
-        notifyRestaurantStaff(restaurant, `Table ${table}`, kind === "bill" ? "Wants the bill" : "Needs a waiter", { type: "service", kind }),
-        new Promise((r) => setTimeout(r, 2500)),
-      ]);
+      after(() =>
+        notifyRestaurantStaff(restaurant, `Table ${table}`, kind === "bill" ? "Wants the bill" : "Needs a waiter", { type: "service", kind })
+      );
     }
     return Response.json({ ok: true });
   } catch (err: any) {
