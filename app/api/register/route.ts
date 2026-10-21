@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import { db, sameOrigin } from "@/db/store";
 import { hashPassword } from "@/lib/password";
 import { rateLimit } from "@/lib/rate-limit";
-import { ensureSaasTables, LOGIN_DOMAIN } from "@/lib/saas";
+import { ensureSaasTables, getPlan, LOGIN_DOMAIN } from "@/lib/saas";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,7 @@ const schema = z.object({
     .trim()
     .toLowerCase()
     .regex(/^[a-z0-9][a-z0-9._-]{2,29}$/),
-  planChoice: z.enum(["trial", "monthly", "half_yearly", "yearly"]).default("trial"),
+  planChoice: z.string().trim().min(2).max(16).default("trial"),
   password: z.string().min(6).max(100),
   ownerName: z.string().trim().min(2).max(120),
   phone: z.string().trim().min(6).max(40),
@@ -54,6 +54,10 @@ export async function POST(req: Request) {
     }
 
     await ensureSaasTables();
+    if (d.planChoice !== "trial") {
+      const wanted = await getPlan(d.planChoice);
+      if (!wanted || !wanted.active) return NextResponse.json({ error: "That plan is not available. Please pick another." }, { status: 400 });
+    }
     const loginEmail = `${d.username}@${LOGIN_DOMAIN}`;
     const account = await db().prepare("SELECT id FROM accounts WHERE LOWER(email) = ?").bind(loginEmail).first();
     if (account) return NextResponse.json({ error: `The login ${loginEmail} is already taken. Try another name.` }, { status: 409 });

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthUser } from "@/lib/auth";
 import { db, sameOrigin } from "@/db/store";
-import { ensureSaasTables, getSubscription, isGuestEmail, PLANS, TRIAL_DAYS } from "@/lib/saas";
+import { ensureSaasTables, getPlan, getSubscription, isGuestEmail, listPlans, TRIAL_DAYS } from "@/lib/saas";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,7 @@ export async function GET() {
     const guest = await isGuestEmail(user.email);
     const sub = user.restaurantId ? await getSubscription(user.restaurantId) : null;
     return NextResponse.json(
-      { guest, subscription: guest ? null : sub, plans: PLANS, trialDays: TRIAL_DAYS },
+      { guest, subscription: guest ? null : sub, plans: await listPlans({ activeOnly: true }), trialDays: TRIAL_DAYS },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (err) {
@@ -34,9 +34,11 @@ export async function POST(req: Request) {
     if (await isGuestEmail(user.email)) {
       return NextResponse.json({ error: "Register your restaurant to choose a plan." }, { status: 403 });
     }
-    const p = z.object({ plan: z.enum(["monthly", "half_yearly", "yearly"]) }).safeParse(await req.json());
+    const p = z.object({ plan: z.string().min(2).max(16) }).safeParse(await req.json());
     if (!p.success) return NextResponse.json({ error: "Choose a plan." }, { status: 400 });
     await ensureSaasTables();
+    const wanted = await getPlan(p.data.plan);
+    if (!wanted || !wanted.active) return NextResponse.json({ error: "That plan is not available any more." }, { status: 400 });
     const now = new Date().toISOString();
     const exists = await db().prepare("SELECT restaurant_id FROM subscriptions WHERE restaurant_id = ?").bind(user.restaurantId).first();
     if (exists) {

@@ -3,7 +3,7 @@ import { z } from "zod";
 import crypto from "node:crypto";
 import { access, db, sameOrigin } from "@/db/store";
 import { logAudit } from "@/lib/audit";
-import { ensureSaasTables, startTrial, TRIAL_DAYS, uniqueSlug } from "@/lib/saas";
+import { ensureSaasTables, startTrial, TRIAL_DAYS, uniqueSlug, listPlans } from "@/lib/saas";
 import { sendMail } from "@/lib/mailer";
 import { approvedEmail, rejectedEmail } from "@/lib/mail-templates";
 
@@ -128,7 +128,7 @@ export async function POST(req: Request) {
     // Email the owner from the Table Secret address with their login id and trial date.
     let mail: { sent: boolean; reason?: string } = { sent: false, reason: "No contact email on file." };
     if (r.contact_email) {
-      const planNames: Record<string, string> = { monthly: "Monthly", half_yearly: "Half-yearly", yearly: "Yearly" };
+      const planNames: Record<string, string> = Object.fromEntries((await listPlans()).map((x) => [x.key, x.label]));
       const m = approvedEmail({
         ownerName: r.owner_name,
         restaurantName: r.restaurant_name,

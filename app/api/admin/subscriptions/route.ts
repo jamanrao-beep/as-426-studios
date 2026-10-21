@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { access, db, sameOrigin, validSlug } from "@/db/store";
 import { logAudit } from "@/lib/audit";
-import { ensureSaasTables, getSubscription, PLANS, startTrial } from "@/lib/saas";
+import { ensureSaasTables, getPlan, getSubscription, listPlans, startTrial } from "@/lib/saas";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +22,7 @@ export async function GET() {
         .filter((r) => !guestIds.has(r.id))
         .map(async (r) => ({ id: r.id, name: r.name, ...(await getSubscription(r.id)) }))
     );
-    return NextResponse.json({ subscriptions: rows, plans: PLANS }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ subscriptions: rows, plans: await listPlans() }, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     console.error("GET /api/admin/subscriptions error:", err);
     return NextResponse.json({ error: "Could not load plans." }, { status: 503 });
@@ -30,7 +30,7 @@ export async function GET() {
 }
 
 const schema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("activate"), restaurant: z.string().refine(validSlug), plan: z.enum(["monthly", "half_yearly", "yearly"]) }),
+  z.object({ action: z.literal("activate"), restaurant: z.string().refine(validSlug), plan: z.string().min(2).max(16) }),
   z.object({ action: z.literal("start_trial"), restaurant: z.string().refine(validSlug), days: z.number().int().min(1).max(90) }),
   z.object({ action: z.literal("expire"), restaurant: z.string().refine(validSlug) }),
 ]);
@@ -56,7 +56,9 @@ export async function POST(req: Request) {
         .bind(now.toISOString(), now.toISOString(), now.toISOString(), a.email, d.restaurant)
         .run();
     } else {
-      const months = PLANS[d.plan].months;
+      const chosen = await getPlan(d.plan);
+      if (!chosen) return NextResponse.json({ error: "That plan no longer exists." }, { status: 404 });
+      const months = chosen.months;
       const current = await getSubscription(d.restaurant);
       // Paying early adds to the time left instead of losing it.
       const base = current.status === "active" && current.endsAt ? new Date(current.endsAt) : now;

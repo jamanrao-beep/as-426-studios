@@ -24,14 +24,9 @@ import {
   WifiOff,
 } from "lucide-react";
 
-type PlanKey = "trial" | "monthly" | "half_yearly" | "yearly";
-
-const PLAN_CARDS: { key: PlanKey; title: string; price: string; note: string; best?: boolean }[] = [
-  { key: "trial", title: "Free 7-day trial", price: "₹0", note: "Start now, choose a plan later" },
-  { key: "monthly", title: "Monthly", price: "₹2,999", note: "Pay month to month" },
-  { key: "yearly", title: "Yearly", price: "₹24,999", note: "Best value, save 58%", best: true },
-  { key: "half_yearly", title: "Half-yearly", price: "₹14,999", note: "6 months, save 50%" },
-];
+type PlanKey = string;
+type PlanCard = { key: string; label: string; price: number; strike: number; months: number; blurb: string; best: boolean };
+const inr = (n: number) => "₹" + n.toLocaleString("en-IN");
 
 const FEATURES = [
   { icon: QrCode, title: "No app for guests", text: "Guests scan the QR on the table and order from their own phone. Nothing to install, ever." },
@@ -61,7 +56,7 @@ const FAQS = [
   { q: "What do I get after approval?", a: "Your restaurant page, a starter menu, a manager login, a 7-day free trial with everything unlocked, and your table QR code ready to print." },
   { q: "What is my login ID?", a: "The name you choose here plus @as426studios.com, for example spice@as426studios.com. It is only used to sign in, it is not a mailbox. We send all emails to the contact email you give us." },
   { q: "How do waiters get accounts?", a: "Once you are approved, you add waiters yourself from the Team section. Each gets a temporary password and chooses their own on first sign-in. You can reset, suspend or remove a waiter any time." },
-  { q: "What happens after the free trial?", a: "You pick a plan: Monthly ₹2,999, Half-yearly ₹14,999 or Yearly ₹24,999. Our team contacts you to complete payment and activates it. Your data is always kept." },
+  { q: "What happens after the free trial?", a: "You pick one of the plans shown on this page. Our team contacts you to complete payment and activates it. Your data is always kept." },
   { q: "Can I try it before applying?", a: "Yes. On the staff app you can start a free 7-day guest week with a sample restaurant. It has a few limits, and registering removes them." },
   { q: "Is my data safe?", a: "Your restaurant's data sits in a private database that only your own accounts can open. Passwords are stored encrypted, and sessions end automatically if an account is removed." },
   { q: "What if I need help?", a: "Open the staff app and ask Mira, our built-in guide. If she cannot answer, your question goes straight to our team and we reply by email and in the app." },
@@ -91,6 +86,7 @@ export default function ApplyPage() {
   const [status, setStatus] = useState<Status | null>(null);
   const [phase, setPhase] = useState(0);
   const [faqOpen, setFaqOpen] = useState(0);
+  const [plans, setPlans] = useState<PlanCard[] | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
   const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
@@ -107,6 +103,14 @@ export default function ApplyPage() {
         }
       }
     } catch {}
+  }, []);
+
+  // The price list comes from the database, so a plan the Super Admin adds or changes shows up here at once.
+  useEffect(() => {
+    fetch("/api/plans", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: any) => d && setPlans(d.plans))
+      .catch(() => {});
   }, []);
 
   const poll = useCallback(async (id: string) => {
@@ -361,12 +365,20 @@ export default function ApplyPage() {
                     </div>
                   </label>
                   <div className="ap-plans">
-                    {PLAN_CARDS.map((p) => (
+                    <button type="button" className={`ap-plan ${f.planChoice === "trial" ? "on" : ""}`} onClick={() => set("planChoice", "trial")}>
+                      <strong>Free 7-day trial</strong>
+                      <span>{"₹"}0</span>
+                      <small>Start now, choose a plan later</small>
+                    </button>
+                    {(plans || []).map((p) => (
                       <button type="button" key={p.key} className={`ap-plan ${f.planChoice === p.key ? "on" : ""}`} onClick={() => set("planChoice", p.key)}>
                         {p.best && <b>BEST VALUE</b>}
-                        <strong>{p.title}</strong>
-                        <span>{p.price}</span>
-                        <small>{p.note}</small>
+                        <strong>{p.label}</strong>
+                        <span>{inr(p.price)}</span>
+                        <small>
+                          {p.blurb || `${p.months} ${p.months === 1 ? "month" : "months"}`}
+                          {p.strike > p.price ? ` · save ${Math.round(((p.strike - p.price) / p.strike) * 100)}%` : ""}
+                        </small>
                       </button>
                     ))}
                   </div>

@@ -462,7 +462,7 @@ type Sub = {
   requestedPlan: string;
 };
 
-const planLabels: Record<string, string> = { monthly: "Monthly", half_yearly: "Half-yearly", yearly: "Yearly" };
+type PlanInfo = { key: string; label: string; active: boolean };
 
 function left(ms: number) {
   const d = Math.floor(ms / 86400000);
@@ -472,6 +472,7 @@ function left(ms: number) {
 
 export function Subscriptions() {
   const [rows, setRows] = useState<Sub[]>([]);
+  const [plans, setPlans] = useState<PlanInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [days, setDays] = useState<Record<string, number>>({});
@@ -481,6 +482,7 @@ export function Subscriptions() {
     try {
       const d = await call("/api/admin/subscriptions");
       setRows(d.subscriptions);
+      setPlans(d.plans || []);
       setError("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load plans");
@@ -494,6 +496,8 @@ export function Subscriptions() {
     const t = setInterval(load, 30000);
     return () => clearInterval(t);
   }, [load]);
+
+  const labelOf = (k: string) => plans.find((p) => p.key === k)?.label || k;
 
   async function act(body: Record<string, unknown>, ok: string) {
     setBusy(String(body.restaurant));
@@ -526,7 +530,7 @@ export function Subscriptions() {
               <strong style={{ fontSize: "1.05rem" }}>{r.name}</strong>
               <br />
               <small className="muted">
-                {r.status === "active" ? `${planLabels[r.plan] || "Active"} · ends ${when(r.endsAt)} (${left(r.msLeft)})` : r.status === "trial" ? `Free trial · ends ${when(r.endsAt)} (${left(r.msLeft)})` : r.status === "expired" ? "Expired. The app is locked until a plan is activated." : "No plan yet"}
+                {r.status === "active" ? `${labelOf(r.plan) || "Active"} · ends ${when(r.endsAt)} (${left(r.msLeft)})` : r.status === "trial" ? `Free trial · ends ${when(r.endsAt)} (${left(r.msLeft)})` : r.status === "expired" ? "Expired. The app is locked until a plan is activated." : "No plan yet"}
               </small>
             </span>
             <span className="tiny-badge" style={{ alignSelf: "flex-start", background: r.status === "active" ? "#dcfce7" : r.status === "trial" ? "#fef3c7" : "#fee2e2", color: r.status === "active" ? "#166534" : r.status === "trial" ? "#92400e" : "#991b1b" }}>
@@ -535,18 +539,18 @@ export function Subscriptions() {
           </div>
           {r.requestedPlan && (
             <p className="success-note" style={{ margin: 0 }}>
-              <strong>{planLabels[r.requestedPlan]} plan requested.</strong> Activate it after you receive the payment.
+              <strong>{labelOf(r.requestedPlan)} plan requested.</strong> Activate it after you receive the payment.
             </p>
           )}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            {(["monthly", "yearly", "half_yearly"] as const).map((p) => (
+            {plans.filter((p) => p.active || p.key === r.requestedPlan).map((p) => (
               <button
-                key={p}
-                className={r.requestedPlan === p ? "primary" : "secondary"}
+                key={p.key}
+                className={r.requestedPlan === p.key ? "primary" : "secondary"}
                 disabled={busy === r.id}
-                onClick={() => window.confirm(`Activate the ${planLabels[p]} plan for ${r.name}?`) && act({ action: "activate", restaurant: r.id, plan: p }, `${planLabels[p]} plan activated.`)}
+                onClick={() => window.confirm(`Activate the ${p.label} plan for ${r.name}?`) && act({ action: "activate", restaurant: r.id, plan: p.key }, `${p.label} plan activated.`)}
               >
-                Activate {planLabels[p]}
+                Activate {p.label}
               </button>
             ))}
           </div>

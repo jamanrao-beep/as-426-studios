@@ -21,6 +21,9 @@ export type AuditAction =
   | "app_notification_sent"
   | "registration_decided"
   | "subscription_updated"
+  | "plan_created"
+  | "plan_updated"
+  | "plan_deleted"
   | "restaurant_removed";
 
 export interface AuditEntry {

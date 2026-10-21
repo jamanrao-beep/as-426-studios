@@ -50,6 +50,7 @@ import ServiceRequests from "./service-requests";
 import AppControls from "./app-controls";
 import { RegistrationRequests, Directory, Subscriptions } from "./saas-admin";
 import Queries from "./queries";
+import PlanCatalog from "./plan-catalog";
 import Waiters from "./waiters";
 import Reviews from "./reviews";
 import RestaurantAccess from "./restaurant-access";
@@ -121,6 +122,7 @@ export default function Team({
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [pendingRequests, setPendingRequests] = useState(0);
   const [openQueries, setOpenQueries] = useState(0);
+  const [plansTick, setPlansTick] = useState(0);
   const refreshRequests = () => {
     if (!isSuperAdmin) return;
     fetch("/api/admin/requests")
@@ -1119,7 +1121,12 @@ export default function Team({
           {isSuperAdmin && tab === "requests" && <RegistrationRequests onChange={refreshRequests} />}
           {isSuperAdmin && tab === "queries" && <Queries onChange={refreshRequests} />}
           {isSuperAdmin && tab === "directory" && <Directory />}
-          {isSuperAdmin && tab === "plans" && <Subscriptions />}
+          {isSuperAdmin && tab === "plans" && (
+            <div style={{ display: "grid", gap: 28 }}>
+              <PlanCatalog onChange={() => setPlansTick((t) => t + 1)} />
+              <Subscriptions key={plansTick} />
+            </div>
+          )}
           {id && tab === "orders" && <ServiceRequests key={"sr-" + id} restaurant={id} />}
           {id && tab === "orders" && <Orders key={id} restaurant={id} canEdit />}
 

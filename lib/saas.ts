@@ -2,13 +2,36 @@ import crypto from "node:crypto";
 import { db } from "@/db/store";
 import { hashPassword } from "@/lib/password";
 
-export type PlanKey = "monthly" | "half_yearly" | "yearly";
+export type PlanKey = string;
 
-export const PLANS: Record<PlanKey, { label: string; price: number; strike: number; months: number; blurb: string }> = {
-  monthly: { label: "Monthly", price: 2999, strike: 4999, months: 1, blurb: "Pay month to month" },
-  half_yearly: { label: "Half-yearly", price: 14999, strike: 29999, months: 6, blurb: "6 months, one payment" },
-  yearly: { label: "Yearly", price: 24999, strike: 59999, months: 12, blurb: "Best saver, 12 months" },
-};
+export type Plan = { key: string; label: string; price: number; strike: number; months: number; blurb: string; best: boolean; active: boolean; sort: number };
+
+// The first three plans, written into the database once. After that the Super Admin owns the price list.
+const DEFAULT_PLANS: Plan[] = [
+  { key: "monthly", label: "Monthly", price: 2999, strike: 4999, months: 1, blurb: "Pay month to month", best: false, active: true, sort: 1 },
+  { key: "yearly", label: "Yearly", price: 24999, strike: 59999, months: 12, blurb: "Best saver, 12 months", best: true, active: true, sort: 2 },
+  { key: "half_yearly", label: "Half-yearly", price: 14999, strike: 29999, months: 6, blurb: "6 months, one payment", best: false, active: true, sort: 3 },
+];
+
+type PlanRow = { plan_key: string; label: string; price: number; strike: number; months: number; blurb: string; best: number; active: number; sort: number };
+const toPlan = (r: PlanRow): Plan => ({ key: r.plan_key, label: r.label, price: Number(r.price), strike: Number(r.strike), months: Number(r.months), blurb: r.blurb || "", best: !!r.best, active: !!r.active, sort: Number(r.sort) });
+
+export async function listPlans(opts: { activeOnly?: boolean } = {}): Promise<Plan[]> {
+  await ensureSaasTables();
+  const rows = await db()
+    .prepare(`SELECT plan_key, label, price, strike, months, blurb, best, active, sort FROM plans ${opts.activeOnly ? "WHERE active = 1" : ""} ORDER BY sort, price`)
+    .all<PlanRow>();
+  return rows.results.map(toPlan);
+}
+
+export async function getPlan(key: string): Promise<Plan | null> {
+  await ensureSaasTables();
+  const r = await db()
+    .prepare("SELECT plan_key, label, price, strike, months, blurb, best, active, sort FROM plans WHERE plan_key = ?")
+    .bind(key)
+    .first<PlanRow>();
+  return r ? toPlan(r) : null;
+}
 
 export const TRIAL_DAYS = 7;
 export const GUEST_DAYS = 7;
@@ -64,6 +87,27 @@ export function ensureSaasTables() {
       sends INT NOT NULL,
       window_start VARCHAR(40) NOT NULL
     )`);
+    await run(`CREATE TABLE IF NOT EXISTS plans (
+      plan_key VARCHAR(16) PRIMARY KEY NOT NULL,
+      label VARCHAR(40) NOT NULL,
+      price INT NOT NULL,
+      strike INT NOT NULL,
+      months INT NOT NULL,
+      blurb VARCHAR(160) NOT NULL,
+      best INT NOT NULL,
+      active INT NOT NULL,
+      sort INT NOT NULL,
+      updated_at VARCHAR(40) NOT NULL
+    )`);
+    const havePlans = await db().prepare("SELECT COUNT(*) AS n FROM plans").first<{ n: number }>();
+    if (!Number(havePlans?.n || 0)) {
+      for (const p of DEFAULT_PLANS) {
+        await db()
+          .prepare("INSERT INTO plans (plan_key, label, price, strike, months, blurb, best, active, sort, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+          .bind(p.key, p.label, p.price, p.strike, p.months, p.blurb, p.best ? 1 : 0, p.active ? 1 : 0, p.sort, new Date().toISOString())
+          .run();
+      }
+    }
     await run(`CREATE TABLE IF NOT EXISTS guest_used (
       email VARCHAR(190) PRIMARY KEY NOT NULL,
       first_at VARCHAR(40) NOT NULL
