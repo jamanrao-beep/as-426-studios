@@ -62,6 +62,17 @@ const FAQS = [
   { q: "What if I need help?", a: "Open the staff app and ask Mira, our built-in guide. If she cannot answer, your question goes straight to our team and we reply by email and in the app." },
 ];
 
+const TIPS: Record<string, { what: string; example: string; avoid?: string }> = {
+  ownerName: { what: "Type your own full name. You are the person who owns or runs the restaurant. We use it to greet you and to address your approval email.", example: "Asha Rao" },
+  phone: { what: "A mobile number our team can call or WhatsApp if we need to confirm something. Digits only, with or without +91.", example: "98765 43210", avoid: "Do not use a landline that nobody answers." },
+  contactEmail: { what: "A real inbox that you check every day, like Gmail. Your approval email and all updates are sent here.", example: "asha.rao@gmail.com", avoid: "This is not your login ID. You make that on the last step." },
+  restaurantName: { what: "The name guests will see on your menu and QR page. Use the name on your signboard.", example: "Spice Route Kitchen" },
+  address: { what: "Your street address, the way it appears on Google Maps: building or road, area, then a nearby landmark.", example: "12 MG Road, near the clock tower, Indiranagar" },
+  city: { what: "The city or town where the restaurant is.", example: "Bengaluru" },
+  username: { what: "Pick a short name for signing in: 3 to 30 letters, numbers, dots or dashes, with no spaces. We add @as426studios.com after it, and the full ID is what you type to sign in.", example: "spiceroute → spiceroute@as426studios.com", avoid: "It is only a login ID, not a mailbox. Nobody can email it." },
+  password: { what: "Choose something only you know: at least 6 characters, with a mix of letters and numbers.", example: "Spice@2026", avoid: "Do not reuse your bank or email password." },
+};
+
 type Trial = { base: number; bonus: number; total: number };
 
 // The 14-day trial: 7 free days plus a 7-day welcome bonus. The number counts up and glows,
@@ -136,11 +147,28 @@ export default function ApplyPage() {
   const [status, setStatus] = useState<Status | null>(null);
   const [phase, setPhase] = useState(0);
   const [faqOpen, setFaqOpen] = useState(0);
+  const [focus, setFocus] = useState("");
   const [plans, setPlans] = useState<PlanCard[] | null>(null);
   const [trial, setTrial] = useState<Trial | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
   const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
+  const fp = (k: string) => ({ onFocus: () => setFocus(k), onBlur: () => setFocus((c) => (c === k ? "" : c)) });
+  const tip = (k: string) => {
+    const t = TIPS[k];
+    return focus === k && t ? (
+      <div className="ap-tip" role="note">
+        <span className="ap-tip-av">M</span>
+        <div>
+          <p>{t.what}</p>
+          <p className="ex">
+            <i>EXAMPLE</i> <code>{t.example}</code>
+          </p>
+          {t.avoid && <p className="av">{t.avoid}</p>}
+        </div>
+      </div>
+    ) : null;
+  };
 
   // Come back later and see the same live status.
   useEffect(() => {
@@ -363,15 +391,18 @@ export default function ApplyPage() {
                   <h2>Tell us about you</h2>
                   <label>
                     Your name
-                    <input value={f.ownerName} onChange={(e) => set("ownerName", e.target.value)} placeholder="Priya Sharma" autoComplete="name" />
+                    <input value={f.ownerName} onChange={(e) => set("ownerName", e.target.value)} placeholder="Priya Sharma" autoComplete="name" {...fp("ownerName")} />
+                    {tip("ownerName")}
                   </label>
                   <label>
                     Phone number
-                    <input value={f.phone} onChange={(e) => set("phone", e.target.value)} placeholder="98765 43210" inputMode="tel" autoComplete="tel" />
+                    <input value={f.phone} onChange={(e) => set("phone", e.target.value)} placeholder="98765 43210" inputMode="tel" autoComplete="tel" {...fp("phone")} />
+                    {tip("phone")}
                   </label>
                   <label>
                     Contact email
-                    <input value={f.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} placeholder="you@gmail.com" type="email" autoComplete="email" />
+                    <input value={f.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} placeholder="you@gmail.com" type="email" autoComplete="email" {...fp("contactEmail")} />
+                    {tip("contactEmail")}
                     <small>Use an inbox you check. Your approval message is sent here.</small>
                   </label>
                 </div>
@@ -382,15 +413,18 @@ export default function ApplyPage() {
                   <h2>Your restaurant</h2>
                   <label>
                     Restaurant name
-                    <input value={f.restaurantName} onChange={(e) => set("restaurantName", e.target.value)} placeholder="Spice Route Kitchen" />
+                    <input value={f.restaurantName} onChange={(e) => set("restaurantName", e.target.value)} placeholder="Spice Route Kitchen" {...fp("restaurantName")} />
+                    {tip("restaurantName")}
                   </label>
                   <label>
                     Street address
-                    <input value={f.address} onChange={(e) => set("address", e.target.value)} placeholder="12 MG Road, near the old market" />
+                    <input value={f.address} onChange={(e) => set("address", e.target.value)} placeholder="12 MG Road, near the old market" {...fp("address")} />
+                    {tip("address")}
                   </label>
                   <label>
                     City
-                    <input value={f.city} onChange={(e) => set("city", e.target.value)} placeholder="Bengaluru" />
+                    <input value={f.city} onChange={(e) => set("city", e.target.value)} placeholder="Bengaluru" {...fp("city")} />
+                    {tip("city")}
                   </label>
                   <button type="button" className="ap-ghost" onClick={locate}>
                     <MapPin size={15} /> {coords ? "Location added" : "Add my current location (optional)"}
@@ -404,16 +438,18 @@ export default function ApplyPage() {
                   <h2>Choose your login and plan</h2>
                   <label>
                     Login name
+                    {tip("username")}
                     <div className="ap-suffix">
-                      <input value={f.username} onChange={(e) => set("username", e.target.value.replace(/\s/g, ""))} placeholder="spiceroute" autoCapitalize="none" />
+                      <input {...fp("username")} value={f.username} onChange={(e) => set("username", e.target.value.replace(/\s/g, ""))} placeholder="spiceroute" autoCapitalize="none" />
                       <span>@as426studios.com</span>
                     </div>
                     <small>This is how you sign in. It is not a mailbox.</small>
                   </label>
                   <label>
                     Password
+                    {tip("password")}
                     <div className="ap-suffix">
-                      <input value={f.password} onChange={(e) => set("password", e.target.value)} type={showPw ? "text" : "password"} placeholder="At least 6 characters" autoComplete="new-password" />
+                      <input {...fp("password")} value={f.password} onChange={(e) => set("password", e.target.value)} type={showPw ? "text" : "password"} placeholder="At least 6 characters" autoComplete="new-password" />
                       <button type="button" onClick={() => setShowPw((s) => !s)}>
                         {showPw ? "Hide" : "Show"}
                       </button>
@@ -634,6 +670,13 @@ const css = `
 .ap-trial-body small{color:var(--mut);font-weight:600}
 .ap-trial-check{position:absolute;top:10px;right:12px;width:24px;height:24px;border-radius:50%;background:var(--o);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:.8rem}
 @media(max-width:480px){.ap-trial{flex-direction:column;text-align:center}.ap-trial-chips{justify-content:center}}
+.ap-tip{display:flex;gap:12px;align-items:flex-start;background:#fff7f1;border:1px solid #f6d7c3;border-radius:14px;padding:12px 14px;animation:apin .3s ease;font-weight:400}
+.ap-tip-av{flex:none;width:30px;height:30px;border-radius:50%;background:var(--o);color:#fff;display:flex;align-items:center;justify-content:center;font-family:"Michroma",sans-serif;font-size:.7rem}
+.ap-tip p{margin:0;font-size:.84rem;line-height:1.55;color:#3d3833}
+.ap-tip .ex{margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ap-tip i{font-style:normal;font-size:.62rem;letter-spacing:.14em;color:var(--od);font-weight:600}
+.ap-tip code{background:#fff;border:1px solid #f0d2bd;border-radius:8px;padding:2px 8px;font-family:inherit;font-size:.82rem}
+.ap-tip .av{margin-top:5px;color:var(--mut);font-size:.78rem}
 .ap-fine{display:block;color:var(--mut);font-size:.8rem;margin-top:4px}
 .ap-actions{display:flex;justify-content:space-between;align-items:center;margin-top:22px}
 .ap-primary{display:inline-flex;gap:8px;align-items:center;justify-content:center;background:var(--o);color:#fff;border:0;border-radius:12px;min-height:48px;padding:0 22px;font:inherit;font-weight:600;cursor:pointer;text-decoration:none;transition:transform .12s,background .15s}
