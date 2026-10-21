@@ -1,6 +1,7 @@
 import { access, db, sameOrigin, validSlug, denied } from "@/db/store";
 import { z } from "zod";
 import crypto from "node:crypto";
+import { rateLimitDb, clientIp } from "@/lib/rate-limit-db";
 
 export const dynamic = "force-dynamic";
 
@@ -135,6 +136,8 @@ export async function POST(req: Request) {
     }
 
     const { restaurant, orderId, token, dishId, rating, comment } = parsed.data;
+    const limit = await rateLimitDb(`rating:${clientIp(req)}`, 30, 10 * 60 * 1000);
+    if (!limit.allowed) return Response.json({ error: "Too many rating attempts. Please try again in a few minutes." }, { status: 429 });
 
     // 1. Verify customer order credentials using SHA-256 tracking_hash
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");

@@ -109,6 +109,10 @@ export async function POST(req: Request) {
         if (clash) return NextResponse.json({ error: "Another account already uses that email." }, { status: 409 });
       }
       const newRest = d.restaurant ?? row.restaurant_id;
+      if (d.restaurant) {
+        const target = await db().prepare("SELECT id FROM restaurants WHERE id = ? AND status != 'archived'").bind(d.restaurant).first();
+        if (!target) return NextResponse.json({ error: "That restaurant does not exist." }, { status: 404 });
+      }
       await db()
         .prepare("UPDATE accounts SET email = ?, name = COALESCE(?, name), restaurant_id = ?, session_version = session_version + 1, updated_at = ? WHERE id = ?")
         .bind(newEmail, d.name ?? null, newRest, now, row.id)
@@ -168,6 +172,10 @@ export async function POST(req: Request) {
     const rest = await db().prepare("SELECT name FROM restaurants WHERE id = ?").bind(d.id).first<{ name: string }>();
     if (!rest) return NextResponse.json({ error: "Restaurant not found." }, { status: 404 });
     if (d.confirm.trim() !== rest.name) return NextResponse.json({ error: "Type the restaurant name exactly to confirm." }, { status: 400 });
+    const open = await db().prepare("SELECT COUNT(*) AS n FROM orders WHERE restaurant_id = ? AND status IN ('new','accepted','preparing')").bind(d.id).first<{ n: number }>();
+    if (Number(open?.n || 0) > 0) {
+      return NextResponse.json({ error: `This restaurant has ${open?.n} live order(s). Finish or cancel them first, or archive the restaurant instead, which keeps its history.` }, { status: 409 });
+    }
     await deleteRestaurantData(d.id);
     await logAudit({ action: "restaurant_removed", actorEmail: a.email, actorRole: a.role, targetType: "restaurant", targetId: d.id, details: { name: rest.name } });
     return NextResponse.json({ ok: true });

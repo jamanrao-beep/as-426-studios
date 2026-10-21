@@ -5,6 +5,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { ensureSaasTables, issueEmailCode } from "@/lib/saas";
 import { mailConfigured, sendMail } from "@/lib/mailer";
 import { otpEmail } from "@/lib/mail-templates";
+import { rateLimitDb } from "@/lib/rate-limit-db";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
     if (!p.success) return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
 
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    if (!rateLimit(`guestcode:${ip}`, 10, 60 * 60 * 1000).allowed) {
+    if (!(await rateLimitDb(`guestcode:${ip}`, 10, 60 * 60 * 1000)).allowed) {
       return NextResponse.json({ error: "Too many requests from this device. Please try again later." }, { status: 429 });
     }
 
@@ -37,7 +38,11 @@ export async function POST(req: Request) {
 
     const mail = otpEmail(issued.code);
     const sent = await sendMail(p.data.email, mail.subject, mail.html, mail.text);
-    if (!sent.sent && prod) return NextResponse.json({ error: sent.reason || "We could not send the email. Please try again." }, { status: 503 });
+    if (!sent.sent && prod) {
+      // The real reason is for the server log. The person only needs to know it is not their fault.
+      console.error("[guest code] email not sent:", sent.reason);
+      return NextResponse.json({ error: "We could not send the email right now. Please try again in a few minutes." }, { status: 503 });
+    }
 
     // Only outside production, so local testing works before email is set up.
     return NextResponse.json({ ok: true, mailSent: sent.sent, ...(!prod && !sent.sent ? { devCode: issued.code } : {}) });

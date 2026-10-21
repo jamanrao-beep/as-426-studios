@@ -5,6 +5,7 @@ import { Eye, EyeOff, Key, LogOut, UserCheck, Utensils } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import OrdersBoard from "./orders-board";
 import HelpChat from "./help-chat";
+import SignOutAll from "./sign-out-all";
 
 // The waiter's website workspace: a slim header and the shared orders screen, the same one managers use and the
 // same flow as the phone app. What a waiter may do (cancel, history) follows the Super Admin's switches.
@@ -101,6 +102,7 @@ export default function WaiterWorkspace({
               <Key size={14} />
               <span>Password</span>
             </button>
+            <SignOutAll />
             <a className="waiter-header-btn signout" href="/api/auth/logout?return_to=/login" title="Sign out">
               <LogOut size={14} />
               <span>Sign out</span>

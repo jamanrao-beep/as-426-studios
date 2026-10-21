@@ -6,6 +6,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { checkEmailCode, createGuest, GUEST_DAYS, GuestUsedError } from "@/lib/saas";
 import { guestWelcomeEmail } from "@/lib/mail-templates";
 import { sendMail } from "@/lib/mailer";
+import { rateLimitDb } from "@/lib/rate-limit-db";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
     if (!p.success) return NextResponse.json({ error: "Enter your name, phone number and the 6-digit code from your email." }, { status: 400 });
 
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    if (!rateLimit(`guest:${ip}`, 12, 60 * 60 * 1000).allowed) {
+    if (!(await rateLimitDb(`guest:${ip}`, 12, 60 * 60 * 1000)).allowed) {
       return NextResponse.json({ error: "Too many attempts from this device. Please try again later." }, { status: 429 });
     }
 

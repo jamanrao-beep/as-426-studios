@@ -48,6 +48,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `Please check ${label[field] || field}.` }, { status: 400 });
     }
     const d = parsed.data;
+    const RESERVED = new Set(["admin", "administrator", "root", "support", "help", "info", "owner", "manager", "staff", "waiter", "tablesecret", "table-secret", "as426", "as426studios", "superadmin", "super-admin", "system", "noreply", "no-reply", "postmaster", "security", "billing", "sales", "team", "official"]);
+    if (RESERVED.has(d.username)) {
+      return NextResponse.json({ error: "That login name is reserved. Please choose another." }, { status: 400 });
+    }
 
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
     if (!(await rateLimitDb(`register:${ip}`, 5, 60 * 60 * 1000)).allowed) {

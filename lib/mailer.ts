@@ -93,7 +93,7 @@ export async function sendMail(to: string, subject: string, html: string, text: 
         const code = Number(m[1]);
         const current = steps[step];
         if (code !== current.expect) {
-          return finish({ sent: false, reason: code === 535 ? "The Gmail login was refused. Check the app password." : `Mail server said ${code}.` });
+          return finish({ sent: false, reason: code === 535 || code === 534 ? "Gmail refused the login. MAIL_PASS must be a Gmail App password (2-Step Verification on), not the normal password." : `Mail server said ${code}.` });
         }
         step++;
         if (step >= steps.length) return finish({ sent: true });

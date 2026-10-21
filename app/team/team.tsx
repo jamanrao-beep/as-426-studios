@@ -47,6 +47,7 @@ import Sales from "./sales";
 import OrdersBoard from "./orders-board";
 import Billing, { timeLeft } from "./billing";
 import HelpChat from "./help-chat";
+import SignOutAll from "./sign-out-all";
 import OrderAlerts from "./order-alerts";
 import ServiceRequests from "./service-requests";
 import AppControls from "./app-controls";
@@ -677,6 +678,7 @@ export default function Team({
                 View customer menu <ExternalLink size={15} />
               </a>
             )}
+            {!isSuperAdmin && <SignOutAll />}
             <a
               className="quiet-link"
               href="/api/auth/logout?return_to=/login"

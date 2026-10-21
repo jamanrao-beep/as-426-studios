@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, Mail, MessageCircleQuestion, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import type { Entry } from "@/lib/help-kb";
+import MiraFace from "./mira-face";
 import { ask, GREETING_RE, suggestions, THANKS_RE } from "@/lib/help-match";
 
 // Mira on the website: the same answers as the phone app (they come from one place, /api/help), the same
@@ -126,7 +127,7 @@ export default function HelpChat({ role, name }: { role: "manager" | "waiter"; n
   return (
     <>
       <button type="button" className="hc-open" onClick={() => setOpen(true)} aria-label={unseen ? `Ask Mira. ${unseen} new ${unseen === 1 ? "reply" : "replies"}` : "Ask Mira"}>
-        <span className="orb" aria-hidden />
+        <MiraFace size={34} />
         <span>Ask Mira</span>
         {unseen > 0 && <i aria-hidden />}
       </button>
@@ -134,7 +135,7 @@ export default function HelpChat({ role, name }: { role: "manager" | "waiter"; n
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="hc-modal">
           <DialogTitle className="hc-title">
-            <span className="orb" aria-hidden />
+            <MiraFace size={44} />
             <span>
               Mira
               <small>Your Table Secret guide</small>

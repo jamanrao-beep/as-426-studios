@@ -1,7 +1,7 @@
 import { cookies, headers } from "next/headers";
 import { AuthUser, AUTH_COOKIE_NAME, UserRole } from "./auth-constants";
 import { db } from "@/db/store";
-import { verifyPassword } from "./password";
+import { hashPassword, verifyPassword } from "./password";
 import { ensureSaasTables } from "./saas";
 import { rateLimitDb, clearRateLimitDb } from "@/lib/rate-limit-db";
 import { rateLimit, clearRateLimit } from "./rate-limit";
@@ -19,6 +19,9 @@ function signPayload(dataStr: string): string {
 /**
  * Authenticate credentials against SQLite accounts table with rate limiting and password verification.
  */
+let dummy: Promise<string> | null = null;
+const dummyHash = () => (dummy ??= hashPassword("not-a-real-password-" + crypto.randomBytes(8).toString("hex")));
+
 export async function authenticate(
   email: string,
   pass: string,
@@ -61,6 +64,10 @@ export async function authenticate(
         session_version?: number;
       }>();
 
+    if (!row) {
+      // Do the same slow work for an unknown account, so response time never reveals which emails exist.
+      await verifyPassword(pass, await dummyHash());
+    }
     if (row) {
       const isValid = await verifyPassword(pass, row.password_hash);
       // The suspended notice is only shown to someone who proves they know the password, so it cannot be used to probe accounts.
@@ -212,6 +219,16 @@ export async function resolveAuth(): Promise<{ user: AuthUser | null; reason: Au
       return { user: null, reason: guestEnded ? "expired" : "removed" };
     }
     if (dbRow.status === "suspended") return { user: null, reason: "suspended" };
+    // A guest sandbox lasts its seven days and then stops working on the server, whether or not a clean-up has run.
+    if (/@guest\./i.test(session.email)) {
+      try {
+        const g = await db().prepare("SELECT expires_at FROM guest_accounts WHERE LOWER(email) = ?").bind(session.email).first<{ expires_at: string }>();
+        if (g && g.expires_at < new Date().toISOString()) {
+          import("@/lib/saas").then((m) => m.cleanupGuests()).catch(() => {});
+          return { user: null, reason: "expired" };
+        }
+      } catch {}
+    }
     if (session.sv && dbRow.session_version && dbRow.session_version !== session.sv) {
       // Session was revoked (e.g. password reset, email changed or admin revoke)
       return { user: null, reason: "revoked" };
