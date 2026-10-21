@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, Mail, MessageCircleQuestion, X } from "lucide-react";
+import { ArrowUp, Mail } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import type { Entry } from "@/lib/help-kb";
 import MiraFace from "./mira-face";

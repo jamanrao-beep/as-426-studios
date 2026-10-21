@@ -29,7 +29,6 @@ async function call(path: string, method = "GET", body?: unknown) {
 }
 
 const inr = (n: number) => "₹" + n.toLocaleString("en-IN");
-const per = (months: number) => (months === 1 ? "month" : months === 12 ? "year" : `${months} months`);
 
 export default function PlanCatalog({ onChange }: { onChange?: () => void }) {
   const [plans, setPlans] = useState<Plan[]>([]);

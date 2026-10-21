@@ -3,7 +3,6 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { db, sameOrigin } from "@/db/store";
 import { getAuthUser } from "@/lib/auth";
-import { rateLimit } from "@/lib/rate-limit";
 import { ensureSaasTables } from "@/lib/saas";
 import { contactFor } from "@/lib/support";
 import { sendMail } from "@/lib/mailer";

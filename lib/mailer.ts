@@ -3,8 +3,18 @@ import tls from "node:tls";
 
 // Sends email from the Table Secret Gmail account over SMTP, with no extra packages.
 // Set MAIL_USER (the Gmail address) and MAIL_PASS (a Gmail "App password", not the normal password).
+// Values pasted into a host dashboard often arrive with spaces, quotes or a trailing newline. Gmail shows an App password
+// as four groups of four letters with spaces, so those are removed too.
+const cleanUser = () => (process.env.MAIL_USER || "").trim().replace(/^["']|["']$/g, "");
+const cleanPass = () => (process.env.MAIL_PASS || "").replace(/\s+/g, "").replace(/^["']|["']$/g, "");
+
 export function mailConfigured() {
-  return !!process.env.MAIL_USER && !!process.env.MAIL_PASS;
+  return !!cleanUser() && !!cleanPass();
+}
+
+// What the Super Admin sees when checking the email setup. It never includes the password.
+export function mailStatus() {
+  return { configured: mailConfigured(), user: cleanUser(), passLength: cleanPass().length, host: process.env.MAIL_HOST || "smtp.gmail.com" };
 }
 
 type Result = { sent: boolean; reason?: string };
@@ -45,8 +55,8 @@ export async function sendMail(to: string, subject: string, html: string, text: 
   }
   if (!/^\S+@\S+\.\S+$/.test(to)) return { sent: false, reason: "That email address is not valid." };
 
-  const user = process.env.MAIL_USER as string;
-  const pass = process.env.MAIL_PASS as string;
+  const user = cleanUser();
+  const pass = cleanPass();
   const host = process.env.MAIL_HOST || "smtp.gmail.com";
   const port = Number(process.env.MAIL_PORT || 465);
   const secure = process.env.MAIL_SECURE !== "false";
@@ -93,7 +103,16 @@ export async function sendMail(to: string, subject: string, html: string, text: 
         const code = Number(m[1]);
         const current = steps[step];
         if (code !== current.expect) {
-          return finish({ sent: false, reason: code === 535 || code === 534 ? "Gmail refused the login. MAIL_PASS must be a Gmail App password (2-Step Verification on), not the normal password." : `Mail server said ${code}.` });
+          const detail = line.slice(4).trim();
+          let reason = `Mail server said ${code}: ${detail}`;
+          if (code === 534 || code === 535) {
+            reason = /application-specific|5\.7\.9/i.test(detail)
+              ? "Gmail wants an App password. Turn on 2-Step Verification for the sending Gmail account, create an App password, and put those 16 letters in MAIL_PASS."
+              : "Gmail rejected the username or password. MAIL_USER must be the exact Gmail address and MAIL_PASS a 16-letter App password, not the normal password.";
+          } else if (code === 550 || code === 553) {
+            reason = `The mail server did not accept the recipient address (${detail}).`;
+          }
+          return finish({ sent: false, reason });
         }
         step++;
         if (step >= steps.length) return finish({ sent: true });

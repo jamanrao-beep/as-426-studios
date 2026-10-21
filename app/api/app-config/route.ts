@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth";
 import { readGlobalControls, readRestaurantControls } from "@/lib/app-controls";
 import { db } from "@/db/store";
-import { getSubscription, isGuestEmail } from "@/lib/saas";
+import { getSubscription, GUEST_MAX_DISHES, GUEST_MAX_WAITERS, isGuestEmail } from "@/lib/saas";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +23,7 @@ export async function GET() {
       const g = await db().prepare("SELECT expires_at FROM guest_accounts WHERE LOWER(email) = ?").bind(user.email.toLowerCase()).first<{ expires_at: string }>();
       guestExpiresAt = g?.expires_at || null;
     }
-    return NextResponse.json({ global, restaurant, guest, guestExpiresAt, subscription }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ global, restaurant, guest, guestExpiresAt, subscription, guestLimits: guest ? { dishes: GUEST_MAX_DISHES, waiters: GUEST_MAX_WAITERS } : null }, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     console.error("GET /api/app-config error:", err);
     return NextResponse.json({ error: "Could not load app settings." }, { status: 503 });

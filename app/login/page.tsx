@@ -7,7 +7,9 @@ import { Utensils, Lock, Mail, Eye, EyeOff, CheckCircle2, ArrowRight } from "luc
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const returnTo = searchParams.get("return_to") || "/team";
+  // Only ever go to a page on this site after signing in, never to an address someone put in the link.
+  const requested = searchParams.get("return_to") || "";
+  const returnTo = requested.startsWith("/") && !requested.startsWith("//") && !requested.startsWith("/\\") ? requested : "/team";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -132,7 +134,7 @@ function LoginForm() {
       <a className="apply-cta" href="/apply">
         <span>
           <strong>New restaurant? Apply to join</strong>
-          <small>Takes two minutes. Our team verifies you and starts your free 14-day trial.</small>
+          <small>Takes two minutes. Our team verifies you and starts your free trial.</small>
         </span>
         <ArrowRight size={18} />
       </a>

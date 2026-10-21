@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Copy, Users, Key, ShieldAlert, Check, RefreshCw, Trash2, Edit2, Store, Lock } from "lucide-react";
+import { Plus, Copy, Users, Key, Trash2, Store } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
@@ -34,7 +34,6 @@ export default function Waiters({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [tempPass, setTempPass] = useState("");
-  const [editId, setEditId] = useState<string | null>(null);
 
   // Credentials copy modal
   const [credentialModal, setCredentialModal] = useState<{

@@ -1,21 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  TrendingUp,
-  Star,
-  Award,
-  AlertCircle,
-  Calendar,
-  Filter,
-  CheckCircle2,
-  XCircle,
-  MessageSquare,
-  Clock,
-  Store,
-  ChevronRight,
-  Flame,
-} from "lucide-react";
+import { TrendingUp, Star, Award, AlertCircle, Calendar, Filter, CheckCircle2, XCircle, MessageSquare, Clock, Store, ChevronRight } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { orderTime } from "@/lib/order-time";

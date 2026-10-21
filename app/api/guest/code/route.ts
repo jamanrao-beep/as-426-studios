@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db, sameOrigin } from "@/db/store";
-import { rateLimit } from "@/lib/rate-limit";
 import { ensureSaasTables, issueEmailCode } from "@/lib/saas";
 import { mailConfigured, sendMail } from "@/lib/mailer";
 import { otpEmail } from "@/lib/mail-templates";

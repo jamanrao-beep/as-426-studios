@@ -1,5 +1,4 @@
 import { orderAccess, db, sameOrigin, validSlug } from "@/db/store";
-import { rateLimit } from "@/lib/rate-limit";
 import { after } from "next/server";
 import { notifyRestaurantStaff } from "@/lib/push-server";
 import { z } from "zod";

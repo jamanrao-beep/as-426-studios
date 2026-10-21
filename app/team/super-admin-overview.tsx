@@ -1,26 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  LayoutDashboard,
-  Store,
-  Users,
-  ShoppingBag,
-  TrendingUp,
-  Calendar,
-  Filter,
-  CheckCircle2,
-  Clock,
-  AlertTriangle,
-  ArrowRight,
-  ShieldCheck,
-  UtensilsCrossed,
-  QrCode,
-  KeyRound,
-  ChefHat,
-  Rocket,
-  Plus,
-} from "lucide-react";
+import { LayoutDashboard, Store, Users, ShoppingBag, TrendingUp, Calendar, Filter, CheckCircle2, Clock, AlertTriangle, ShieldCheck, UtensilsCrossed, QrCode, KeyRound, ChefHat, Rocket, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { money } from "@/lib/orders";
 

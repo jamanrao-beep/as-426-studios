@@ -7,7 +7,7 @@ import {
   lastMonth,
   customDateRange,
 } from "@/lib/order-time";
-import type { Dish, Menu } from "@/lib/menu";
+import type { Dish } from "@/lib/menu";
 import { featureOff } from "@/lib/enforce";
 
 export const dynamic = "force-dynamic";

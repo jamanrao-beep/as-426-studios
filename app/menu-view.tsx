@@ -1,34 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  LockKeyhole,
-  Sparkles,
-  Leaf,
-  Flame,
-  Plus,
-  Minus,
-  Search,
-  Heart,
-  Shuffle,
-  Share2,
-  Moon,
-  Sun,
-  ArrowUp,
-  ArrowUpRight,
-  ReceiptText,
-  Coffee,
-  CakeSlice,
-  Salad,
-  Soup,
-  UtensilsCrossed,
-  BellRing,
-  Receipt,
-  Languages,
-  Download,
-  WifiOff,
-  Flame as FlameIcon,
-} from "lucide-react";
+import { LockKeyhole, Sparkles, Leaf, Flame, Plus, Minus, Search, Heart, Shuffle, Share2, Moon, Sun, ArrowUp, ArrowUpRight, ReceiptText, Coffee, CakeSlice, Salad, Soup, UtensilsCrossed, BellRing, Receipt, Languages, Download, WifiOff } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import PlacedOrders from "./placed-orders";
 import Cart, { type CartItem } from "./cart";

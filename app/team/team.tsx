@@ -48,6 +48,7 @@ import OrdersBoard from "./orders-board";
 import Billing, { timeLeft } from "./billing";
 import HelpChat from "./help-chat";
 import SignOutAll from "./sign-out-all";
+import MailCheck from "./mail-check";
 import OrderAlerts from "./order-alerts";
 import ServiceRequests from "./service-requests";
 import AppControls from "./app-controls";
@@ -798,8 +799,8 @@ export default function Team({
           {/* EMPTY RESTAURANTS STATE */}
           {!id && !error && tab !== "overview" && (
             <div className="empty">
-              <h2>No restaurants yet.</h2>
-              <p>Add a restaurant to create its menu and QR code.</p>
+              <h2>{restaurants.length ? "Choose a restaurant." : "No restaurants yet."}</h2>
+              <p>{restaurants.length ? "Pick one from the list on the left to see its orders, menu and reports." : "Add a restaurant to create its menu and QR code."}</p>
               {isSuperAdmin && (
                 <button className="primary" onClick={() => setCreate(true)}>
                   <Plus size={16} /> Add restaurant
@@ -1180,7 +1181,12 @@ export default function Team({
           )}
 
           {/* ORDERS & LIVE ALERTS */}
-          {isSuperAdmin && tab === "app" && <AppControls />}
+          {isSuperAdmin && tab === "app" && (
+            <>
+              <MailCheck />
+              <AppControls />
+            </>
+          )}
           {isSuperAdmin && tab === "requests" && <RegistrationRequests onChange={refreshRequests} />}
           {isSuperAdmin && tab === "queries" && <Queries onChange={refreshRequests} />}
           {!isSuperAdmin && tab === "billing" && <Billing onChange={loadCfg} />}

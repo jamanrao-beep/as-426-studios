@@ -48,16 +48,16 @@ const STEPS = [
   { title: "Start your free week", text: "Sign in, add your dishes and waiters, and print your table QR codes." },
 ];
 
-const FAQS = [
+const faqsFor = (trialDays: string, guestDays: string) => [
   { q: "What is Table Secret?", a: "A QR menu and ordering system for restaurants. Guests scan a code on the table, browse your menu and order. Your waiters receive each order live, and you manage everything from the website or the staff app." },
   { q: "Why is it different from other QR menu tools?", a: "It is built around the dining room, not just a PDF menu. You get secret dishes, a taste quiz, table games, live waiter alerts, private reviews and a morning insights summary, plus a staff app for iPhone and Android with the same controls as the website." },
   { q: "Do my guests need to download anything?", a: "No. They scan the QR code and the menu opens in their browser. They can also save the menu offline on their phone." },
   { q: "How long does approval take?", a: "Our team reviews every request by hand, normally within one working day. You see the status live on this page, and we email you the moment you are approved." },
-  { q: "What do I get after approval?", a: "Your restaurant page, a starter menu, a manager login, a 14-day free trial (7 days plus a 7-day bonus) with everything unlocked, and your table QR code ready to print." },
+  { q: "What do I get after approval?", a: `Your restaurant page, a starter menu, a manager login, a ${trialDays} free trial with everything unlocked, and your table QR code ready to print.` },
   { q: "What is my login ID?", a: "The name you choose here plus @as426studios.com, for example spice@as426studios.com. It is only used to sign in, it is not a mailbox. We send all emails to the contact email you give us." },
   { q: "How do waiters get accounts?", a: "Once you are approved, you add waiters yourself from the Team section. Each gets a temporary password and chooses their own on first sign-in. You can reset, suspend or remove a waiter any time." },
   { q: "What happens after the free trial?", a: "You pick one of the plans shown on this page. Our team contacts you to complete payment and activates it. Your data is always kept." },
-  { q: "Can I try it before applying?", a: "Yes. On the staff app you can start a free 7-day guest week with a sample restaurant. It has a few limits, and registering removes them." },
+  { q: "Can I try it before applying?", a: `Yes. On the staff app you can start a free ${guestDays} guest week with a sample restaurant. It has a few limits, and registering removes them.` },
   { q: "Is my data safe?", a: "Your restaurant's data sits in a private database that only your own accounts can open. Passwords are stored encrypted, and sessions end automatically if an account is removed." },
   { q: "What if I need help?", a: "Open the staff app and ask Mira, our built-in guide. If she cannot answer, your question goes straight to our team and we reply by email and in the app." },
 ];
@@ -75,7 +75,7 @@ const TIPS: Record<string, { what: string; example: string; avoid?: string }> = 
 
 type Trial = { base: number; bonus: number; total: number };
 
-// The 14-day trial: 7 free days plus a 7-day welcome bonus. The number counts up and glows,
+// The free trial, as the server sets it (free days plus a welcome bonus). The number counts up and glows,
 // and tapping the bonus chip sends a little burst of sparkles.
 function TrialGlow({ trial, on, onPick }: { trial: Trial; on: boolean; onPick: () => void }) {
   const [n, setN] = useState(0);
@@ -150,6 +150,7 @@ export default function ApplyPage() {
   const [focus, setFocus] = useState("");
   const [plans, setPlans] = useState<PlanCard[] | null>(null);
   const [trial, setTrial] = useState<Trial | null>(null);
+  const [guestDays, setGuestDays] = useState(0);
   const formRef = useRef<HTMLDivElement>(null);
 
   const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
@@ -192,6 +193,7 @@ export default function ApplyPage() {
         if (!d) return;
         setPlans(d.plans);
         setTrial({ base: d.trialBaseDays, bonus: d.trialBonusDays, total: d.trialDays });
+        setGuestDays(d.guestDays || 0);
       })
       .catch(() => {});
   }, []);
@@ -350,7 +352,7 @@ export default function ApplyPage() {
         <h1>
           Bring your restaurant to <em>Table Secret</em>
         </h1>
-        <p>Apply in two minutes. Our team verifies every restaurant, then you get a free {trial ? trial.total : 14}-day trial, 7 days plus a 7-day welcome bonus, with everything unlocked.</p>
+        <p>Apply in two minutes. Our team verifies every restaurant, then you get a {trial ? `${trial.total}-day ` : ""}free trial{trial ? `, ${trial.base} days plus a ${trial.bonus}-day welcome bonus,` : ""} with everything unlocked.</p>
         <div className="ap-chips">
           <span>
             <Clock size={14} /> Reply within one working day
@@ -469,7 +471,7 @@ export default function ApplyPage() {
                       </button>
                     ))}
                   </div>
-                  <small className="ap-fine">Nothing is charged today. Every plan starts with your free 14-day trial.</small>
+                  <small className="ap-fine">Nothing is charged today. Every plan starts with your free trial.</small>
                 </div>
               )}
 
@@ -538,7 +540,7 @@ export default function ApplyPage() {
             {status?.status === "approved" && (
               <div className="ap-done">
                 <p>
-                  Sign in with <b>{status.loginEmail || loginEmail}</b> and the password you chose. Your 14-day free trial has started.
+                  Sign in with <b>{status.loginEmail || loginEmail}</b> and the password you chose. Your free trial has started.
                 </p>
                 <a className="ap-primary" href="/login">
                   Sign in now <ArrowRight size={15} />
@@ -585,7 +587,7 @@ export default function ApplyPage() {
           </span>
           <h2>Good to know before you apply</h2>
           <div className="ap-faq">
-            {FAQS.map((x, i) => (
+            {faqsFor(trial ? `${trial.total}-day` : "free", guestDays ? `${guestDays}-day` : "").map((x, i) => (
               <div key={x.q} className={`ap-q ${faqOpen === i ? "open" : ""}`}>
                 <button type="button" onClick={() => setFaqOpen(faqOpen === i ? -1 : i)} aria-expanded={faqOpen === i}>
                   {x.q}

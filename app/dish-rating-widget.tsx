@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Star, Check, ChevronDown, ChevronUp, Sparkles, MessageSquare } from "lucide-react";
+import { Star, Check, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import type { StoredOrder } from "@/lib/orders";
 

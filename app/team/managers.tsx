@@ -1,18 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  ShieldCheck,
-  Plus,
-  Trash2,
-  Key,
-  Copy,
-  Store,
-  RefreshCw,
-  LogOut,
-  Edit2,
-  Check,
-} from "lucide-react";
+import { ShieldCheck, Plus, Trash2, Key, Copy, Store, RefreshCw, LogOut, Edit2 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 

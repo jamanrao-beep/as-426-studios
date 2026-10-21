@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sameOrigin } from "@/db/store";
 import { encodeSession } from "@/lib/auth";
-import { rateLimit } from "@/lib/rate-limit";
 import { checkEmailCode, createGuest, GUEST_DAYS, GuestUsedError } from "@/lib/saas";
 import { guestWelcomeEmail } from "@/lib/mail-templates";
 import { sendMail } from "@/lib/mailer";
