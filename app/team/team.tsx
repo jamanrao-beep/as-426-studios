@@ -47,6 +47,7 @@ import Sales from "./sales";
 import OrdersBoard from "./orders-board";
 import Billing, { timeLeft } from "./billing";
 import HelpChat from "./help-chat";
+import QrRequest from "./qr-request";
 import SignOutAll from "./sign-out-all";
 import MailCheck from "./mail-check";
 import OrderAlerts from "./order-alerts";
@@ -443,6 +444,8 @@ export default function Team({
   const currentRest = restaurants.find((r) => r.id === id);
   const savedName = currentRest?.name || "";
   const managerCanSeeQr = currentRest ? currentRest.manager_qr_visible !== false : true;
+  // Off for this restaurant, or off for everyone by the global switch. Either way the manager can ask for it.
+  const qrOn = managerCanSeeQr && cfg?.restaurant?.manager?.qrCode !== false;
 
   // The sidebar is four short groups, not one long list.
   const NAV_GROUPS: [string, string[]][] = [
@@ -483,12 +486,12 @@ export default function Team({
         { key: "sales", label: "Monthly sales", icon: ShoppingBag },
         { key: "reviews", label: "Customer reviews", icon: MessageSquare },
         { key: "settings", label: "Restaurant settings", icon: Settings2 },
-        ...(managerCanSeeQr ? [{ key: "qr", label: "QR & customer link", icon: QrCode }] : []),
+        { key: "qr", label: "QR & customer link", icon: QrCode },
         { key: "billing", label: "Plan and billing", icon: Crown },
       ].filter((n) => {
         const m = cfg?.restaurant?.manager;
         if (!m) return true;
-        const off: Record<string, string> = { menu: "menuEditing", waiters: "waiterManagement", sales: "sales", reviews: "reviews", "dish-performance": "dishPerformance", "dish-insights": "dishInsights", settings: "restaurantSettings", qr: "qrCode" };
+        const off: Record<string, string> = { menu: "menuEditing", waiters: "waiterManagement", sales: "sales", reviews: "reviews", "dish-performance": "dishPerformance", "dish-insights": "dishInsights", settings: "restaurantSettings" };
         return !off[n.key] || m[off[n.key]] !== false;
       });
 
@@ -1012,44 +1015,9 @@ export default function Team({
           )}
 
           {/* QR & CUSTOMER LINK */}
-          {tab === "qr" && !isSuperAdmin && !managerCanSeeQr && (
-            <div
-              style={{
-                background: "#fff",
-                border: "1px solid #e2e8f0",
-                borderRadius: 14,
-                padding: "48px 24px",
-                textAlign: "center",
-                maxWidth: 580,
-                margin: "24px auto",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-              }}
-            >
-              <div
-                style={{
-                  width: 58,
-                  height: 58,
-                  borderRadius: "50%",
-                  background: "#fee2e2",
-                  color: "#991b1b",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  margin: "0 auto 16px auto",
-                }}
-              >
-                <QrCode size={30} />
-              </div>
-              <h2 style={{ fontSize: "1.35rem", color: "#0f172a", marginBottom: 8, fontWeight: 700 }}>
-                QR Code Access Disabled
-              </h2>
-              <p style={{ color: "#475569", fontSize: "0.9rem", lineHeight: 1.6, margin: 0 }}>
-                The Super Admin has turned off QR code visibility for this restaurant. Please contact your Super Admin if you need access to the table QR code or printable assets.
-              </p>
-            </div>
-          )}
+          {tab === "qr" && !isSuperAdmin && !qrOn && <QrRequest restaurantName={savedName} />}
 
-          {tab === "qr" && (isSuperAdmin || managerCanSeeQr) && (
+          {tab === "qr" && (isSuperAdmin || qrOn) && (
             <div className="qr-panel">
               <div className="qr-card">
                 <p className="eyebrow">{menu?.name || savedName}</p>
