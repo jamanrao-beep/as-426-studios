@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   LockKeyhole,
   Sparkles,
@@ -57,7 +57,11 @@ export default function MenuView({ restaurant }: { restaurant: string }) {
   const [large, setLarge] = useState(false);
   const [svcTable, setSvcTable] = useState("");
   const [svcMsg, setSvcMsg] = useState("");
+  // Tapping "Add" swaps the button for a - 1 + control right under the finger. A quick second tap used to land
+  // on the "-" and silently take the dish back out, so ignore minus taps for a moment after the first add.
+  const justAdded = useRef<{ id: string; at: number } | null>(null);
   function removeFromCart(id: string) {
+    if (justAdded.current?.id === id && Date.now() - justAdded.current.at < 700) return;
     setCart((items) => items.map((i) => (i.id === id ? { ...i, quantity: i.quantity - 1 } : i)).filter((i) => i.quantity > 0));
   }
   function toggleSaved(id: string) {
@@ -620,7 +624,14 @@ export default function MenuView({ restaurant }: { restaurant: string }) {
                           </button>
                         </div>
                       ) : (
-                        <button className="add-dish" onClick={() => addToCart(d.id)} aria-label={`Add ${d.name} to cart`}>
+                        <button
+                          className="add-dish"
+                          onClick={() => {
+                            justAdded.current = { id: d.id, at: Date.now() };
+                            addToCart(d.id);
+                          }}
+                          aria-label={`Add ${d.name} to cart`}
+                        >
                           {t("Add to order")} <Plus size={16} />
                         </button>
                       )}
