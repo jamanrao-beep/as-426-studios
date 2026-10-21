@@ -63,6 +63,7 @@ export async function POST(req: Request) {
       .first();
     if (pending) return NextResponse.json({ error: "A request for this login or email is already waiting for review." }, { status: 409 });
 
+    const id = "req_" + crypto.randomBytes(8).toString("hex");
     await db()
       .prepare(
         `INSERT INTO registration_requests
@@ -70,7 +71,7 @@ export async function POST(req: Request) {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)`
       )
       .bind(
-        "req_" + crypto.randomBytes(8).toString("hex"),
+        id,
         loginEmail,
         await hashPassword(d.password),
         d.ownerName,
@@ -86,9 +87,33 @@ export async function POST(req: Request) {
       )
       .run();
 
-    return NextResponse.json({ ok: true, loginEmail });
+    return NextResponse.json({ ok: true, loginEmail, id });
   } catch (err) {
     console.error("POST /api/register error:", err);
     return NextResponse.json({ error: "Could not send your request. Please try again." }, { status: 503 });
+  }
+}
+
+// The applicant's live status. The request id is a random secret only they hold, and only the status comes back.
+export async function GET(req: Request) {
+  try {
+    const id = new URL(req.url).searchParams.get("id") || "";
+    if (!/^req_[a-f0-9]{16}$/.test(id)) return NextResponse.json({ error: "Not found." }, { status: 404 });
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    if (!rateLimit(`regstatus:${ip}`, 120, 60 * 60 * 1000).allowed) return NextResponse.json({ error: "Too many checks." }, { status: 429 });
+    await ensureSaasTables();
+    const r = await db()
+      .prepare("SELECT status, restaurant_name, email, note FROM registration_requests WHERE id = ?")
+      .bind(id)
+      .first<{ status: string; restaurant_name: string; email: string; note: string | null }>();
+    if (!r) return NextResponse.json({ error: "Not found." }, { status: 404 });
+    const status = r.status === "approved" ? "approved" : r.status === "rejected" ? "rejected" : "pending";
+    return NextResponse.json(
+      { status, restaurantName: r.restaurant_name, loginEmail: r.email, note: status === "rejected" ? r.note : null },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  } catch (err) {
+    console.error("GET /api/register error:", err);
+    return NextResponse.json({ error: "Could not check the status." }, { status: 503 });
   }
 }

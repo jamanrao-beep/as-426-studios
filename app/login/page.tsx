@@ -2,7 +2,7 @@
 
 import { useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Utensils, Lock, Mail, Eye, EyeOff, CheckCircle2 } from "lucide-react";
+import { Utensils, Lock, Mail, Eye, EyeOff, CheckCircle2, ArrowRight } from "lucide-react";
 
 function LoginForm() {
   const router = useRouter();
@@ -128,6 +128,14 @@ function LoginForm() {
           {loading ? "Signing in…" : "Sign In"}
         </button>
       </form>
+
+      <a className="apply-cta" href="/apply">
+        <span>
+          <strong>New restaurant? Apply to join</strong>
+          <small>Takes two minutes. Our team verifies you and starts your free 7-day trial.</small>
+        </span>
+        <ArrowRight size={18} />
+      </a>
 
       <footer className="login-footer-info">
         <div className="info-item">

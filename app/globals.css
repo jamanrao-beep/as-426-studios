@@ -1550,3 +1550,8 @@ html[data-ts-theme=dark] [data-slot=dialog-content] .primary,html[data-ts-theme=
 .ts-toast,.status-toast,.back-to-top{touch-action:manipulation}
 .ts-toast,.status-toast{pointer-events:none}
 .offline-banner{display:flex;align-items:center;gap:8px;margin:8px 0;padding:10px 14px;border-radius:12px;background:#fff1e6;border:1px solid #f0b78e;color:#8a3d0a;font-size:13px}
+
+.apply-cta{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:22px;padding:16px 18px;border:1px solid #f6d7c3;border-radius:14px;background:#fff7f1;color:#b83d00;text-decoration:none;transition:transform .15s,box-shadow .15s}
+.apply-cta:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(223,77,3,.14)}
+.apply-cta strong{display:block;font-size:1rem;color:#1c1917}
+.apply-cta small{color:#6f6a65;font-size:.82rem}
