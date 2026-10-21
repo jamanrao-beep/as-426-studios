@@ -91,6 +91,13 @@ export function ensureSaasTables() {
       "ALTER TABLE guest_accounts ADD COLUMN contact_email VARCHAR(190)",
       "ALTER TABLE guest_accounts ADD COLUMN contact_name VARCHAR(120)",
       "ALTER TABLE guest_accounts ADD COLUMN contact_phone VARCHAR(40)",
+      "ALTER TABLE support_questions ADD COLUMN phone VARCHAR(40)",
+      "ALTER TABLE support_questions ADD COLUMN user_email VARCHAR(190)",
+      "ALTER TABLE support_questions ADD COLUMN restaurant_id VARCHAR(80)",
+      "ALTER TABLE support_questions ADD COLUMN status VARCHAR(12)",
+      "ALTER TABLE support_questions ADD COLUMN reply TEXT",
+      "ALTER TABLE support_questions ADD COLUMN replied_at VARCHAR(40)",
+      "ALTER TABLE support_questions ADD COLUMN reply_seen INT",
     ]) {
       try {
         await run(sql);

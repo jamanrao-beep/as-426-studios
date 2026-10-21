@@ -49,6 +49,7 @@ import OrderAlerts from "./order-alerts";
 import ServiceRequests from "./service-requests";
 import AppControls from "./app-controls";
 import { RegistrationRequests, Directory, Subscriptions } from "./saas-admin";
+import Queries from "./queries";
 import Waiters from "./waiters";
 import Reviews from "./reviews";
 import RestaurantAccess from "./restaurant-access";
@@ -119,11 +120,16 @@ export default function Team({
 
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [pendingRequests, setPendingRequests] = useState(0);
+  const [openQueries, setOpenQueries] = useState(0);
   const refreshRequests = () => {
     if (!isSuperAdmin) return;
     fetch("/api/admin/requests")
       .then((r) => (r.ok ? r.json() : null))
       .then((d: any) => d && setPendingRequests((d.requests || []).filter((x: any) => x.status === "pending").length))
+      .catch(() => {});
+    fetch("/api/admin/queries")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: any) => d && setOpenQueries(d.open || 0))
       .catch(() => {});
   };
   useEffect(() => {
@@ -422,6 +428,7 @@ export default function Team({
     ? [
         { key: "overview", label: "System overview", icon: LayoutDashboard },
         { key: "requests", label: pendingRequests ? `New requests (${pendingRequests})` : "New requests", icon: Inbox },
+        { key: "queries", label: openQueries ? `Queries (${openQueries})` : "Queries", icon: MessageSquare },
         { key: "directory", label: "Restaurants & accounts", icon: Building2 },
         { key: "plans", label: "Plans & trials", icon: Crown },
         { key: "dish-performance", label: "Dish performance", icon: TrendingUp },
@@ -668,6 +675,8 @@ export default function Team({
                     ? "Decide what managers and waiters can do in the phone app."
                     : tab === "requests"
                     ? "Review restaurants that asked to join and start their free trial."
+                    : tab === "queries"
+                    ? "Questions from people using the app. Reply by email and in the app."
                     : tab === "directory"
                     ? "Edit, add or remove any restaurant, manager or waiter."
                     : tab === "plans"
@@ -688,6 +697,7 @@ export default function Team({
                 tab !== "dish-insights" &&
                 tab !== "app" &&
                 tab !== "requests" &&
+                tab !== "queries" &&
                 tab !== "directory" &&
                 tab !== "plans" &&
                 tab !== "overview" && (
@@ -1107,6 +1117,7 @@ export default function Team({
           {/* ORDERS & LIVE ALERTS */}
           {isSuperAdmin && tab === "app" && <AppControls />}
           {isSuperAdmin && tab === "requests" && <RegistrationRequests onChange={refreshRequests} />}
+          {isSuperAdmin && tab === "queries" && <Queries onChange={refreshRequests} />}
           {isSuperAdmin && tab === "directory" && <Directory />}
           {isSuperAdmin && tab === "plans" && <Subscriptions />}
           {id && tab === "orders" && <ServiceRequests key={"sr-" + id} restaurant={id} />}

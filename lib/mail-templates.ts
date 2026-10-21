@@ -73,19 +73,32 @@ export function guestWelcomeEmail(p: { days: number }) {
   };
 }
 
-export function supportEmail(p: { name?: string; email: string; role?: string; restaurant?: string; question: string }) {
+export function supportEmail(p: { name?: string; email: string; phone?: string; role?: string; restaurant?: string; question: string }) {
   const who = [p.name, p.role, p.restaurant].filter(Boolean).join(" · ");
   return {
     subject: `Question from the app: ${p.question.slice(0, 60)}`,
     html: shell(
       "A question from the app",
       `<p style="white-space:pre-wrap;font-size:16px;background:#fff1e8;border-radius:12px;padding:14px 16px">${esc(p.question)}</p>
-<p><b>From:</b> ${esc(p.email)}${who ? `<br><b>Details:</b> ${esc(who)}` : ""}</p>
+<p><b>From:</b> ${esc(p.email)}${p.phone ? ` · ${esc(p.phone)}` : ""}${who ? `<br><b>Details:</b> ${esc(who)}` : ""}</p>
 <p style="color:#7b6d64">Just reply to this email and it goes straight to them.</p>`
     ),
     text: `${p.question}
 
 From: ${p.email}${who ? `
 Details: ${who}` : ""}`,
+  };
+}
+
+export function replyEmail(p: { name?: string; question: string; reply: string }) {
+  return {
+    subject: "Our reply to your Table Secret question",
+    html: shell(
+      `Hi${p.name ? " " + p.name.split(" ")[0] : ""}, here is our reply`,
+      `<p style="white-space:pre-wrap;font-size:16px;background:#fff1e8;border-radius:12px;padding:14px 16px">${esc(p.reply)}</p>
+<p style="color:#7b6d64;font-size:13px">You asked: “${esc(p.question)}”</p>
+<p style="color:#7b6d64">You can reply to this email if you need more help. The same answer is waiting for you in the app, in your chat with Mira.</p>`
+    ),
+    text: `${p.reply}\n\nYou asked: ${p.question}`,
   };
 }
