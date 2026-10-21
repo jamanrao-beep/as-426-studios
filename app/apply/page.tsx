@@ -607,14 +607,14 @@ export default function ApplyPage() {
 
 const css = `
 @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&family=Michroma&display=swap");
-.ap{--o:#df4d03;--od:#b83d00;--ink:#1c1917;--mut:#6f6a65;--line:#e8e6e2;min-height:100vh;background:linear-gradient(180deg,#fff 0,#f8f7f5 380px);color:var(--ink);font-family:"Manrope",system-ui,sans-serif;font-weight:400;-webkit-font-smoothing:antialiased}
+.ap{--o:#c2410c;--od:#9a3412;--ink:#1c1917;--mut:#57534e;--line:#e8e6e2;min-height:100vh;background:linear-gradient(180deg,#fff 0,#f8f7f5 380px);color:var(--ink);font-family:"Manrope",system-ui,sans-serif;font-weight:400;-webkit-font-smoothing:antialiased}
 .ap h1,.ap h2,.ap h3,.ap-trial-num b,.ap-plan span,.ap-side h3{font-family:"Michroma","Manrope",sans-serif;font-weight:400;letter-spacing:.01em}
 .ap *{box-sizing:border-box}
 .ap-bar{display:flex;justify-content:space-between;align-items:center;padding:16px clamp(16px,4vw,40px)}
-.ap-brand{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:.04em;color:var(--ink);text-decoration:none}
+.ap-brand{min-height:44px;display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:.04em;color:var(--ink);text-decoration:none}
 .ap-brand span:last-child{color:var(--mut);font-weight:600}
 .ap-mark{display:inline-flex;width:34px;height:34px;border-radius:10px;background:var(--o);color:#fff;align-items:center;justify-content:center}
-.ap-link{display:inline-flex;gap:6px;align-items:center;color:var(--od);font-weight:600;text-decoration:none;font-size:.9rem}
+.ap-link{min-height:44px;display:inline-flex;gap:6px;align-items:center;color:var(--od);font-weight:600;text-decoration:none;font-size:.9rem}
 .ap-hero{text-align:center;max-width:760px;margin:0 auto;padding:30px 20px 10px}
 .ap-pill{display:inline-flex;gap:6px;align-items:center;background:#fff;color:var(--od);border:1px solid #f0d2bd;border-radius:999px;padding:6px 14px;font-size:.68rem;font-weight:600;letter-spacing:.16em}
 .ap-pill.ok{background:#dcfce7;color:#166534;border-color:#bbf7d0}.ap-pill.bad{background:#fee2e2;color:#b91c1c;border-color:#fecaca}
@@ -638,10 +638,10 @@ const css = `
 @keyframes apin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .ap label{display:grid;gap:6px;font-weight:500;font-size:.86rem;color:#3d3833}
 .ap input{width:100%;min-height:48px;border:1px solid #dcd9d4;border-radius:12px;padding:10px 14px;font:inherit;font-weight:500;background:#fdfcfb;color:var(--ink);outline:none;transition:border-color .15s,box-shadow .15s}
-.ap input:focus{border-color:var(--o);box-shadow:0 0 0 3px rgba(223,77,3,.15);background:#fff}
+.ap input:focus{border-color:var(--o);box-shadow:0 0 0 3px rgba(194,65,12,.15);background:#fff}
 .ap small{color:var(--mut);font-weight:500;font-size:.78rem}
 .ap-suffix{display:flex;align-items:stretch;border:1px solid #dcd9d4;border-radius:12px;background:#fdfcfb;overflow:hidden}
-.ap-suffix:focus-within{border-color:var(--o);box-shadow:0 0 0 3px rgba(223,77,3,.15)}
+.ap-suffix:focus-within{border-color:var(--o);box-shadow:0 0 0 3px rgba(194,65,12,.15)}
 .ap-suffix input{border:0;box-shadow:none;border-radius:0;background:transparent}
 .ap-suffix span{display:flex;align-items:center;padding:0 12px;color:var(--mut);font-size:.82rem;background:#f3f1ee;white-space:nowrap;font-weight:600}
 .ap-suffix button{border:0;background:#f3f1ee;padding:0 14px;font-weight:600;color:var(--od);cursor:pointer}
@@ -650,13 +650,13 @@ const css = `
 .ap-plan{position:relative;display:grid;gap:2px;text-align:left;border:1.5px solid var(--line);background:#fff;border-radius:14px;padding:14px;cursor:pointer;font:inherit;transition:all .15s}
 .ap-plan strong{font-size:.92rem}.ap-plan span{font-size:1.05rem}.ap-plan small{color:var(--mut)}
 .ap-plan b{position:absolute;top:-9px;right:10px;background:var(--o);color:#fff;border-radius:999px;font-size:.62rem;padding:3px 8px;letter-spacing:.06em}
-.ap-plan:hover{border-color:#f0b999}.ap-plan.on{border-color:var(--o);background:#fff7f1;box-shadow:0 0 0 3px rgba(223,77,3,.12)}
+.ap-plan:hover{border-color:#f0b999}.ap-plan.on{border-color:var(--o);background:#fff7f1;box-shadow:0 0 0 3px rgba(194,65,12,.12)}
 .ap-trial{position:relative;overflow:hidden;display:flex;align-items:center;gap:18px;border:2px solid #f0b999;border-radius:18px;padding:18px 20px;background:linear-gradient(135deg,#fff7f1,#ffe9d9);cursor:pointer;animation:apglow 2.6s ease-in-out infinite;transition:transform .15s}
 .ap-trial:hover{transform:translateY(-2px)}.ap-trial.on{border-color:var(--o)}
-@keyframes apglow{0%,100%{box-shadow:0 0 0 0 rgba(223,77,3,.0),0 6px 18px rgba(223,77,3,.18)}50%{box-shadow:0 0 0 6px rgba(223,77,3,.12),0 10px 34px rgba(223,77,3,.45)}}
+@keyframes apglow{0%,100%{box-shadow:0 0 0 0 rgba(194,65,12,.0),0 6px 18px rgba(194,65,12,.18)}50%{box-shadow:0 0 0 6px rgba(194,65,12,.12),0 10px 34px rgba(194,65,12,.45)}}
 .ap-trial-rays{position:absolute;inset:-60%;background:conic-gradient(from 0deg,transparent 0 20deg,rgba(255,255,255,.55) 30deg,transparent 40deg 110deg,rgba(255,255,255,.45) 120deg,transparent 130deg 200deg,rgba(255,255,255,.5) 210deg,transparent 220deg 290deg,rgba(255,255,255,.4) 300deg,transparent 310deg);animation:apspin 9s linear infinite;pointer-events:none}
 @keyframes apspin{to{transform:rotate(360deg)}}
-.ap-trial-num{position:relative;flex:none;display:grid;justify-items:center;line-height:1;background:var(--o);color:#fff;border-radius:16px;padding:12px 16px;min-width:86px;box-shadow:0 0 24px rgba(223,77,3,.55);animation:appop 2.6s ease-in-out infinite}
+.ap-trial-num{position:relative;flex:none;display:grid;justify-items:center;line-height:1;background:var(--o);color:#fff;border-radius:16px;padding:12px 16px;min-width:86px;box-shadow:0 0 24px rgba(194,65,12,.55);animation:appop 2.6s ease-in-out infinite}
 @keyframes appop{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 .ap-trial-num b{font-size:2.4rem;font-weight:400;font-variant-numeric:tabular-nums}.ap-trial-num span{font-size:.62rem;letter-spacing:.12em;font-weight:600;margin-top:4px}
 .ap-trial-body{position:relative;display:grid;gap:7px}.ap-trial-body strong{font-size:1.02rem}
@@ -699,7 +699,7 @@ const css = `
 .ap-timeline li.active .dot{border-color:var(--o);background:#fff;animation:appulse 1.4s infinite}
 .ap-timeline li.active .dot::after{content:"";width:10px;height:10px;border-radius:50%;background:var(--o)}
 .ap-timeline li.wait{opacity:.5}
-@keyframes appulse{0%{box-shadow:0 0 0 0 rgba(223,77,3,.45)}70%{box-shadow:0 0 0 12px rgba(223,77,3,0)}100%{box-shadow:0 0 0 0 rgba(223,77,3,0)}}
+@keyframes appulse{0%{box-shadow:0 0 0 0 rgba(194,65,12,.45)}70%{box-shadow:0 0 0 12px rgba(194,65,12,0)}100%{box-shadow:0 0 0 0 rgba(194,65,12,0)}}
 .ap-timeline strong{display:block}.ap-timeline p{margin:2px 0 0;color:var(--mut);font-size:.86rem;line-height:1.45}
 .ap-done{margin-top:8px;display:grid;gap:12px;justify-items:center}
 .ap-section{margin-top:56px;text-align:center}

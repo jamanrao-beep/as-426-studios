@@ -425,6 +425,14 @@ export default function Team({
   const savedName = currentRest?.name || "";
   const managerCanSeeQr = currentRest ? currentRest.manager_qr_visible !== false : true;
 
+  // The sidebar is four short groups, not one long list.
+  const NAV_GROUPS: [string, string[]][] = [
+    ["Live", ["overview", "orders"]],
+    ["Menu and venue", ["menu", "settings", "qr", "restaurant-access"]],
+    ["Insights", ["sales", "dish-performance", "dish-insights", "reviews"]],
+    ["People and admin", ["requests", "queries", "directory", "plans", "managers", "waiters", "app", "team"]],
+  ];
+
   // Navigation Items
   const nav = isSuperAdmin
     ? [
@@ -570,7 +578,14 @@ export default function Team({
           <div className="sidebar-divider" />
 
           {/* Nav Tabs */}
-          {nav.map((n) => (
+          {NAV_GROUPS.flatMap(([group, keys]) => {
+            const items = nav.filter((n) => keys.includes(n.key));
+            return items.length
+              ? [
+                  <p className="nav-group-label" key={"g-" + group}>
+                    {group}
+                  </p>,
+                  ...items.map((n) => (
             <button
               className={tab === n.key ? "nav-item active" : "nav-item"}
               key={n.key}
@@ -586,7 +601,10 @@ export default function Team({
               <n.icon size={18} />
               {n.label}
             </button>
-          ))}
+                  )),
+                ]
+              : [];
+          })}
         </div>
 
         {/* Current User Card - Pinned at bottom */}
@@ -652,7 +670,7 @@ export default function Team({
           {tab !== "overview" && (
             <div className="admin-title">
               <div>
-                <p className="eyebrow">AS 426 STUDIOS · RESTAURANT WORKSPACE</p>
+                <p className="crumb">Workspace</p>
                 <h1>{nav.find((n) => n.key === tab)?.label}</h1>
                 <p>
                   {tab === "orders"
@@ -703,10 +721,16 @@ export default function Team({
                 tab !== "directory" &&
                 tab !== "plans" &&
                 tab !== "overview" && (
-                  <button className="primary" onClick={save} disabled={!dirty || busy}>
-                    <Save size={16} />
-                    {busy ? "Saving…" : dirty ? "Save changes" : "All changes saved"}
-                  </button>
+                  dirty || busy ? (
+                    <button className="primary" onClick={save} disabled={busy}>
+                      <Save size={16} />
+                      {busy ? "Saving…" : "Save changes"}
+                    </button>
+                  ) : (
+                    <span className="save-status" role="status">
+                      <Check size={15} /> All changes saved
+                    </span>
+                  )
                 )}
             </div>
           )}
@@ -750,24 +774,24 @@ export default function Team({
             <>
               <div className="stats">
                 <div>
-                  <span>On the menu</span>
+                  <span>Dishes</span>
                   <strong>
                     {menu.dishes.length}
                     <small>dishes</small>
                   </strong>
                 </div>
                 <div>
-                  <span>Ready to serve</span>
+                  <span>Available</span>
                   <strong>
                     {menu.dishes.filter((d) => d.available).length}
                     <small>available</small>
                   </strong>
                 </div>
                 <div>
-                  <span>A little mystery</span>
+                  <span>Secret dishes</span>
                   <strong>
                     {menu.dishes.filter((d) => d.secret).length}
-                    <small>secret dishes</small>
+                    <small>hidden</small>
                   </strong>
                 </div>
               </div>

@@ -205,9 +205,11 @@ export async function GET(req: Request) {
       where += " AND o.status = 'new'";
     }
 
-    if (statusFilter && ["new", "accepted", "preparing", "served", "cancelled"].includes(statusFilter)) {
-      where += " AND o.status = ?";
-      params.push(statusFilter);
+    // One status, or a comma list such as "accepted,preparing" for the In progress tab.
+    const wanted = statusFilter.split(",").map((x) => x.trim()).filter((x) => ["new", "accepted", "preparing", "served", "cancelled"].includes(x));
+    if (wanted.length) {
+      where += ` AND o.status IN (${wanted.map(() => "?").join(",")})`;
+      params.push(...wanted);
     }
 
     if (tableFilter) {
