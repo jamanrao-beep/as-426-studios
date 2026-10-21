@@ -2,6 +2,7 @@ import { requireChatGPTUser } from "@/app/chatgpt-auth";
 import { access } from "@/db/store";
 import { redirect } from "next/navigation";
 import Team from "./team";
+import PlanLocked from "./plan-locked";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,17 @@ export default async function Page() {
 
     if (a.role === "waiter") {
       redirect("/team/orders");
+    }
+
+    if (a.blocked) {
+      if (a.blocked.code === "plan_expired" && a.role === "admin") return <PlanLocked message={a.blocked.message} />;
+      return (
+        <main className="access">
+          <h1>{a.blocked.code === "maintenance" ? "Back in a moment" : "Workspace unavailable"}</h1>
+          <p>{a.blocked.message}</p>
+          <a href="/api/auth/logout?return_to=/login">Sign out</a>
+        </main>
+      );
     }
 
     if (!a.allowed && !a.owner) {

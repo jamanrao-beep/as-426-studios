@@ -51,10 +51,17 @@ export async function POST(req: Request) {
     if (d.action === "start_trial") {
       await startTrial(d.restaurant, a.email, d.days);
     } else if (d.action === "expire") {
-      await db()
+      const ended = await db()
         .prepare("UPDATE subscriptions SET status = 'expired', trial_ends_at = ?, period_end = ?, updated_at = ?, updated_by = ? WHERE restaurant_id = ?")
         .bind(now.toISOString(), now.toISOString(), now.toISOString(), a.email, d.restaurant)
         .run();
+      // A restaurant the Super Admin added by hand has no plan row yet. Ending its access must still work.
+      if (!ended.meta.changes) {
+        await db()
+          .prepare("INSERT INTO subscriptions (restaurant_id, status, trial_ends_at, period_end, updated_at, updated_by) VALUES (?, 'expired', ?, ?, ?, ?)")
+          .bind(d.restaurant, now.toISOString(), now.toISOString(), now.toISOString(), a.email)
+          .run();
+      }
     } else {
       const chosen = await getPlan(d.plan);
       if (!chosen) return NextResponse.json({ error: "That plan no longer exists." }, { status: 404 });

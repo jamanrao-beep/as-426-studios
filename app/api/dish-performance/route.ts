@@ -8,6 +8,7 @@ import {
   customDateRange,
 } from "@/lib/order-time";
 import type { Dish, Menu } from "@/lib/menu";
+import { featureOff } from "@/lib/enforce";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,10 @@ export async function GET(req: Request) {
     const a = await access(restaurant || undefined);
     if (!a.allowed && !a.owner) {
       return denied(a, "Restaurant admin access required.");
+    }
+    if (!a.owner) {
+      const off = await featureOff(a, "manager.dishPerformance");
+      if (off) return off;
     }
 
     // Waiters are strictly forbidden

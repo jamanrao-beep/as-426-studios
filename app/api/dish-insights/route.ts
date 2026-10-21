@@ -2,6 +2,7 @@ import { access, db, validSlug, readMenu, denied } from "@/db/store";
 import { yesterdayIndiaDate, dayRange, indiaDate } from "@/lib/order-time";
 import crypto from "node:crypto";
 import { z } from "zod";
+import { featureOff } from "@/lib/enforce";
 
 export const dynamic = "force-dynamic";
 
@@ -160,6 +161,10 @@ export async function GET(req: Request) {
     if (!a.allowed && !a.owner) {
       return denied(a, "Restaurant admin access required.");
     }
+    if (!a.owner) {
+      const off = await featureOff(a, "manager.dishInsights");
+      if (off) return off;
+    }
 
     if (a.role === "waiter") {
       return Response.json({ error: "Waiters do not have access to dish insight notifications." }, { status: 403 });
@@ -254,6 +259,10 @@ export async function POST(req: Request) {
     const a = await access();
     if (!a.allowed && !a.owner) {
       return denied(a, "Access required.");
+    }
+    if (!a.owner) {
+      const off = await featureOff(a, "manager.dishInsights");
+      if (off) return off;
     }
 
     const raw = await req.json();

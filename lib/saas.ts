@@ -131,8 +131,11 @@ export function ensureSaasTables() {
       question TEXT NOT NULL,
       emailed INT NOT NULL DEFAULT 0
     )`);
-    // Columns added after the first release. Ignore the error when they already exist.
-    for (const sql of [
+    // Columns and indexes added after the first release. They run once and are then marked done, so a normal start
+    // does not try them again (and does not fill the logs with "already exists" errors).
+    await run("CREATE TABLE IF NOT EXISTS schema_marks (mark VARCHAR(60) PRIMARY KEY NOT NULL, applied_at VARCHAR(40) NOT NULL)");
+    const done = await db().prepare("SELECT mark FROM schema_marks WHERE mark = ?").bind("saas-v4").first();
+    if (!done) for (const sql of [
       "ALTER TABLE registration_requests ADD COLUMN contact_email VARCHAR(190)",
       "ALTER TABLE registration_requests ADD COLUMN plan_choice VARCHAR(16)",
       "ALTER TABLE guest_accounts ADD COLUMN contact_email VARCHAR(190)",
@@ -154,6 +157,7 @@ export function ensureSaasTables() {
         await run(sql);
       } catch {}
     }
+    if (!done) await db().prepare("INSERT OR IGNORE INTO schema_marks (mark, applied_at) VALUES (?, ?)").bind("saas-v4", new Date().toISOString()).run();
   })().catch((e) => {
     ready = null;
     throw e;

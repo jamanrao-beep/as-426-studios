@@ -1,6 +1,7 @@
 import { access, db, readMenu, sameOrigin, validSlug, denied } from "@/db/store";
 import { z } from "zod";
 import { rateLimitDb, clientIp } from "@/lib/rate-limit-db";
+import { featureOff } from "@/lib/enforce";
 
 const submission = z.object({
   restaurant: z.string().refine(validSlug),
@@ -67,6 +68,10 @@ export async function GET(req: Request) {
     if (!a.allowed && !a.owner) {
       return denied(a, "You don’t have access to these reviews.");
     }
+    if (!a.owner) {
+      const off = await featureOff(a, "manager.reviews");
+      if (off) return off;
+    }
 
     if (a.role === "waiter") {
       return Response.json({ error: "Waiters are not permitted to view customer reviews." }, { status: 403 });
@@ -97,6 +102,10 @@ export async function PATCH(req: Request) {
     const a = await access(b.restaurant);
     if (!a.allowed && !a.owner) {
       return denied(a, "You don’t have access to these reviews.");
+    }
+    if (!a.owner) {
+      const off = await featureOff(a, "manager.reviews");
+      if (off) return off;
     }
 
     if (a.role === "waiter") {

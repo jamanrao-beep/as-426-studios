@@ -44,7 +44,9 @@ import { Toaster, toast } from "sonner";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Sidebar, SidebarProvider } from "@/components/ui/sidebar";
 import Sales from "./sales";
-import Orders from "./orders";
+import OrdersBoard from "./orders-board";
+import Billing, { timeLeft } from "./billing";
+import HelpChat from "./help-chat";
 import OrderAlerts from "./order-alerts";
 import ServiceRequests from "./service-requests";
 import AppControls from "./app-controls";
@@ -123,6 +125,21 @@ export default function Team({
   const [pendingRequests, setPendingRequests] = useState(0);
   const [openQueries, setOpenQueries] = useState(0);
   const [plansTick, setPlansTick] = useState(0);
+  // What the Super Admin has switched on for this restaurant, plus the plan or trial. The phone app reads the same
+  // endpoint, so both show and hide exactly the same things.
+  const [cfg, setCfg] = useState<{ restaurant: any; subscription: any } | null>(null);
+  const loadCfg = () => {
+    if (isSuperAdmin) return;
+    fetch("/api/app-config", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: any) => d && setCfg({ restaurant: d.restaurant, subscription: d.subscription }))
+      .catch(() => {});
+  };
+  useEffect(() => {
+    loadCfg();
+    const t = setInterval(loadCfg, 60000);
+    return () => clearInterval(t);
+  }, [isSuperAdmin]);
   const refreshRequests = () => {
     if (!isSuperAdmin) return;
     fetch("/api/admin/requests")
@@ -430,7 +447,7 @@ export default function Team({
     ["Live", ["overview", "orders"]],
     ["Menu and venue", ["menu", "settings", "qr", "restaurant-access"]],
     ["Insights", ["sales", "dish-performance", "dish-insights", "reviews"]],
-    ["People and admin", ["requests", "queries", "directory", "plans", "managers", "waiters", "app", "team"]],
+    ["People and admin", ["requests", "queries", "directory", "plans", "billing", "managers", "waiters", "app", "team"]],
   ];
 
   // Navigation Items
@@ -465,7 +482,13 @@ export default function Team({
         { key: "reviews", label: "Customer reviews", icon: MessageSquare },
         { key: "settings", label: "Restaurant settings", icon: Settings2 },
         ...(managerCanSeeQr ? [{ key: "qr", label: "QR & customer link", icon: QrCode }] : []),
-      ];
+        { key: "billing", label: "Plan and billing", icon: Crown },
+      ].filter((n) => {
+        const m = cfg?.restaurant?.manager;
+        if (!m) return true;
+        const off: Record<string, string> = { menu: "menuEditing", waiters: "waiterManagement", sales: "sales", reviews: "reviews", "dish-performance": "dishPerformance", "dish-insights": "dishInsights", settings: "restaurantSettings", qr: "qrCode" };
+        return !off[n.key] || m[off[n.key]] !== false;
+      });
 
   return (
     <SidebarProvider className="admin">
@@ -638,6 +661,17 @@ export default function Team({
             Workspace <span className="muted"> / {tab === "overview" ? "System Overview" : menu?.name || savedName || "Restaurant"}</span>
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+            {!isSuperAdmin && <HelpChat role="manager" />}
+            {!isSuperAdmin && cfg?.subscription && (cfg.subscription.status === "trial" || cfg.subscription.status === "active" || cfg.subscription.status === "expired") && (
+              <button
+                type="button"
+                className={`plan-pill ${cfg.subscription.status === "expired" || (cfg.subscription.status === "trial" && cfg.subscription.msLeft < 2 * 86400000) ? "urgent" : cfg.subscription.status === "active" ? "ok" : ""}`}
+                onClick={() => setTab("billing")}
+                title="Plan and billing"
+              >
+                {cfg.subscription.status === "trial" ? `Trial · ${timeLeft(cfg.subscription.msLeft)} left` : cfg.subscription.status === "active" ? "Pro plan" : "Plan ended"}
+              </button>
+            )}
             {id && (
               <a href={"/r/" + id} target="_blank" rel="noreferrer">
                 View customer menu <ExternalLink size={15} />
@@ -695,6 +729,8 @@ export default function Team({
                     ? "Decide what managers and waiters can do in the phone app."
                     : tab === "requests"
                     ? "Review restaurants that asked to join and start their free trial."
+                    : tab === "billing"
+                    ? "Your free trial, your plan, and how to change it."
                     : tab === "queries"
                     ? "Questions from people using the app. Reply by email and in the app."
                     : tab === "directory"
@@ -718,6 +754,7 @@ export default function Team({
                 tab !== "app" &&
                 tab !== "requests" &&
                 tab !== "queries" &&
+                tab !== "billing" &&
                 tab !== "directory" &&
                 tab !== "plans" &&
                 tab !== "overview" && (
@@ -1144,6 +1181,7 @@ export default function Team({
           {isSuperAdmin && tab === "app" && <AppControls />}
           {isSuperAdmin && tab === "requests" && <RegistrationRequests onChange={refreshRequests} />}
           {isSuperAdmin && tab === "queries" && <Queries onChange={refreshRequests} />}
+          {!isSuperAdmin && tab === "billing" && <Billing onChange={loadCfg} />}
           {isSuperAdmin && tab === "directory" && <Directory />}
           {isSuperAdmin && tab === "plans" && (
             <div style={{ display: "grid", gap: 28 }}>
@@ -1152,7 +1190,7 @@ export default function Team({
             </div>
           )}
           {id && tab === "orders" && <ServiceRequests key={"sr-" + id} restaurant={id} />}
-          {id && tab === "orders" && <Orders key={id} restaurant={id} canEdit />}
+          {id && tab === "orders" && <OrdersBoard key={id} restaurant={id} canManage />}
 
           {/* WAITERS MANAGEMENT */}
           {tab === "waiters" && (
