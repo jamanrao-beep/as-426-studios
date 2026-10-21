@@ -72,3 +72,20 @@ export function guestWelcomeEmail(p: { days: number }) {
     text: `Your ${p.days}-day Table Secret guest week has started. Register your restaurant in the app when you are ready.`,
   };
 }
+
+export function supportEmail(p: { name?: string; email: string; role?: string; restaurant?: string; question: string }) {
+  const who = [p.name, p.role, p.restaurant].filter(Boolean).join(" · ");
+  return {
+    subject: `Question from the app: ${p.question.slice(0, 60)}`,
+    html: shell(
+      "A question from the app",
+      `<p style="white-space:pre-wrap;font-size:16px;background:#fff1e8;border-radius:12px;padding:14px 16px">${esc(p.question)}</p>
+<p><b>From:</b> ${esc(p.email)}${who ? `<br><b>Details:</b> ${esc(who)}` : ""}</p>
+<p style="color:#7b6d64">Just reply to this email and it goes straight to them.</p>`
+    ),
+    text: `${p.question}
+
+From: ${p.email}${who ? `
+Details: ${who}` : ""}`,
+  };
+}

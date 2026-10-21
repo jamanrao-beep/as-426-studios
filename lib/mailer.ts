@@ -13,11 +13,12 @@ const b64 = (s: string) => Buffer.from(s, "utf-8").toString("base64");
 const header = (s: string) => (/^[\x20-\x7e]*$/.test(s) ? s : `=?UTF-8?B?${b64(s)}?=`);
 const wrap = (s: string) => s.replace(/(.{76})/g, "$1\r\n");
 
-function buildMessage(from: string, fromName: string, to: string, subject: string, html: string, text: string) {
+function buildMessage(from: string, fromName: string, to: string, subject: string, html: string, text: string, replyTo?: string) {
   const boundary = "ts_" + Math.random().toString(36).slice(2);
   return [
     `From: ${header(fromName)} <${from}>`,
     `To: ${to}`,
+    ...(replyTo && /^\S+@\S+\.\S+$/.test(replyTo) ? [`Reply-To: ${replyTo}`] : []),
     `Subject: ${header(subject)}`,
     "MIME-Version: 1.0",
     `Content-Type: multipart/alternative; boundary="${boundary}"`,
@@ -37,7 +38,7 @@ function buildMessage(from: string, fromName: string, to: string, subject: strin
   ].join("\r\n");
 }
 
-export async function sendMail(to: string, subject: string, html: string, text: string): Promise<Result> {
+export async function sendMail(to: string, subject: string, html: string, text: string, replyTo?: string): Promise<Result> {
   if (!mailConfigured()) {
     console.warn(`[mail] not configured, would have sent "${subject}" to ${to}`);
     return { sent: false, reason: "Email is not set up on the server yet." };
@@ -65,7 +66,7 @@ export async function sendMail(to: string, subject: string, html: string, text: 
       resolve(r);
     };
 
-    const message = buildMessage(user, fromName, to, subject, html, text).replace(/^\./gm, "..");
+    const message = buildMessage(user, fromName, to, subject, html, text, replyTo).replace(/^\./gm, "..");
     const plan: Array<{ send?: string; expect: number }> = [
       { expect: 220 },
       { send: "EHLO tablesecret.app", expect: 250 },

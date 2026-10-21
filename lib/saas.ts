@@ -74,6 +74,16 @@ export function ensureSaasTables() {
       lng DOUBLE,
       city VARCHAR(80)
     )`);
+    await run(`CREATE TABLE IF NOT EXISTS support_questions (
+      id VARCHAR(40) PRIMARY KEY NOT NULL,
+      created_at VARCHAR(40) NOT NULL,
+      name VARCHAR(120),
+      email VARCHAR(190) NOT NULL,
+      role VARCHAR(20),
+      restaurant VARCHAR(120),
+      question TEXT NOT NULL,
+      emailed INT NOT NULL DEFAULT 0
+    )`);
     // Columns added after the first release. Ignore the error when they already exist.
     for (const sql of [
       "ALTER TABLE registration_requests ADD COLUMN contact_email VARCHAR(190)",
