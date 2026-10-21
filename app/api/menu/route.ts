@@ -1,6 +1,7 @@
 import { access, db, readMenu, sameOrigin, validSlug } from "@/db/store";
 import { menuSchema } from "@/lib/menu";
 import { logAudit } from "@/lib/audit";
+import { isGuestEmail, GUEST_MAX_DISHES } from "@/lib/saas";
 
 export async function GET(req: Request) {
   try {
@@ -63,6 +64,12 @@ export async function PUT(req: Request) {
     // Waiters are strictly forbidden from modifying the menu
     if (a.role === "waiter") {
       return Response.json({ error: "Waiters are not permitted to edit or publish the menu." }, { status: 403 });
+    }
+
+    if (await isGuestEmail(a.email)) {
+      if (parsed.data.dishes.length > GUEST_MAX_DISHES) {
+        return Response.json({ error: `The guest sandbox allows up to ${GUEST_MAX_DISHES} dishes. Register your restaurant for more.` }, { status: 403 });
+      }
     }
 
     const ids = parsed.data.dishes.map((d) => d.id);

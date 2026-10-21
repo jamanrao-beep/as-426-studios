@@ -7,6 +7,9 @@ import {
   LockKeyhole,
   ExternalLink,
   Smartphone,
+  Inbox,
+  Crown,
+  Building2,
   Check,
   Settings2,
   QrCode,
@@ -45,6 +48,7 @@ import Orders from "./orders";
 import OrderAlerts from "./order-alerts";
 import ServiceRequests from "./service-requests";
 import AppControls from "./app-controls";
+import { RegistrationRequests, Directory, Subscriptions } from "./saas-admin";
 import Waiters from "./waiters";
 import Reviews from "./reviews";
 import RestaurantAccess from "./restaurant-access";
@@ -114,6 +118,19 @@ export default function Team({
   const isRestaurantAdmin = !isSuperAdmin && userRole === "admin";
 
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [pendingRequests, setPendingRequests] = useState(0);
+  const refreshRequests = () => {
+    if (!isSuperAdmin) return;
+    fetch("/api/admin/requests")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: any) => d && setPendingRequests((d.requests || []).filter((x: any) => x.status === "pending").length))
+      .catch(() => {});
+  };
+  useEffect(() => {
+    refreshRequests();
+    const t = setInterval(refreshRequests, 30000);
+    return () => clearInterval(t);
+  }, [isSuperAdmin]);
   const [id, setId] = useState<string>("");
   const [menu, setMenu] = useState<Menu | null>(null);
   const [revision, setRevision] = useState(0);
@@ -404,6 +421,9 @@ export default function Team({
   const nav = isSuperAdmin
     ? [
         { key: "overview", label: "System overview", icon: LayoutDashboard },
+        { key: "requests", label: pendingRequests ? `New requests (${pendingRequests})` : "New requests", icon: Inbox },
+        { key: "directory", label: "Restaurants & accounts", icon: Building2 },
+        { key: "plans", label: "Plans & trials", icon: Crown },
         { key: "dish-performance", label: "Dish performance", icon: TrendingUp },
         { key: "dish-insights", label: "Dish insights", icon: Sparkles },
         { key: "managers", label: "Admins & managers", icon: ShieldCheck },
@@ -646,6 +666,12 @@ export default function Team({
                     ? "One scan. Their next favourite dish."
                     : tab === "app"
                     ? "Decide what managers and waiters can do in the phone app."
+                    : tab === "requests"
+                    ? "Review restaurants that asked to join and start their free trial."
+                    : tab === "directory"
+                    ? "Edit, add or remove any restaurant, manager or waiter."
+                    : tab === "plans"
+                    ? "See trials and plans, and activate a plan once payment arrives."
                     : "The right people, behind every menu."}
                 </p>
               </div>
@@ -661,6 +687,9 @@ export default function Team({
                 tab !== "dish-performance" &&
                 tab !== "dish-insights" &&
                 tab !== "app" &&
+                tab !== "requests" &&
+                tab !== "directory" &&
+                tab !== "plans" &&
                 tab !== "overview" && (
                   <button className="primary" onClick={save} disabled={!dirty || busy}>
                     <Save size={16} />
@@ -1077,6 +1106,9 @@ export default function Team({
 
           {/* ORDERS & LIVE ALERTS */}
           {isSuperAdmin && tab === "app" && <AppControls />}
+          {isSuperAdmin && tab === "requests" && <RegistrationRequests onChange={refreshRequests} />}
+          {isSuperAdmin && tab === "directory" && <Directory />}
+          {isSuperAdmin && tab === "plans" && <Subscriptions />}
           {id && tab === "orders" && <ServiceRequests key={"sr-" + id} restaurant={id} />}
           {id && tab === "orders" && <Orders key={id} restaurant={id} canEdit />}
 

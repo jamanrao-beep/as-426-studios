@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getAuthUser } from "@/lib/auth";
 import { db, sameOrigin } from "@/db/store";
 import { ensureControlsTables } from "@/lib/app-controls";
+import { isGuestEmail } from "@/lib/saas";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
     if (!sameOrigin(req)) return NextResponse.json({ error: "Request rejected." }, { status: 403 });
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: "Please sign in." }, { status: 401 });
-    if (user.role === "super_admin") return NextResponse.json({ ok: true });
+    if (user.role === "super_admin" || (await isGuestEmail(user.email))) return NextResponse.json({ ok: true });
     const p = schema.safeParse(await req.json());
     if (!p.success) return NextResponse.json({ error: "Invalid push token." }, { status: 400 });
 

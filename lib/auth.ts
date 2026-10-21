@@ -2,6 +2,7 @@ import { cookies, headers } from "next/headers";
 import { AuthUser, AUTH_COOKIE_NAME, UserRole } from "./auth-constants";
 import { db } from "@/db/store";
 import { verifyPassword } from "./password";
+import { ensureSaasTables } from "./saas";
 import { rateLimit, clearRateLimit } from "./rate-limit";
 import crypto from "node:crypto";
 
@@ -78,6 +79,18 @@ export async function authenticate(
     console.error("DB authentication lookup failed:", err);
     throw err;
   }
+
+  try {
+    await ensureSaasTables();
+    const pending = await db()
+      .prepare("SELECT password_hash, status FROM registration_requests WHERE email = ? ORDER BY created_at DESC")
+      .bind(normalizedEmail)
+      .first<{ password_hash: string; status: string }>();
+    if (pending && (await verifyPassword(pass, pending.password_hash))) {
+      if (pending.status === "pending") return { user: null, error: "Your restaurant request is under review. We will approve it soon." };
+      if (pending.status === "rejected") return { user: null, error: "Your restaurant request was not approved. Please contact Table Secret support." };
+    }
+  } catch {}
 
   return { user: null, error: "Invalid email or password." };
 }

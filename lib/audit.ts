@@ -18,7 +18,10 @@ export type AuditAction =
   | "order_status_changed"
   | "menu_updated"
   | "app_controls_updated"
-  | "app_notification_sent";
+  | "app_notification_sent"
+  | "registration_decided"
+  | "subscription_updated"
+  | "restaurant_removed";
 
 export interface AuditEntry {
   action: AuditAction;

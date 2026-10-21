@@ -1,3 +1,4 @@
+import { isGuestEmail, GUEST_MAX_WAITERS } from "@/lib/saas";
 import { access, db, sameOrigin, validSlug, readMenu } from "@/db/store";
 import { hashPassword, generateTemporaryPassword } from "@/lib/password";
 import { logAudit } from "@/lib/audit";
@@ -90,6 +91,12 @@ export async function POST(req: Request) {
     const now = new Date().toISOString();
 
     if (action === "add" || action === "create") {
+      if (await isGuestEmail(a.email)) {
+        const count = await db().prepare("SELECT COUNT(*) AS n FROM accounts WHERE role = 'waiter' AND restaurant_id = ?").bind(restaurant).first<{ n: number }>();
+        if (Number(count?.n || 0) >= GUEST_MAX_WAITERS) {
+          return Response.json({ error: "The guest sandbox allows one staff account. Register your restaurant for more." }, { status: 403 });
+        }
+      }
       if (!name) return Response.json({ error: "Enter the waiter’s name." }, { status: 400 });
 
       // Ensure email does not collide with a super admin
