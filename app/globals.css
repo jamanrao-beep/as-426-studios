@@ -1549,3 +1549,4 @@ html[data-ts-theme=dark] [data-slot=dialog-content] .primary,html[data-ts-theme=
 
 .ts-toast,.status-toast,.back-to-top{touch-action:manipulation}
 .ts-toast,.status-toast{pointer-events:none}
+.offline-banner{display:flex;align-items:center;gap:8px;margin:8px 0;padding:10px 14px;border-radius:12px;background:#fff1e6;border:1px solid #f0b78e;color:#8a3d0a;font-size:13px}

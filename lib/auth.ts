@@ -158,12 +158,11 @@ export function decodeSession(token: string): (AuthUser & { sv?: number }) | nul
 export async function getAuthUser(): Promise<AuthUser | null> {
   try {
     const cookieStore = await cookies();
-    let token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
-    if (!token) {
-      // The mobile app sends its session token as a bearer header instead of a cookie.
-      const bearer = (await headers()).get("authorization") || "";
-      if (/^Bearer\s+/i.test(bearer)) token = bearer.replace(/^Bearer\s+/i, "").trim();
-    }
+    // The mobile app sends its session token as a bearer header. When present it wins over any cookie.
+    let token: string | undefined;
+    const bearer = (await headers()).get("authorization") || "";
+    if (/^Bearer\s+/i.test(bearer)) token = bearer.replace(/^Bearer\s+/i, "").trim();
+    if (!token) token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
     if (!token) return null;
     const session = decodeSession(token);
     if (!session) return null;

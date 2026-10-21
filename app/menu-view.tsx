@@ -25,6 +25,8 @@ import {
   BellRing,
   Receipt,
   Languages,
+  Download,
+  WifiOff,
   Flame as FlameIcon,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -35,6 +37,7 @@ import TasteQuiz from "./taste-quiz";
 import { Switch } from "@/components/ui/switch";
 import type { Menu, Dish } from "@/lib/menu";
 import { LANGS, useLang, type Lang } from "@/lib/i18n";
+import { buildOfflineMenuHtml } from "@/lib/offline-menu";
 
 function CategoryIcon({ name }: { name: string }) {
   const v = name.toLowerCase();
@@ -91,6 +94,7 @@ export default function MenuView({ restaurant }: { restaurant: string }) {
   const [onlySaved, setOnlySaved] = useState(false);
   const [spice, setSpice] = useState("any");
   const [toast, setToast] = useState("");
+  const [offline, setOffline] = useState(false);
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
@@ -211,6 +215,11 @@ export default function MenuView({ restaurant }: { restaurant: string }) {
       const d = (await r.json()) as any;
       if (!r.ok) throw Error(d.error);
       setMenu(d.menu);
+      setOffline(false);
+      // Keep a copy on this phone so the menu still opens with no signal.
+      try {
+        localStorage.setItem(`ts-menu-cache:${restaurant}`, JSON.stringify({ menu: d.menu, savedAt: Date.now() }));
+      } catch {}
 
       fetch(`/api/popular?restaurant=${encodeURIComponent(restaurant)}`)
         .then((res) => res.json())
@@ -227,7 +236,37 @@ export default function MenuView({ restaurant }: { restaurant: string }) {
         })
         .catch(() => {});
     } catch (e) {
+      // No signal: show the copy saved on this phone, if there is one.
+      try {
+        const raw = localStorage.getItem(`ts-menu-cache:${restaurant}`);
+        if (raw && (!navigator.onLine || /fetch|network|load/i.test(String(e)))) {
+          setMenu(JSON.parse(raw).menu);
+          setOffline(true);
+          setError("");
+          return;
+        }
+      } catch {}
       setError(e instanceof Error ? e.message : "Couldn’t load menu");
+    }
+  }
+
+  function downloadMenu() {
+    if (!menu) return;
+    try {
+      const html = buildOfflineMenuHtml(menu, window.location.href.split("#")[0]);
+      const file = new File([html], `${restaurant}-menu.html`, { type: "text/html" });
+      const url = URL.createObjectURL(file);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      localStorage.setItem(`ts-menu-cache:${restaurant}`, JSON.stringify({ menu, savedAt: Date.now() }));
+      setToast("Menu saved. Open it any time, even with no internet.");
+    } catch {
+      setToast("Couldn’t save the menu on this device");
     }
   }
 
@@ -413,10 +452,19 @@ export default function MenuView({ restaurant }: { restaurant: string }) {
               ))}
             </select>
           </label>
+          <button type="button" className="chip" onClick={downloadMenu} aria-label={t("Save menu offline")}>
+            <Download size={14} /> <span>{t("Save menu offline")}</span>
+          </button>
           <button type="button" className="chip" aria-pressed={large} onClick={toggleLarge} aria-label={t("Text size")}>
             <span style={{ fontSize: large ? 17 : 13, fontWeight: 700 }}>Aa</span> <span>{t("Text size")}</span>
           </button>
         </div>
+
+        {offline && (
+          <p className="offline-banner" role="status">
+            <WifiOff size={15} /> No internet. Showing the menu saved on this phone. Ordering needs a connection.
+          </p>
+        )}
 
         <PlacedOrders restaurant={restaurant} />
 
