@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAuthUser, encodeSession, AUTH_COOKIE_NAME } from "@/lib/auth";
-import { db } from "@/db/store";
+import { db, sameOrigin } from "@/db/store";
+import { rateLimitDb } from "@/lib/rate-limit-db";
+import { fail, readJson, weakPassword } from "@/lib/http";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { logAudit } from "@/lib/audit";
 
@@ -11,16 +13,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Please sign in to change your password." }, { status: 401 });
     }
 
-    const body = (await req.json()) as { currentPassword?: string; newPassword?: string };
-    const { currentPassword, newPassword } = body || {};
+    if (!sameOrigin(req)) return NextResponse.json({ error: "Request rejected." }, { status: 403 });
+    const read = await readJson(req, 10_000);
+    if (!read.ok) return read.res;
+    const { currentPassword, newPassword } = (read.data || {}) as { currentPassword?: string; newPassword?: string };
+    if (typeof currentPassword !== "string" || typeof newPassword !== "string") {
+      return NextResponse.json({ error: "Please provide both current and new password." }, { status: 400 });
+    }
+    // Guessing the current password from a stolen session is slowed down just like signing in.
+    const tries = await rateLimitDb(`chpw:${user.email.toLowerCase()}`, 8, 15 * 60 * 1000);
+    if (!tries.allowed) return NextResponse.json({ error: "Too many attempts. Please try again in a few minutes." }, { status: 429 });
 
     if (!currentPassword || !newPassword) {
       return NextResponse.json({ error: "Please provide both current and new password." }, { status: 400 });
     }
 
-    if (newPassword.length < 6) {
-      return NextResponse.json({ error: "New password must be at least 6 characters long." }, { status: 400 });
-    }
+    const weak = weakPassword(newPassword, user.email);
+    if (weak) return NextResponse.json({ error: weak }, { status: 400 });
 
     if (currentPassword === newPassword) {
       return NextResponse.json({ error: "New password must be different from current password." }, { status: 400 });
@@ -56,7 +65,7 @@ export async function POST(req: Request) {
     await db()
       .prepare(
         `UPDATE accounts 
-         SET password_hash = ?, must_change_password = 0, updated_at = ?
+         SET password_hash = ?, must_change_password = 0, session_version = session_version + 1, updated_at = ?
          WHERE LOWER(email) = ?`
       )
       .bind(newHash, now, user.email.toLowerCase())
@@ -72,9 +81,11 @@ export async function POST(req: Request) {
     });
 
     // Update session cookie with mustChangePassword = false
+    // Changing the password signs out every other device: the version moves on and only this new token matches.
     const updatedUser = {
       ...user,
       mustChangePassword: false,
+      sessionVersion: (row.session_version || 1) + 1,
     };
     const newToken = encodeSession(updatedUser);
 
@@ -101,8 +112,7 @@ export async function POST(req: Request) {
     });
 
     return response;
-  } catch (err: any) {
-    console.error("Change password error:", err);
-    return NextResponse.json({ error: err?.message || "Failed to change password." }, { status: 500 });
+  } catch (err) {
+    return fail(err, "POST /api/auth/change-password", "Failed to change password.", 500);
   }
 }

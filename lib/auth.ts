@@ -3,6 +3,7 @@ import { AuthUser, AUTH_COOKIE_NAME, UserRole } from "./auth-constants";
 import { db } from "@/db/store";
 import { verifyPassword } from "./password";
 import { ensureSaasTables } from "./saas";
+import { rateLimitDb, clearRateLimitDb } from "@/lib/rate-limit-db";
 import { rateLimit, clearRateLimit } from "./rate-limit";
 import crypto from "node:crypto";
 
@@ -25,12 +26,18 @@ export async function authenticate(
 ): Promise<{ user: AuthUser | null; error?: string; rateLimited?: boolean }> {
   const normalizedEmail = email.trim().toLowerCase();
 
-  // 1. Check rate limit: 6 attempts per 15 minutes
-  const limitCheck = rateLimit(`login:${clientIp}:${normalizedEmail}`, 6, 15 * 60 * 1000);
-  if (!limitCheck.allowed) {
+  // 1. Rate limits that live in the database, so every server instance shares them:
+  //    per address and account, per account from anywhere, and per address across accounts.
+  const checks = [
+    await rateLimitDb(`login:${clientIp}:${normalizedEmail}`, 6, 15 * 60 * 1000),
+    await rateLimitDb(`login-acct:${normalizedEmail}`, 20, 15 * 60 * 1000),
+    await rateLimitDb(`login-ip:${clientIp}`, 60, 15 * 60 * 1000),
+  ];
+  const blocked = checks.find((c) => !c.allowed);
+  if (blocked) {
     return {
       user: null,
-      error: `Too many login attempts. Please try again in ${Math.ceil(limitCheck.resetInSeconds / 60)} minutes.`,
+      error: `Too many login attempts. Please try again in ${Math.ceil(blocked.resetInSeconds / 60)} minutes.`,
       rateLimited: true,
     };
   }
@@ -55,13 +62,13 @@ export async function authenticate(
       }>();
 
     if (row) {
-      if (row.status === "suspended") {
+      const isValid = await verifyPassword(pass, row.password_hash);
+      // The suspended notice is only shown to someone who proves they know the password, so it cannot be used to probe accounts.
+      if (isValid && row.status === "suspended") {
         return { user: null, error: "This account has been suspended. Please contact your administrator." };
       }
-
-      const isValid = await verifyPassword(pass, row.password_hash);
       if (isValid) {
-        clearRateLimit(`login:${clientIp}:${normalizedEmail}`);
+        await clearRateLimitDb(`login:${clientIp}:${normalizedEmail}`);
         return {
           user: {
             userId: row.id || row.email,

@@ -1,4 +1,4 @@
-import { access, db, validSlug, readMenu } from "@/db/store";
+import { access, db, validSlug, readMenu, denied } from "@/db/store";
 import { yesterdayIndiaDate, dayRange, indiaDate } from "@/lib/order-time";
 import crypto from "node:crypto";
 import { z } from "zod";
@@ -158,7 +158,7 @@ export async function GET(req: Request) {
   try {
     const a = await access();
     if (!a.allowed && !a.owner) {
-      return Response.json({ error: "Restaurant admin access required." }, { status: 403 });
+      return denied(a, "Restaurant admin access required.");
     }
 
     if (a.role === "waiter") {
@@ -253,7 +253,7 @@ export async function POST(req: Request) {
   try {
     const a = await access();
     if (!a.allowed && !a.owner) {
-      return Response.json({ error: "Access required." }, { status: 403 });
+      return denied(a, "Access required.");
     }
 
     const raw = await req.json();

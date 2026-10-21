@@ -5,6 +5,7 @@ import { db, sameOrigin } from "@/db/store";
 import { hashPassword } from "@/lib/password";
 import { rateLimit } from "@/lib/rate-limit";
 import { ensureSaasTables, getPlan, LOGIN_DOMAIN } from "@/lib/saas";
+import { rateLimitDb } from "@/lib/rate-limit-db";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
     const d = parsed.data;
 
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    if (!rateLimit(`register:${ip}`, 5, 60 * 60 * 1000).allowed) {
+    if (!(await rateLimitDb(`register:${ip}`, 5, 60 * 60 * 1000)).allowed) {
       return NextResponse.json({ error: "Too many requests from this device. Please try again later." }, { status: 429 });
     }
 

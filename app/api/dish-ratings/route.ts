@@ -1,4 +1,4 @@
-import { access, db, sameOrigin, validSlug } from "@/db/store";
+import { access, db, sameOrigin, validSlug, denied } from "@/db/store";
 import { z } from "zod";
 import crypto from "node:crypto";
 
@@ -70,7 +70,7 @@ export async function GET(req: Request) {
     // 3. Admin & Super Admin viewing private feedback
     const a = await access(restaurant);
     if (!a.allowed && !a.owner) {
-      return Response.json({ error: "Unauthorized access." }, { status: 403 });
+      return denied(a, "Unauthorized access.");
     }
 
     // Waiters cannot view written comments or ratings

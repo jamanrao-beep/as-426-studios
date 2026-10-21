@@ -1,7 +1,9 @@
 import { isGuestEmail, GUEST_MAX_WAITERS } from "@/lib/saas";
-import { access, db, sameOrigin, validSlug, readMenu } from "@/db/store";
+import { access, db, denied, sameOrigin, validSlug } from "@/db/store";
 import { hashPassword, generateTemporaryPassword } from "@/lib/password";
 import { logAudit } from "@/lib/audit";
+import { featureOff } from "@/lib/enforce";
+import { fail, isDuplicate, readJson } from "@/lib/http";
 import { z } from "zod";
 import crypto from "node:crypto";
 
@@ -9,10 +11,11 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const restaurantParam = url.searchParams.get("restaurant");
+    if (restaurantParam && !validSlug(restaurantParam)) return Response.json({ error: "Invalid restaurant." }, { status: 400 });
     const a = await access(restaurantParam || undefined);
 
     if (!a.allowed && !a.owner) {
-      return Response.json({ error: "Restaurant manager or Super Admin access required." }, { status: 403 });
+      return denied(a, "Restaurant manager or Super Admin access required.");
     }
 
     let query = `
@@ -46,9 +49,8 @@ export async function GET(req: Request) {
       }>();
 
     return Response.json({ waiters: rows.results }, { headers: { "Cache-Control": "no-store" } });
-  } catch (err: any) {
-    console.error("GET /api/waiters error:", err);
-    return Response.json({ error: "Failed to load waiters." }, { status: 503 });
+  } catch (err) {
+    return fail(err, "GET /api/waiters", "Failed to load waiters.");
   }
 }
 
@@ -65,8 +67,9 @@ export async function POST(req: Request) {
   try {
     if (!sameOrigin(req)) return Response.json({ error: "Request rejected." }, { status: 403 });
 
-    const raw = await req.json();
-    const p = waiterActionSchema.safeParse(raw);
+    const body = await readJson(req);
+    if (!body.ok) return body.res;
+    const p = waiterActionSchema.safeParse(body.data);
     if (!p.success) {
       return Response.json({ error: "Invalid waiter parameters." }, { status: 400 });
     }
@@ -76,16 +79,22 @@ export async function POST(req: Request) {
 
     const a = await access(restaurant);
     if (!a.allowed && !a.owner) {
-      return Response.json({ error: "Restaurant manager or Super Admin access required." }, { status: 403 });
+      return denied(a, "Restaurant manager or Super Admin access required.");
     }
 
-    // For restaurant admin, lock restaurant to their own assigned restaurant strictly!
+    // A manager is locked to their own restaurant, whatever the request says.
     if (!a.owner) {
       restaurant = a.restaurantId;
+      const off = await featureOff(a, "manager.waiterManagement");
+      if (off) return off;
     }
 
     if (!restaurant) {
       return Response.json({ error: "Assigned restaurant is required." }, { status: 400 });
+    }
+    if (a.owner) {
+      const exists = await db().prepare("SELECT id FROM restaurants WHERE id = ?").bind(restaurant).first();
+      if (!exists) return Response.json({ error: "Restaurant not found." }, { status: 404 });
     }
 
     const now = new Date().toISOString();
@@ -99,29 +108,34 @@ export async function POST(req: Request) {
       }
       if (!name) return Response.json({ error: "Enter the waiter’s name." }, { status: 400 });
 
-      // Ensure email does not collide with a super admin
-      const existing = await db().prepare("SELECT id, role FROM accounts WHERE LOWER(email) = ?").bind(email).first<{ id: string; role: string }>();
-      if (existing && existing.role !== "waiter") {
-        return Response.json(
-          { error: "This email is registered with higher privileges. Please use a distinct waiter email." },
-          { status: 409 }
-        );
+      // The email must be free, or already this restaurant's own waiter. It can never be taken from another restaurant.
+      const existing = await db()
+        .prepare("SELECT id, role, restaurant_id FROM accounts WHERE LOWER(email) = ?")
+        .bind(email)
+        .first<{ id: string; role: string; restaurant_id: string | null }>();
+      if (existing && (existing.role !== "waiter" || existing.restaurant_id !== restaurant)) {
+        return Response.json({ error: "That email is already in use. Please use a different waiter email." }, { status: 409 });
       }
 
       const tempPass = temporary_password?.trim() || generateTemporaryPassword();
       const passHash = await hashPassword(tempPass);
       const accId = existing?.id || "acc_w_" + crypto.randomBytes(6).toString("hex");
 
-      await db()
-        .prepare(`
-          INSERT INTO accounts (id, email, password_hash, name, role, restaurant_id, status, must_change_password, session_version, created_at, updated_at)
-          VALUES (?, ?, ?, ?, 'waiter', ?, 'active', 1, 1, ?, ?)
-          ON CONFLICT(id) DO UPDATE SET password_hash = excluded.password_hash, name = excluded.name, restaurant_id = excluded.restaurant_id, must_change_password = 1, updated_at = excluded.updated_at
-        `)
-        .bind(accId, email, passHash, name, restaurant, now, now)
-        .run();
+      try {
+        await db()
+          .prepare(`
+            INSERT INTO accounts (id, email, password_hash, name, role, restaurant_id, status, must_change_password, session_version, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 'waiter', ?, 'active', 1, 1, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET password_hash = excluded.password_hash, name = excluded.name, must_change_password = 1, session_version = accounts.session_version + 1, updated_at = excluded.updated_at
+          `)
+          .bind(accId, email, passHash, name, restaurant, now, now)
+          .run();
+      } catch (e) {
+        // Two identical requests raced and the other one won.
+        if (isDuplicate(e)) return Response.json({ error: "That waiter already exists." }, { status: 409 });
+        throw e;
+      }
 
-      // Legacy table sync
       await db()
         .prepare("INSERT INTO waiters (restaurant_id, email, name, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(restaurant_id, email) DO UPDATE SET name = excluded.name")
         .bind(restaurant, email, name, now)
@@ -142,28 +156,28 @@ export async function POST(req: Request) {
       });
     }
 
+    // Every change below is scoped to this restaurant, so a manager can never touch another restaurant's waiter.
+    const changed = async (res: { meta: { changes?: number } }) => (res.meta.changes ? null : Response.json({ error: "Waiter not found in this restaurant." }, { status: 404 }));
+
     if (action === "edit") {
-      await db().prepare("UPDATE accounts SET name = ?, updated_at = ? WHERE LOWER(email) = ? AND role = 'waiter'").bind(name || "", now, email).run();
-      await db().prepare("UPDATE waiters SET name = ? WHERE restaurant_id = ? AND LOWER(email) = ?").bind(name || "", restaurant, email).run();
+      if (!name) return Response.json({ error: "Enter the waiter’s name." }, { status: 400 });
+      const res = await db().prepare("UPDATE accounts SET name = ?, updated_at = ? WHERE LOWER(email) = ? AND role = 'waiter' AND restaurant_id = ?").bind(name, now, email, restaurant).run();
+      const nf = await changed(res);
+      if (nf) return nf;
+      await db().prepare("UPDATE waiters SET name = ? WHERE restaurant_id = ? AND LOWER(email) = ?").bind(name, restaurant, email).run();
 
-      await logAudit({
-        action: "account_updated",
-        actorEmail: a.email,
-        actorRole: a.role,
-        targetType: "waiter_account",
-        targetId: email,
-        details: { name },
-      });
-
+      await logAudit({ action: "account_updated", actorEmail: a.email, actorRole: a.role, targetType: "waiter_account", targetId: email, details: { name } });
       return Response.json({ ok: true });
     }
 
     if (action === "toggle_status") {
       const newStatus = status || "suspended";
-      await db()
-        .prepare("UPDATE accounts SET status = ?, session_version = session_version + 1, updated_at = ? WHERE LOWER(email) = ? AND role = 'waiter'")
-        .bind(newStatus, now, email)
+      const res = await db()
+        .prepare("UPDATE accounts SET status = ?, session_version = session_version + 1, updated_at = ? WHERE LOWER(email) = ? AND role = 'waiter' AND restaurant_id = ?")
+        .bind(newStatus, now, email, restaurant)
         .run();
+      const nf = await changed(res);
+      if (nf) return nf;
 
       await logAudit({
         action: newStatus === "suspended" ? "account_suspended" : "account_reactivated",
@@ -172,52 +186,40 @@ export async function POST(req: Request) {
         targetType: "waiter_account",
         targetId: email,
       });
-
       return Response.json({ ok: true, status: newStatus });
     }
 
     if (action === "reset_password") {
       const tempPass = temporary_password?.trim() || generateTemporaryPassword();
       const passHash = await hashPassword(tempPass);
-
-      await db()
+      const res = await db()
         .prepare(`
-          UPDATE accounts 
+          UPDATE accounts
           SET password_hash = ?, must_change_password = 1, session_version = session_version + 1, updated_at = ?
-          WHERE LOWER(email) = ? AND role = 'waiter'
+          WHERE LOWER(email) = ? AND role = 'waiter' AND restaurant_id = ?
         `)
-        .bind(passHash, now, email)
+        .bind(passHash, now, email, restaurant)
         .run();
+      const nf = await changed(res);
+      if (nf) return nf;
 
-      await logAudit({
-        action: "password_reset",
-        actorEmail: a.email,
-        actorRole: a.role,
-        targetType: "waiter_account",
-        targetId: email,
-      });
-
+      await logAudit({ action: "password_reset", actorEmail: a.email, actorRole: a.role, targetType: "waiter_account", targetId: email });
       return Response.json({ ok: true, temporary_password: tempPass });
     }
 
     if (action === "remove") {
-      await db().prepare("DELETE FROM accounts WHERE LOWER(email) = ? AND role = 'waiter'").bind(email).run();
+      const res = await db().prepare("DELETE FROM accounts WHERE LOWER(email) = ? AND role = 'waiter' AND restaurant_id = ?").bind(email, restaurant).run();
+      const nf = await changed(res);
+      if (nf) return nf;
       await db().prepare("DELETE FROM waiters WHERE restaurant_id = ? AND LOWER(email) = ?").bind(restaurant, email).run();
+      await db().prepare("DELETE FROM push_tokens WHERE LOWER(user_email) = ?").bind(email).run().catch(() => {});
 
-      await logAudit({
-        action: "account_removed",
-        actorEmail: a.email,
-        actorRole: a.role,
-        targetType: "waiter_account",
-        targetId: email,
-      });
-
+      await logAudit({ action: "account_removed", actorEmail: a.email, actorRole: a.role, targetType: "waiter_account", targetId: email });
       return Response.json({ ok: true });
     }
 
     return Response.json({ error: "Unsupported action." }, { status: 400 });
-  } catch (err: any) {
-    console.error("POST /api/waiters error:", err);
-    return Response.json({ error: err?.message || "Failed to update waiter." }, { status: 503 });
+  } catch (err) {
+    return fail(err, "POST /api/waiters", "Failed to update waiter.");
   }
 }

@@ -1,7 +1,9 @@
-import { access, db, readMenu, sameOrigin, validSlug } from "@/db/store";
+import { access, db, readMenu, sameOrigin, validSlug, denied } from "@/db/store";
 import { menuSchema } from "@/lib/menu";
 import { logAudit } from "@/lib/audit";
 import { isGuestEmail, GUEST_MAX_DISHES } from "@/lib/saas";
+import { featureOff } from "@/lib/enforce";
+import { readJson } from "@/lib/http";
 
 export async function GET(req: Request) {
   try {
@@ -16,7 +18,7 @@ export async function GET(req: Request) {
     if (admin) {
       const a = await access(id);
       if (!a.allowed && !a.owner) {
-        return Response.json({ error: "You don’t have access to this restaurant." }, { status: 403 });
+        return denied(a, "You don’t have access to this restaurant.");
       }
     }
 
@@ -50,7 +52,10 @@ export async function PUT(req: Request) {
   try {
     if (!sameOrigin(req)) return Response.json({ error: "Team access required." }, { status: 403 });
 
-    const body = (await req.json()) as { menu: unknown; id: string; revision: number };
+    const read = await readJson(req, 8_000_000);
+    if (!read.ok) return read.res;
+    const body = read.data as { menu: unknown; id: string; revision: number };
+    if (!body || typeof body !== "object") return Response.json({ error: "Please check the restaurant details and prices." }, { status: 400 });
     const parsed = menuSchema.safeParse(body.menu);
     if (!parsed.success || !Number.isInteger(body.revision) || body.revision < 0 || !validSlug(body.id || "")) {
       return Response.json({ error: "Please check the restaurant details and prices." }, { status: 400 });
@@ -58,12 +63,17 @@ export async function PUT(req: Request) {
 
     const a = await access(body.id);
     if (!a.allowed && !a.owner) {
-      return Response.json({ error: "You don’t have access to this restaurant." }, { status: 403 });
+      return denied(a, "You don’t have access to this restaurant.");
     }
 
     // Waiters are strictly forbidden from modifying the menu
     if (a.role === "waiter") {
       return Response.json({ error: "Waiters are not permitted to edit or publish the menu." }, { status: 403 });
+    }
+
+    if (!a.owner) {
+      const off = await featureOff(a, "manager.menuEditing");
+      if (off) return off;
     }
 
     if (await isGuestEmail(a.email)) {

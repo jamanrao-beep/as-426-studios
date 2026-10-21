@@ -1,4 +1,4 @@
-import { access, db, validSlug, readMenu } from "@/db/store";
+import { access, db, validSlug, readMenu, denied } from "@/db/store";
 import {
   indiaDate,
   yesterdayIndiaDate,
@@ -21,7 +21,7 @@ export async function GET(req: Request) {
 
     const a = await access(restaurant || undefined);
     if (!a.allowed && !a.owner) {
-      return Response.json({ error: "Restaurant admin access required." }, { status: 403 });
+      return denied(a, "Restaurant admin access required.");
     }
 
     // Waiters are strictly forbidden

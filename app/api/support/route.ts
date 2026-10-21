@@ -8,6 +8,7 @@ import { ensureSaasTables } from "@/lib/saas";
 import { contactFor } from "@/lib/support";
 import { sendMail } from "@/lib/mailer";
 import { supportEmail } from "@/lib/mail-templates";
+import { rateLimitDb } from "@/lib/rate-limit-db";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
     if (!p.success) return NextResponse.json({ error: p.error.issues[0]?.message || "Check your question." }, { status: 400 });
 
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    if (!rateLimit(`support:${ip}`, 8, 60 * 60 * 1000).allowed) {
+    if (!(await rateLimitDb(`support:${ip}`, 8, 60 * 60 * 1000)).allowed) {
       return NextResponse.json({ error: "You have sent a lot of questions. Please try again later." }, { status: 429 });
     }
 

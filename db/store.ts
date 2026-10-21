@@ -27,9 +27,11 @@ export type Access = {
   restaurantName?: string;
   restaurantIds: string[];
   mustChangePassword?: boolean;
+  // Set when the account is signed in but may not act right now (temporary password, maintenance, plan ended).
+  blocked?: { code: string; message: string };
 };
 
-export async function access(restaurantId?: string): Promise<Access> {
+async function accessCore(restaurantId?: string): Promise<Access> {
   const user = await getAuthUser();
   if (!user) {
     return {
@@ -141,7 +143,7 @@ export async function access(restaurantId?: string): Promise<Access> {
   };
 }
 
-export async function orderAccess(restaurantId?: string, managerOnly = false): Promise<Access> {
+async function orderAccessCore(restaurantId?: string, managerOnly = false): Promise<Access> {
   const user = await getAuthUser();
   if (!user) {
     return {
@@ -156,7 +158,7 @@ export async function orderAccess(restaurantId?: string, managerOnly = false): P
   }
 
   if (user.role === "super_admin") {
-    return access(restaurantId);
+    return accessCore(restaurantId);
   }
 
   // Check restaurant status for staff
@@ -267,4 +269,25 @@ export function sameOrigin(req: Request) {
 
 export function validSlug(s: string) {
   return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(s) && s.length <= 60;
+}
+
+
+// Every staff request goes through the gate: temporary passwords, maintenance, a switched-off app and an ended plan
+// are refused here on the server, not just hidden in the apps.
+export async function access(restaurantId?: string): Promise<Access> {
+  const { gate } = await import("@/lib/enforce");
+  return gate(await accessCore(restaurantId));
+}
+
+export async function orderAccess(restaurantId?: string, managerOnly = false): Promise<Access> {
+  const { gate } = await import("@/lib/enforce");
+  return gate(await orderAccessCore(restaurantId, managerOnly));
+}
+
+// The right refusal: 401 when nobody valid is signed in (so the apps sign the person out), 403 otherwise, with the
+// reason when the gate blocked them.
+export function denied(a: Access, message: string) {
+  if (!a.role) return Response.json({ error: "Please sign in to continue.", code: "none" }, { status: 401 });
+  if (a.blocked) return Response.json({ error: a.blocked.message, code: a.blocked.code }, { status: 403 });
+  return Response.json({ error: message }, { status: 403 });
 }

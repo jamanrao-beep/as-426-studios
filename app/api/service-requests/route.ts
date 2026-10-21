@@ -4,6 +4,7 @@ import { after } from "next/server";
 import { notifyRestaurantStaff } from "@/lib/push-server";
 import { z } from "zod";
 import crypto from "node:crypto";
+import { rateLimitDb, clientIp } from "@/lib/rate-limit-db";
 
 export const dynamic = "force-dynamic";
 
@@ -45,9 +46,10 @@ export async function POST(req: Request) {
     if (!parsed.success) return Response.json({ error: "Please enter your table number." }, { status: 400 });
     const { restaurant, table, kind } = parsed.data;
 
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    const limit = rateLimit(`service:${ip}:${restaurant}:${table}`, 4, 5 * 60 * 1000);
-    if (!limit.allowed) {
+    const ip = clientIp(req);
+    const limit = await rateLimitDb(`service:${ip}:${restaurant}:${table.toLowerCase()}`, 4, 5 * 60 * 1000);
+    const wide = await rateLimitDb(`service:${ip}:${restaurant}`, 20, 5 * 60 * 1000);
+    if (!limit.allowed || !wide.allowed) {
       return Response.json({ error: "Your server has been notified. Please wait a moment." }, { status: 429 });
     }
 
@@ -55,6 +57,8 @@ export async function POST(req: Request) {
     const exists = await db().prepare("SELECT id FROM menu WHERE id = ?").bind(restaurant).first();
     if (!exists) return Response.json({ error: "Restaurant not found." }, { status: 404 });
 
+    const backlog = await db().prepare("SELECT COUNT(*) AS n FROM service_requests WHERE restaurant_id = ? AND status = 'open'").bind(restaurant).first<{ n: number }>();
+    if (Number(backlog?.n || 0) >= 100) return Response.json({ error: "Your server has been notified. Please wait a moment." }, { status: 429 });
     const open = await db()
       .prepare("SELECT id FROM service_requests WHERE restaurant_id = ? AND table_label = ? AND kind = ? AND status = 'open'")
       .bind(restaurant, table, kind)
