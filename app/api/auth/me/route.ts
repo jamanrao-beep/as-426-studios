@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getAuthUser } from "@/lib/auth";
+import { resolveAuth } from "@/lib/auth";
+import { signedOutMessage } from "@/lib/auth-messages";
 import { db } from "@/db/store";
 
 export const dynamic = "force-dynamic";
@@ -7,8 +8,11 @@ export const dynamic = "force-dynamic";
 // Who is signed in? Used by the mobile app to validate a stored session on launch.
 export async function GET() {
   try {
-    const user = await getAuthUser();
-    if (!user) return NextResponse.json({ error: "Please sign in." }, { status: 401 });
+    const { user, reason } = await resolveAuth();
+    if (!user) {
+      if (reason === "unavailable") return NextResponse.json({ error: "Could not verify your session.", code: reason }, { status: 503 });
+      return NextResponse.json({ error: signedOutMessage(reason), code: reason }, { status: 401 });
+    }
 
     let restaurantName = "";
     if (user.restaurantId) {

@@ -155,7 +155,13 @@ export function decodeSession(token: string): (AuthUser & { sv?: number }) | nul
 /**
  * Get the currently authenticated user and validate real-time DB status & session version.
  */
-export async function getAuthUser(): Promise<AuthUser | null> {
+export type AuthFailure = "none" | "invalid" | "removed" | "suspended" | "revoked" | "expired" | "unavailable";
+
+/**
+ * Works out who is signed in, and when nobody is, why. The mobile app uses the reason to tell a person
+ * "your account was removed" instead of silently signing them out.
+ */
+export async function resolveAuth(): Promise<{ user: AuthUser | null; reason: AuthFailure }> {
   try {
     const cookieStore = await cookies();
     // The mobile app sends its session token as a bearer header. When present it wins over any cookie.
@@ -163,18 +169,13 @@ export async function getAuthUser(): Promise<AuthUser | null> {
     const bearer = (await headers()).get("authorization") || "";
     if (/^Bearer\s+/i.test(bearer)) token = bearer.replace(/^Bearer\s+/i, "").trim();
     if (!token) token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
-    if (!token) return null;
+    if (!token) return { user: null, reason: "none" };
     const session = decodeSession(token);
-    if (!session) return null;
+    if (!session) return { user: null, reason: "invalid" };
 
-    // Validate active status & session version against DB
-    try {
-      const dbRow = await db()
-        .prepare(
-          "SELECT id, role, restaurant_id, status, must_change_password, session_version, name FROM accounts WHERE LOWER(email) = ?"
-        )
-        .bind(session.email)
-        .first<{
+    // Validate the account against the database on every request.
+    let dbRow:
+      | {
           id: string;
           role: string;
           restaurant_id?: string | null;
@@ -182,33 +183,52 @@ export async function getAuthUser(): Promise<AuthUser | null> {
           must_change_password?: number;
           session_version?: number;
           name?: string;
-        }>();
-
-      if (dbRow) {
-        if (dbRow.status === "suspended") return null;
-        if (session.sv && dbRow.session_version && dbRow.session_version !== session.sv) {
-          // Session was revoked (e.g. password reset or admin revoke)
-          return null;
         }
-
-        return {
-          userId: dbRow.id || session.userId,
-          email: session.email,
-          displayName: dbRow.name || session.displayName,
-          role: (dbRow.role === "super_admin" ? "super_admin" : dbRow.role === "admin" ? "admin" : "waiter") as UserRole,
-          restaurantId: dbRow.restaurant_id || undefined,
-          mustChangePassword: dbRow.must_change_password === 1,
-          sessionVersion: dbRow.session_version || 1,
-        };
-      }
+      | null;
+    try {
+      dbRow = await db()
+        .prepare(
+          "SELECT id, role, restaurant_id, status, must_change_password, session_version, name FROM accounts WHERE LOWER(email) = ?"
+        )
+        .bind(session.email)
+        .first();
     } catch {
-      // In case DB lookup fails temporarily, proceed with signed session
+      return { user: null, reason: "unavailable" };
     }
 
-    return session;
+    // The account was deleted by an admin (or a guest sandbox ended): the old token must stop working.
+    if (!dbRow) {
+      let guestEnded = false;
+      try {
+        guestEnded = /@guest\.tablesecret\.app$/i.test(session.email);
+      } catch {}
+      return { user: null, reason: guestEnded ? "expired" : "removed" };
+    }
+    if (dbRow.status === "suspended") return { user: null, reason: "suspended" };
+    if (session.sv && dbRow.session_version && dbRow.session_version !== session.sv) {
+      // Session was revoked (e.g. password reset, email changed or admin revoke)
+      return { user: null, reason: "revoked" };
+    }
+
+    return {
+      user: {
+        userId: dbRow.id || session.userId,
+        email: session.email,
+        displayName: dbRow.name || session.displayName,
+        role: (dbRow.role === "super_admin" ? "super_admin" : dbRow.role === "admin" ? "admin" : "waiter") as UserRole,
+        restaurantId: dbRow.restaurant_id || undefined,
+        mustChangePassword: dbRow.must_change_password === 1,
+        sessionVersion: dbRow.session_version || 1,
+      },
+      reason: "none",
+    };
   } catch {
-    return null;
+    return { user: null, reason: "unavailable" };
   }
+}
+
+export async function getAuthUser(): Promise<AuthUser | null> {
+  return (await resolveAuth()).user;
 }
 
 /**

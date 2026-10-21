@@ -4,6 +4,8 @@ import crypto from "node:crypto";
 import { access, db, sameOrigin } from "@/db/store";
 import { logAudit } from "@/lib/audit";
 import { ensureSaasTables, startTrial, TRIAL_DAYS, uniqueSlug } from "@/lib/saas";
+import { sendMail } from "@/lib/mailer";
+import { approvedEmail, rejectedEmail } from "@/lib/mail-templates";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +25,8 @@ type Row = {
   created_at: string;
   decided_at: string | null;
   decided_by: string | null;
+  contact_email: string | null;
+  plan_choice: string | null;
 };
 
 // Super Admin: restaurant registration requests, newest first.
@@ -33,7 +37,7 @@ export async function GET() {
     await ensureSaasTables();
     const rows = await db()
       .prepare(
-        `SELECT id, email, owner_name, phone, restaurant_name, address, city, lat, lng, status, note, restaurant_id, created_at, decided_at, decided_by
+        `SELECT id, email, owner_name, phone, restaurant_name, address, city, lat, lng, status, note, restaurant_id, created_at, decided_at, decided_by, contact_email, plan_choice
          FROM registration_requests ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, created_at DESC LIMIT 200`
       )
       .all<Row>();
@@ -61,7 +65,7 @@ export async function POST(req: Request) {
 
     const r = await db()
       .prepare(
-        "SELECT id, email, password_hash, owner_name, phone, restaurant_name, address, city, lat, lng, status FROM registration_requests WHERE id = ?"
+        "SELECT id, email, password_hash, owner_name, phone, restaurant_name, address, city, lat, lng, status, contact_email, plan_choice FROM registration_requests WHERE id = ?"
       )
       .bind(p.data.id)
       .first<Row & { password_hash: string }>();
@@ -76,7 +80,12 @@ export async function POST(req: Request) {
         .bind(p.data.note || "", now, a.email, r.id)
         .run();
       await logAudit({ action: "registration_decided", actorEmail: a.email, actorRole: a.role, targetType: "request", targetId: r.id, details: { decision: "rejected", email: r.email } });
-      return NextResponse.json({ ok: true, status: "rejected" });
+      let mail: { sent: boolean; reason?: string } = { sent: false, reason: "No contact email on file." };
+      if (r.contact_email) {
+        const m = rejectedEmail({ ownerName: r.owner_name, restaurantName: r.restaurant_name, note: p.data.note });
+        mail = await sendMail(r.contact_email, m.subject, m.html, m.text);
+      }
+      return NextResponse.json({ ok: true, status: "rejected", mail });
     }
 
     const taken = await db().prepare("SELECT id FROM accounts WHERE LOWER(email) = ?").bind(r.email).first();
@@ -116,7 +125,26 @@ export async function POST(req: Request) {
       targetId: restaurantId,
       details: { decision: "approved", email: r.email, trialEnds },
     });
-    return NextResponse.json({ ok: true, status: "approved", restaurantId, trialEnds });
+    // Email the owner from the Table Secret address with their login id and trial date.
+    let mail: { sent: boolean; reason?: string } = { sent: false, reason: "No contact email on file." };
+    if (r.contact_email) {
+      const planNames: Record<string, string> = { monthly: "Monthly", half_yearly: "Half-yearly", yearly: "Yearly" };
+      const m = approvedEmail({
+        ownerName: r.owner_name,
+        restaurantName: r.restaurant_name,
+        loginEmail: r.email,
+        trialEnds,
+        plan: r.plan_choice && r.plan_choice !== "trial" ? planNames[r.plan_choice] : undefined,
+      });
+      mail = await sendMail(r.contact_email, m.subject, m.html, m.text);
+    }
+    if (r.plan_choice && r.plan_choice !== "trial") {
+      await db()
+        .prepare("UPDATE subscriptions SET requested_plan = ?, requested_at = ? WHERE restaurant_id = ?")
+        .bind(r.plan_choice, now, restaurantId)
+        .run();
+    }
+    return NextResponse.json({ ok: true, status: "approved", restaurantId, trialEnds, mail });
   } catch (err) {
     console.error("POST /api/admin/requests error:", err);
     return NextResponse.json({ error: "Could not save that decision." }, { status: 503 });

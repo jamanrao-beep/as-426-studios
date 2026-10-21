@@ -22,7 +22,9 @@ export async function GET() {
     const accounts = await db()
       .prepare("SELECT id, email, name, role, restaurant_id, status, created_at FROM accounts WHERE role != 'super_admin' ORDER BY name, email")
       .all<AccountRow>();
-    const guests = await db().prepare("SELECT restaurant_id FROM guest_accounts").all<{ restaurant_id: string }>();
+    const guests = await db()
+      .prepare("SELECT email, restaurant_id, contact_email, created_at, expires_at FROM guest_accounts ORDER BY created_at DESC")
+      .all<{ email: string; restaurant_id: string; contact_email: string | null; created_at: string; expires_at: string }>();
     const guestIds = new Set(guests.results.map((g) => g.restaurant_id));
     const list = restaurants.results
       .filter((r) => !guestIds.has(r.id))
@@ -31,7 +33,7 @@ export async function GET() {
         managers: accounts.results.filter((x) => x.restaurant_id === r.id && x.role === "admin"),
         waiters: accounts.results.filter((x) => x.restaurant_id === r.id && x.role === "waiter"),
       }));
-    return NextResponse.json({ restaurants: list, guestCount: guestIds.size }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ restaurants: list, guests: guests.results }, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     console.error("GET /api/admin/directory error:", err);
     return NextResponse.json({ error: "Could not load the directory." }, { status: 503 });
@@ -54,6 +56,7 @@ const schema = z.discriminatedUnion("action", [
     restaurant: z.string().refine(validSlug).optional(),
   }),
   z.object({ action: z.literal("delete_account"), id: z.string().min(1).max(80) }),
+  z.object({ action: z.literal("delete_guest"), restaurant: z.string().refine(validSlug) }),
   z.object({
     action: z.literal("edit_restaurant"),
     id: z.string().refine(validSlug),
@@ -125,6 +128,14 @@ export async function POST(req: Request) {
       await db().prepare("DELETE FROM restaurant_members WHERE LOWER(email) = ?").bind(row.email.toLowerCase()).run();
       await db().prepare("DELETE FROM push_tokens WHERE LOWER(user_email) = ?").bind(row.email.toLowerCase()).run().catch(() => {});
       await logAudit({ action: "account_removed", actorEmail: a.email, actorRole: a.role, targetType: "account", targetId: row.id, details: { email: row.email } });
+      return NextResponse.json({ ok: true });
+    }
+
+    if (d.action === "delete_guest") {
+      const g = await db().prepare("SELECT restaurant_id, contact_email FROM guest_accounts WHERE restaurant_id = ?").bind(d.restaurant).first<{ restaurant_id: string; contact_email: string | null }>();
+      if (!g) return NextResponse.json({ error: "Guest not found." }, { status: 404 });
+      await deleteRestaurantData(d.restaurant);
+      await logAudit({ action: "account_removed", actorEmail: a.email, actorRole: a.role, targetType: "guest", targetId: d.restaurant, details: { contact: g.contact_email } });
       return NextResponse.json({ ok: true });
     }
 

@@ -11,7 +11,8 @@ export const PLANS: Record<PlanKey, { label: string; price: number; strike: numb
 };
 
 export const TRIAL_DAYS = 7;
-export const GUEST_HOURS = 24;
+export const GUEST_DAYS = 7;
+export const LOGIN_DOMAIN = "as426studios.com";
 export const GUEST_MAX_DISHES = 12;
 export const GUEST_MAX_WAITERS = 1;
 
@@ -54,12 +55,35 @@ export function ensureSaasTables() {
       created_at VARCHAR(40) NOT NULL,
       expires_at VARCHAR(40) NOT NULL
     )`);
+    await run(`CREATE TABLE IF NOT EXISTS email_codes (
+      email VARCHAR(190) PRIMARY KEY NOT NULL,
+      code_hash VARCHAR(80) NOT NULL,
+      expires_at VARCHAR(40) NOT NULL,
+      sent_at VARCHAR(40) NOT NULL,
+      attempts INT NOT NULL,
+      sends INT NOT NULL,
+      window_start VARCHAR(40) NOT NULL
+    )`);
+    await run(`CREATE TABLE IF NOT EXISTS guest_used (
+      email VARCHAR(190) PRIMARY KEY NOT NULL,
+      first_at VARCHAR(40) NOT NULL
+    )`);
     await run(`CREATE TABLE IF NOT EXISTS restaurant_locations (
       restaurant_id VARCHAR(80) PRIMARY KEY NOT NULL,
       lat DOUBLE,
       lng DOUBLE,
       city VARCHAR(80)
     )`);
+    // Columns added after the first release. Ignore the error when they already exist.
+    for (const sql of [
+      "ALTER TABLE registration_requests ADD COLUMN contact_email VARCHAR(190)",
+      "ALTER TABLE registration_requests ADD COLUMN plan_choice VARCHAR(16)",
+      "ALTER TABLE guest_accounts ADD COLUMN contact_email VARCHAR(190)",
+    ]) {
+      try {
+        await run(sql);
+      } catch {}
+    }
   })().catch((e) => {
     ready = null;
     throw e;
@@ -151,16 +175,83 @@ const GUEST_DISHES = [
   { id: "g6", name: "Chef's Secret Plate", description: "A little of our favourites on one tray.", price: 449, category: "Chef Specials", veg: true, available: true, secret: true, allergens: "Milk, wheat", spice: "mild", taste: "savoury" },
 ];
 
-// A throwaway sandbox restaurant so someone can try the app before registering.
-export async function createGuest() {
+const hashCode = (email: string, code: string) =>
+  crypto.createHash("sha256").update(`${email.toLowerCase()}:${code}:${process.env.SESSION_SECRET || "dev"}`).digest("hex");
+
+// A 6-digit code emailed to prove the person owns the address. Limited to 5 sends an hour and 1 a minute.
+export async function issueEmailCode(email: string): Promise<{ ok: true; code: string } | { ok: false; error: string }> {
+  await ensureSaasTables();
+  const e = email.toLowerCase();
+  const now = Date.now();
+  const row = await db()
+    .prepare("SELECT sent_at, sends, window_start FROM email_codes WHERE email = ?")
+    .bind(e)
+    .first<{ sent_at: string; sends: number; window_start: string }>();
+  let sends = 1;
+  let windowStart = new Date(now).toISOString();
+  if (row) {
+    if (now - new Date(row.sent_at).getTime() < 60000) return { ok: false, error: "Please wait a minute before asking for another code." };
+    if (now - new Date(row.window_start).getTime() < 3600000) {
+      if (Number(row.sends) >= 5) return { ok: false, error: "Too many codes requested. Please try again in an hour." };
+      sends = Number(row.sends) + 1;
+      windowStart = row.window_start;
+    }
+  }
+  const code = String(crypto.randomInt(0, 1000000)).padStart(6, "0");
+  const expires = new Date(now + 10 * 60000).toISOString();
+  if (row) {
+    await db()
+      .prepare("UPDATE email_codes SET code_hash = ?, expires_at = ?, sent_at = ?, attempts = 0, sends = ?, window_start = ? WHERE email = ?")
+      .bind(hashCode(e, code), expires, new Date(now).toISOString(), sends, windowStart, e)
+      .run();
+  } else {
+    await db()
+      .prepare("INSERT INTO email_codes (email, code_hash, expires_at, sent_at, attempts, sends, window_start) VALUES (?, ?, ?, ?, 0, 1, ?)")
+      .bind(e, hashCode(e, code), expires, new Date(now).toISOString(), windowStart)
+      .run();
+  }
+  return { ok: true, code };
+}
+
+export async function checkEmailCode(email: string, code: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  await ensureSaasTables();
+  const e = email.toLowerCase();
+  const row = await db()
+    .prepare("SELECT code_hash, expires_at, attempts FROM email_codes WHERE email = ?")
+    .bind(e)
+    .first<{ code_hash: string; expires_at: string; attempts: number }>();
+  if (!row) return { ok: false, error: "Ask for a new code first." };
+  if (new Date(row.expires_at).getTime() < Date.now()) return { ok: false, error: "That code has expired. Ask for a new one." };
+  if (Number(row.attempts) >= 5) return { ok: false, error: "Too many wrong tries. Ask for a new code." };
+  if (row.code_hash !== hashCode(e, code.trim())) {
+    await db().prepare("UPDATE email_codes SET attempts = attempts + 1 WHERE email = ?").bind(e).run();
+    return { ok: false, error: "That code is not right. Check it and try again." };
+  }
+  await db().prepare("DELETE FROM email_codes WHERE email = ?").bind(e).run();
+  return { ok: true };
+}
+
+// A throwaway sandbox restaurant for a week. One per verified email, so it cannot be restarted forever.
+export async function createGuest(contactEmail: string) {
   await ensureSaasTables();
   await cleanupGuests();
+  const contact = contactEmail.trim().toLowerCase();
+
+  const active = await db()
+    .prepare("SELECT email, restaurant_id, expires_at FROM guest_accounts WHERE LOWER(contact_email) = ?")
+    .bind(contact)
+    .first<{ email: string; restaurant_id: string; expires_at: string }>();
+  if (active) return { restaurantId: active.restaurant_id, email: active.email, expires: active.expires_at, existing: true as const };
+
+  const used = await db().prepare("SELECT email FROM guest_used WHERE email = ?").bind(contact).first();
+  if (used) throw new GuestUsedError();
+
   const code = crypto.randomBytes(3).toString("hex");
   const restaurantId = `guest-${code}`;
   const email = `guest-${code}@guest.tablesecret.app`;
   const password = crypto.randomBytes(12).toString("base64url");
   const now = new Date().toISOString();
-  const expires = new Date(Date.now() + GUEST_HOURS * 3600000).toISOString();
+  const expires = new Date(Date.now() + GUEST_DAYS * 86400000).toISOString();
   const name = `Guest Kitchen ${code.toUpperCase()}`;
 
   await db()
@@ -184,8 +275,18 @@ export async function createGuest() {
     )
     .bind(accId, email, await hashPassword(password), "Guest Manager", restaurantId, now, now)
     .run();
-  await db().prepare("INSERT INTO guest_accounts (email, restaurant_id, created_at, expires_at) VALUES (?, ?, ?, ?)").bind(email, restaurantId, now, expires).run();
-  return { restaurantId, email, password, expires };
+  await db()
+    .prepare("INSERT INTO guest_accounts (email, restaurant_id, created_at, expires_at, contact_email) VALUES (?, ?, ?, ?, ?)")
+    .bind(email, restaurantId, now, expires, contact)
+    .run();
+  await db().prepare("INSERT INTO guest_used (email, first_at) VALUES (?, ?)").bind(contact, now).run();
+  return { restaurantId, email, expires, existing: false as const };
+}
+
+export class GuestUsedError extends Error {
+  constructor() {
+    super("This email already used its guest week. Register your restaurant to continue.");
+  }
 }
 
 // Remove sandbox restaurants (and everything in them) once they have expired.

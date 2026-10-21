@@ -36,7 +36,11 @@ type Req = {
   created_at: string;
   decided_at: string | null;
   decided_by: string | null;
+  contact_email: string | null;
+  plan_choice: string | null;
 };
+
+const planNames: Record<string, string> = { trial: "Free 7-day trial", monthly: "Monthly", half_yearly: "Half-yearly", yearly: "Yearly" };
 
 export function RegistrationRequests({ onChange }: { onChange?: () => void }) {
   const [rows, setRows] = useState<Req[]>([]);
@@ -72,6 +76,8 @@ export function RegistrationRequests({ onChange }: { onChange?: () => void }) {
       const d = await call("/api/admin/requests", "POST", { id, action, note: notes[id] || undefined });
       toast.success(action === "approve" ? `Approved. ${trialDays}-day free trial started.` : "Request rejected.");
       if (d.restaurantId) toast.message(`Restaurant created: /r/${d.restaurantId}`);
+      if (d.mail?.sent) toast.success("Email sent to the owner from your Table Secret address.");
+      else toast.warning(`Email was not sent. ${d.mail?.reason || ""} Please tell the owner yourself.`);
       await load();
       onChange?.();
     } catch (e) {
@@ -111,7 +117,9 @@ export function RegistrationRequests({ onChange }: { onChange?: () => void }) {
           </div>
           <div style={{ display: "grid", gap: 4, fontSize: "0.92rem" }}>
             <span><b>Owner:</b> {r.owner_name} · {r.phone}</span>
-            <span><b>Email:</b> {r.email}</span>
+            <span><b>Contact email:</b> {r.contact_email || "—"} <small className="muted">(the approval mail goes here)</small></span>
+            <span><b>Login ID to create:</b> {r.email}</span>
+            <span><b>Plan interest:</b> {planNames[r.plan_choice || "trial"] || "Free 7-day trial"}</span>
             <span><b>Address:</b> {r.address}, {r.city}</span>
             {r.lat !== null && r.lng !== null ? (
               <a href={`https://www.google.com/maps?q=${r.lat},${r.lng}`} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -361,7 +369,39 @@ function RestaurantCard({ r, onDone }: { r: Rest; onDone: () => void }) {
   );
 }
 
+type Guest = { email: string; restaurant_id: string; contact_email: string | null; created_at: string; expires_at: string };
+
+function GuestList({ guests, onDone }: { guests: Guest[]; onDone: () => void }) {
+  if (!guests.length) return null;
+  async function remove(g: Guest) {
+    if (!window.confirm(`Remove the guest ${g.contact_email || g.restaurant_id}? They are signed out at once and cannot use that guest week again.`)) return;
+    try {
+      await call("/api/admin/directory", "POST", { action: "delete_guest", restaurant: g.restaurant_id });
+      toast.success("Guest removed.");
+      onDone();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not remove");
+    }
+  }
+  return (
+    <div className="form-panel" style={{ display: "grid", gap: 0 }}>
+      <h3 style={{ marginBottom: 6 }}>Guests exploring the app ({guests.length})</h3>
+      {guests.map((g) => (
+        <div key={g.restaurant_id} style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "10px 0", borderTop: "1px solid var(--line)" }}>
+          <span>
+            <strong>{g.contact_email || "Unknown email"}</strong>
+            <br />
+            <small className="muted">Started {when(g.created_at)} · ends {when(g.expires_at)}</small>
+          </span>
+          <button className="icon-button" aria-label="Remove guest" onClick={() => remove(g)}><Trash2 size={16} /></button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function Directory() {
+  const [guests, setGuests] = useState<Guest[]>([]);
   const [rows, setRows] = useState<Rest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -371,6 +411,7 @@ export function Directory() {
     try {
       const d = await call("/api/admin/directory");
       setRows(d.restaurants);
+      setGuests(d.guests || []);
       setError("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load the directory");
@@ -402,6 +443,7 @@ export function Directory() {
       {loading && <p className="muted">Loading…</p>}
       {!loading && !shown.length && <div className="empty"><h3>Nothing found.</h3></div>}
       {shown.map((r) => <RestaurantCard key={r.id} r={r} onDone={load} />)}
+      <GuestList guests={guests} onDone={load} />
     </div>
   );
 }
