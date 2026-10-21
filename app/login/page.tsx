@@ -132,7 +132,7 @@ function LoginForm() {
       <a className="apply-cta" href="/apply">
         <span>
           <strong>New restaurant? Apply to join</strong>
-          <small>Takes two minutes. Our team verifies you and starts your free 7-day trial.</small>
+          <small>Takes two minutes. Our team verifies you and starts your free 14-day trial.</small>
         </span>
         <ArrowRight size={18} />
       </a>

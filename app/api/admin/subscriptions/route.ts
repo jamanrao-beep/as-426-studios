@@ -60,8 +60,10 @@ export async function POST(req: Request) {
       if (!chosen) return NextResponse.json({ error: "That plan no longer exists." }, { status: 404 });
       const months = chosen.months;
       const current = await getSubscription(d.restaurant);
-      // Paying early adds to the time left instead of losing it.
-      const base = current.status === "active" && current.endsAt ? new Date(current.endsAt) : now;
+      // Renewing the same plan adds to the time left. Switching to another plan starts from today,
+      // so a monthly and a yearly never pile up into one confusing end date.
+      const renewing = current.status === "active" && current.plan === d.plan && !!current.endsAt;
+      const base = renewing ? new Date(current.endsAt as string) : now;
       const end = new Date(base);
       end.setMonth(end.getMonth() + months);
       const have = await db().prepare("SELECT restaurant_id FROM subscriptions WHERE restaurant_id = ?").bind(d.restaurant).first();

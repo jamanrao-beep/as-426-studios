@@ -53,7 +53,7 @@ const FAQS = [
   { q: "Why is it different from other QR menu tools?", a: "It is built around the dining room, not just a PDF menu. You get secret dishes, a taste quiz, table games, live waiter alerts, private reviews and a morning insights summary, plus a staff app for iPhone and Android with the same controls as the website." },
   { q: "Do my guests need to download anything?", a: "No. They scan the QR code and the menu opens in their browser. They can also save the menu offline on their phone." },
   { q: "How long does approval take?", a: "Our team reviews every request by hand, normally within one working day. You see the status live on this page, and we email you the moment you are approved." },
-  { q: "What do I get after approval?", a: "Your restaurant page, a starter menu, a manager login, a 7-day free trial with everything unlocked, and your table QR code ready to print." },
+  { q: "What do I get after approval?", a: "Your restaurant page, a starter menu, a manager login, a 14-day free trial (7 days plus a 7-day bonus) with everything unlocked, and your table QR code ready to print." },
   { q: "What is my login ID?", a: "The name you choose here plus @as426studios.com, for example spice@as426studios.com. It is only used to sign in, it is not a mailbox. We send all emails to the contact email you give us." },
   { q: "How do waiters get accounts?", a: "Once you are approved, you add waiters yourself from the Team section. Each gets a temporary password and chooses their own on first sign-in. You can reset, suspend or remove a waiter any time." },
   { q: "What happens after the free trial?", a: "You pick one of the plans shown on this page. Our team contacts you to complete payment and activates it. Your data is always kept." },
@@ -61,6 +61,56 @@ const FAQS = [
   { q: "Is my data safe?", a: "Your restaurant's data sits in a private database that only your own accounts can open. Passwords are stored encrypted, and sessions end automatically if an account is removed." },
   { q: "What if I need help?", a: "Open the staff app and ask Mira, our built-in guide. If she cannot answer, your question goes straight to our team and we reply by email and in the app." },
 ];
+
+type Trial = { base: number; bonus: number; total: number };
+
+// The 14-day trial: 7 free days plus a 7-day welcome bonus. The number counts up and glows,
+// and tapping the bonus chip sends a little burst of sparkles.
+function TrialGlow({ trial, on, onPick }: { trial: Trial; on: boolean; onPick: () => void }) {
+  const [n, setN] = useState(0);
+  const [burst, setBurst] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const t0 = performance.now();
+    const tick = (t: number) => {
+      const k = Math.min(1, (t - t0) / 1400);
+      setN(Math.round(trial.total * (1 - Math.pow(1 - k, 3))));
+      if (k < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [trial.total]);
+  return (
+    <div className={`ap-trial ${on ? "on" : ""}`} onClick={onPick} role="button" tabIndex={0} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onPick()}>
+      <span className="ap-trial-rays" aria-hidden />
+      <div className="ap-trial-num">
+        <b>{n}</b>
+        <span>DAYS FREE</span>
+      </div>
+      <div className="ap-trial-body">
+        <strong>Start with a free {trial.total}-day trial</strong>
+        <div className="ap-trial-chips">
+          <span className="base">{trial.base} days free</span>
+          <span className="plus">+</span>
+          <button
+            type="button"
+            className="bonus"
+            key={burst}
+            onClick={(e) => {
+              e.stopPropagation();
+              setBurst((b) => b + 1);
+            }}
+          >
+            {trial.bonus} BONUS days 🎁
+            {burst > 0 && [0, 1, 2, 3, 4, 5].map((i) => <i key={i} style={{ ["--a" as any]: `${i * 60}deg` }} />)}
+          </button>
+        </div>
+        <small>{burst > 0 ? "A welcome gift from us, no card and no catch." : "Everything unlocked. Nothing is charged today. Tap the bonus!"}</small>
+      </div>
+      {on && <span className="ap-trial-check">✓</span>}
+    </div>
+  );
+}
 
 type Status = { status: "pending" | "approved" | "rejected"; restaurantName?: string; loginEmail?: string; note?: string | null };
 
@@ -87,6 +137,7 @@ export default function ApplyPage() {
   const [phase, setPhase] = useState(0);
   const [faqOpen, setFaqOpen] = useState(0);
   const [plans, setPlans] = useState<PlanCard[] | null>(null);
+  const [trial, setTrial] = useState<Trial | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
   const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
@@ -109,7 +160,11 @@ export default function ApplyPage() {
   useEffect(() => {
     fetch("/api/plans", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: any) => d && setPlans(d.plans))
+      .then((d: any) => {
+        if (!d) return;
+        setPlans(d.plans);
+        setTrial({ base: d.trialBaseDays, bonus: d.trialBonusDays, total: d.trialDays });
+      })
       .catch(() => {});
   }, []);
 
@@ -267,7 +322,7 @@ export default function ApplyPage() {
         <h1>
           Bring your restaurant to <em>Table Secret</em>
         </h1>
-        <p>Apply in two minutes. Our team verifies every restaurant, then you get a free 7-day trial with everything unlocked.</p>
+        <p>Apply in two minutes. Our team verifies every restaurant, then you get a free {trial ? trial.total : 14}-day trial, 7 days plus a 7-day welcome bonus, with everything unlocked.</p>
         <div className="ap-chips">
           <span>
             <Clock size={14} /> Reply within one working day
@@ -364,12 +419,8 @@ export default function ApplyPage() {
                       </button>
                     </div>
                   </label>
+                  {trial && <TrialGlow trial={trial} on={f.planChoice === "trial"} onPick={() => set("planChoice", "trial")} />}
                   <div className="ap-plans">
-                    <button type="button" className={`ap-plan ${f.planChoice === "trial" ? "on" : ""}`} onClick={() => set("planChoice", "trial")}>
-                      <strong>Free 7-day trial</strong>
-                      <span>{"₹"}0</span>
-                      <small>Start now, choose a plan later</small>
-                    </button>
                     {(plans || []).map((p) => (
                       <button type="button" key={p.key} className={`ap-plan ${f.planChoice === p.key ? "on" : ""}`} onClick={() => set("planChoice", p.key)}>
                         {p.best && <b>BEST VALUE</b>}
@@ -382,7 +433,7 @@ export default function ApplyPage() {
                       </button>
                     ))}
                   </div>
-                  <small className="ap-fine">Nothing is charged today. Every plan starts with your free 7-day trial.</small>
+                  <small className="ap-fine">Nothing is charged today. Every plan starts with your free 14-day trial.</small>
                 </div>
               )}
 
@@ -451,7 +502,7 @@ export default function ApplyPage() {
             {status?.status === "approved" && (
               <div className="ap-done">
                 <p>
-                  Sign in with <b>{status.loginEmail || loginEmail}</b> and the password you chose. Your 7-day free trial has started.
+                  Sign in with <b>{status.loginEmail || loginEmail}</b> and the password you chose. Your 14-day free trial has started.
                 </p>
                 <a className="ap-primary" href="/login">
                   Sign in now <ArrowRight size={15} />
@@ -562,6 +613,25 @@ const css = `
 .ap-plan strong{font-size:.92rem}.ap-plan span{font-size:1.25rem;font-weight:800}.ap-plan small{color:var(--mut)}
 .ap-plan b{position:absolute;top:-9px;right:10px;background:var(--o);color:#fff;border-radius:999px;font-size:.62rem;padding:3px 8px;letter-spacing:.06em}
 .ap-plan:hover{border-color:#f0b999}.ap-plan.on{border-color:var(--o);background:#fff7f1;box-shadow:0 0 0 3px rgba(223,77,3,.12)}
+.ap-trial{position:relative;overflow:hidden;display:flex;align-items:center;gap:18px;border:2px solid #f0b999;border-radius:18px;padding:18px 20px;background:linear-gradient(135deg,#fff7f1,#ffe9d9);cursor:pointer;animation:apglow 2.6s ease-in-out infinite;transition:transform .15s}
+.ap-trial:hover{transform:translateY(-2px)}.ap-trial.on{border-color:var(--o)}
+@keyframes apglow{0%,100%{box-shadow:0 0 0 0 rgba(223,77,3,.0),0 6px 18px rgba(223,77,3,.18)}50%{box-shadow:0 0 0 6px rgba(223,77,3,.12),0 10px 34px rgba(223,77,3,.45)}}
+.ap-trial-rays{position:absolute;inset:-60%;background:conic-gradient(from 0deg,transparent 0 20deg,rgba(255,255,255,.55) 30deg,transparent 40deg 110deg,rgba(255,255,255,.45) 120deg,transparent 130deg 200deg,rgba(255,255,255,.5) 210deg,transparent 220deg 290deg,rgba(255,255,255,.4) 300deg,transparent 310deg);animation:apspin 9s linear infinite;pointer-events:none}
+@keyframes apspin{to{transform:rotate(360deg)}}
+.ap-trial-num{position:relative;flex:none;display:grid;justify-items:center;line-height:1;background:var(--o);color:#fff;border-radius:16px;padding:12px 16px;min-width:86px;box-shadow:0 0 24px rgba(223,77,3,.55);animation:appop 2.6s ease-in-out infinite}
+@keyframes appop{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+.ap-trial-num b{font-size:2.4rem;font-weight:900;font-variant-numeric:tabular-nums}.ap-trial-num span{font-size:.62rem;letter-spacing:.12em;font-weight:800;margin-top:4px}
+.ap-trial-body{position:relative;display:grid;gap:7px}.ap-trial-body strong{font-size:1.02rem}
+.ap-trial-chips{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ap-trial-chips .base{background:#fff;border:1px solid #f0b999;border-radius:999px;padding:5px 11px;font-weight:800;font-size:.8rem;color:var(--od)}
+.ap-trial-chips .plus{font-weight:900;color:var(--o)}
+.ap-trial-chips .bonus{position:relative;border:0;cursor:pointer;background:linear-gradient(135deg,#ffb347,#df4d03);color:#fff;border-radius:999px;padding:6px 13px;font:inherit;font-weight:900;font-size:.8rem;animation:apwiggle 3.2s ease-in-out infinite}
+@keyframes apwiggle{0%,86%,100%{transform:rotate(0)}90%{transform:rotate(-6deg) scale(1.08)}94%{transform:rotate(6deg) scale(1.08)}}
+.ap-trial-chips .bonus i{position:absolute;left:50%;top:50%;width:7px;height:7px;border-radius:50%;background:#ffd34d;animation:apburst .8s ease-out forwards}
+@keyframes apburst{from{transform:rotate(var(--a)) translateX(0);opacity:1}to{transform:rotate(var(--a)) translateX(46px);opacity:0}}
+.ap-trial-body small{color:var(--mut);font-weight:600}
+.ap-trial-check{position:absolute;top:10px;right:12px;width:24px;height:24px;border-radius:50%;background:var(--o);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:.8rem}
+@media(max-width:480px){.ap-trial{flex-direction:column;text-align:center}.ap-trial-chips{justify-content:center}}
 .ap-fine{display:block;color:var(--mut);font-size:.8rem;margin-top:4px}
 .ap-actions{display:flex;justify-content:space-between;align-items:center;margin-top:22px}
 .ap-primary{display:inline-flex;gap:8px;align-items:center;justify-content:center;background:var(--o);color:#fff;border:0;border-radius:12px;min-height:48px;padding:0 22px;font:inherit;font-weight:800;cursor:pointer;text-decoration:none;transition:transform .12s,background .15s}

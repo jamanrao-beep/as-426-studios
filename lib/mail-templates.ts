@@ -38,12 +38,12 @@ export function approvedEmail(p: { ownerName: string; restaurantName: string; lo
 <div style="font-size:20px;font-weight:700">${esc(p.loginEmail)}</div>
 <div style="color:#7b6d64;font-size:12px;margin-top:8px">PASSWORD</div>
 <div>The one you chose when you registered</div></div>
-<p>Open the Table Secret app and sign in. Your <b>7-day free trial</b> is running and ends on <b>${esc(ends)}</b>.${
+<p>Open the Table Secret app and sign in. Your <b>14-day free trial</b> (7 days plus a 7-day welcome bonus) is running and ends on <b>${esc(ends)}</b>.${
         p.plan ? ` We noted that you are interested in the <b>${esc(p.plan)}</b> plan, and we will be in touch before your trial ends.` : ""
       }</p>
 <p>Add your dishes, invite your waiters and print your table QR code. Tabi, our little robot, will guide you on your first sign-in.</p>`
     ),
-    text: `Hi ${p.ownerName}, ${p.restaurantName} is approved on Table Secret. Login ID: ${p.loginEmail}. Use the password you chose when you registered. Your 7-day free trial ends on ${ends}.`,
+    text: `Hi ${p.ownerName}, ${p.restaurantName} is approved on Table Secret. Login ID: ${p.loginEmail}. Use the password you chose when you registered. Your 14-day free trial ends on ${ends}.`,
   };
 }
 
@@ -67,7 +67,7 @@ export function guestWelcomeEmail(p: { days: number }) {
     html: shell(
       "Welcome! Your guest week has started",
       `<p>You can explore Table Secret for <b>${p.days} days</b> as a guest, with a sample restaurant to play with.</p>
-<p>When you are ready for your own restaurant, tap <b>Register my restaurant</b> in the app. Approved restaurants get a 7-day free trial.</p>`
+<p>When you are ready for your own restaurant, tap <b>Register my restaurant</b> in the app. Approved restaurants get a 14-day free trial: 7 days plus a 7-day welcome bonus.</p>`
     ),
     text: `Your ${p.days}-day Table Secret guest week has started. Register your restaurant in the app when you are ready.`,
   };

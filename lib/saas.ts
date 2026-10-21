@@ -33,7 +33,10 @@ export async function getPlan(key: string): Promise<Plan | null> {
   return r ? toPlan(r) : null;
 }
 
-export const TRIAL_DAYS = 7;
+// A new restaurant gets 7 free days plus a 7-day welcome bonus, shown to them as one 14-day trial.
+export const TRIAL_BASE_DAYS = 7;
+export const TRIAL_BONUS_DAYS = 7;
+export const TRIAL_DAYS = TRIAL_BASE_DAYS + TRIAL_BONUS_DAYS;
 export const GUEST_DAYS = 7;
 export const LOGIN_DOMAIN = "as426studios.com";
 export const GUEST_MAX_DISHES = 12;

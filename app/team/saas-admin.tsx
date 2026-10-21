@@ -40,7 +40,7 @@ type Req = {
   plan_choice: string | null;
 };
 
-const planNames: Record<string, string> = { trial: "Free 7-day trial", monthly: "Monthly", half_yearly: "Half-yearly", yearly: "Yearly" };
+const planNames: Record<string, string> = { trial: "Free 14-day trial", monthly: "Monthly", half_yearly: "Half-yearly", yearly: "Yearly" };
 
 export function RegistrationRequests({ onChange }: { onChange?: () => void }) {
   const [rows, setRows] = useState<Req[]>([]);
@@ -48,7 +48,7 @@ export function RegistrationRequests({ onChange }: { onChange?: () => void }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const [trialDays, setTrialDays] = useState(7);
+  const [trialDays, setTrialDays] = useState(14);
 
   const load = useCallback(async () => {
     try {
@@ -119,7 +119,7 @@ export function RegistrationRequests({ onChange }: { onChange?: () => void }) {
             <span><b>Owner:</b> {r.owner_name} · {r.phone}</span>
             <span><b>Contact email:</b> {r.contact_email || "—"} <small className="muted">(the approval mail goes here)</small></span>
             <span><b>Login ID to create:</b> {r.email}</span>
-            <span><b>Plan interest:</b> {planNames[r.plan_choice || "trial"] || "Free 7-day trial"}</span>
+            <span><b>Plan interest:</b> {planNames[r.plan_choice || "trial"] || "Free 14-day trial"}</span>
             <span><b>Address:</b> {r.address}, {r.city}</span>
             {r.lat !== null && r.lng !== null ? (
               <a href={`https://www.google.com/maps?q=${r.lat},${r.lng}`} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -462,7 +462,7 @@ type Sub = {
   requestedPlan: string;
 };
 
-type PlanInfo = { key: string; label: string; active: boolean };
+type PlanInfo = { key: string; label: string; active: boolean; months: number };
 
 function left(ms: number) {
   const d = Math.floor(ms / 86400000);
@@ -496,6 +496,14 @@ export function Subscriptions() {
     const t = setInterval(load, 30000);
     return () => clearInterval(t);
   }, [load]);
+
+  // What the Activate button will do, so a wrong end date never comes as a surprise.
+  const endNote = (r: Sub, p: PlanInfo) => {
+    const renewing = r.status === "active" && r.plan === p.key && !!r.endsAt;
+    const end = new Date(renewing ? (r.endsAt as string) : Date.now());
+    end.setMonth(end.getMonth() + p.months);
+    return renewing ? `Same plan, so it extends the current period. New end date: ${when(end.toISOString())}.` : `Starts today and ends on ${when(end.toISOString())}. Any time left on another plan is replaced.`;
+  };
 
   const labelOf = (k: string) => plans.find((p) => p.key === k)?.label || k;
 
@@ -548,15 +556,15 @@ export function Subscriptions() {
                 key={p.key}
                 className={r.requestedPlan === p.key ? "primary" : "secondary"}
                 disabled={busy === r.id}
-                onClick={() => window.confirm(`Activate the ${p.label} plan for ${r.name}?`) && act({ action: "activate", restaurant: r.id, plan: p.key }, `${p.label} plan activated.`)}
+                onClick={() => window.confirm(`Activate the ${p.label} plan for ${r.name}?\n\n${endNote(r, p)}`) && act({ action: "activate", restaurant: r.id, plan: p.key }, `${p.label} plan activated.`)}
               >
                 Activate {p.label}
               </button>
             ))}
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <input type="number" min={1} max={90} style={{ width: 90 }} value={days[r.id] ?? 7} onChange={(e) => setDays({ ...days, [r.id]: Number(e.target.value) })} aria-label="Trial days" />
-            <button className="secondary" disabled={busy === r.id} onClick={() => act({ action: "start_trial", restaurant: r.id, days: days[r.id] ?? 7 }, "Free trial set.")}>
+            <input type="number" min={1} max={90} style={{ width: 90 }} value={days[r.id] ?? 14} onChange={(e) => setDays({ ...days, [r.id]: Number(e.target.value) })} aria-label="Trial days" />
+            <button className="secondary" disabled={busy === r.id} onClick={() => act({ action: "start_trial", restaurant: r.id, days: days[r.id] ?? 14 }, "Free trial set.")}>
               Set free trial (days from now)
             </button>
             <button className="secondary" disabled={busy === r.id} onClick={() => window.confirm(`End access for ${r.name} now?`) && act({ action: "expire", restaurant: r.id }, "Plan ended.")}>
