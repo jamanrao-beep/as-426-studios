@@ -23,8 +23,8 @@ export async function GET() {
       .prepare("SELECT id, email, name, role, restaurant_id, status, created_at FROM accounts WHERE role != 'super_admin' ORDER BY name, email")
       .all<AccountRow>();
     const guests = await db()
-      .prepare("SELECT email, restaurant_id, contact_email, created_at, expires_at FROM guest_accounts ORDER BY created_at DESC")
-      .all<{ email: string; restaurant_id: string; contact_email: string | null; created_at: string; expires_at: string }>();
+      .prepare("SELECT email, restaurant_id, contact_email, contact_name, contact_phone, created_at, expires_at FROM guest_accounts ORDER BY created_at DESC")
+      .all<{ email: string; restaurant_id: string; contact_email: string | null; contact_name: string | null; contact_phone: string | null; created_at: string; expires_at: string }>();
     const guestIds = new Set(guests.results.map((g) => g.restaurant_id));
     const list = restaurants.results
       .filter((r) => !guestIds.has(r.id))

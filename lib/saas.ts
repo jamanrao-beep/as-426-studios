@@ -79,6 +79,8 @@ export function ensureSaasTables() {
       "ALTER TABLE registration_requests ADD COLUMN contact_email VARCHAR(190)",
       "ALTER TABLE registration_requests ADD COLUMN plan_choice VARCHAR(16)",
       "ALTER TABLE guest_accounts ADD COLUMN contact_email VARCHAR(190)",
+      "ALTER TABLE guest_accounts ADD COLUMN contact_name VARCHAR(120)",
+      "ALTER TABLE guest_accounts ADD COLUMN contact_phone VARCHAR(40)",
     ]) {
       try {
         await run(sql);
@@ -232,7 +234,7 @@ export async function checkEmailCode(email: string, code: string): Promise<{ ok:
 }
 
 // A throwaway sandbox restaurant for a week. One per verified email, so it cannot be restarted forever.
-export async function createGuest(contactEmail: string) {
+export async function createGuest(contactEmail: string, contactName = "", contactPhone = "") {
   await ensureSaasTables();
   await cleanupGuests();
   const contact = contactEmail.trim().toLowerCase();
@@ -276,8 +278,8 @@ export async function createGuest(contactEmail: string) {
     .bind(accId, email, await hashPassword(password), "Guest Manager", restaurantId, now, now)
     .run();
   await db()
-    .prepare("INSERT INTO guest_accounts (email, restaurant_id, created_at, expires_at, contact_email) VALUES (?, ?, ?, ?, ?)")
-    .bind(email, restaurantId, now, expires, contact)
+    .prepare("INSERT INTO guest_accounts (email, restaurant_id, created_at, expires_at, contact_email, contact_name, contact_phone) VALUES (?, ?, ?, ?, ?, ?, ?)")
+    .bind(email, restaurantId, now, expires, contact, contactName, contactPhone)
     .run();
   await db().prepare("INSERT INTO guest_used (email, first_at) VALUES (?, ?)").bind(contact, now).run();
   return { restaurantId, email, expires, existing: false as const };

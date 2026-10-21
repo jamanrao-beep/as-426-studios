@@ -369,7 +369,7 @@ function RestaurantCard({ r, onDone }: { r: Rest; onDone: () => void }) {
   );
 }
 
-type Guest = { email: string; restaurant_id: string; contact_email: string | null; created_at: string; expires_at: string };
+type Guest = { email: string; restaurant_id: string; contact_email: string | null; contact_name: string | null; contact_phone: string | null; created_at: string; expires_at: string };
 
 function GuestList({ guests, onDone }: { guests: Guest[]; onDone: () => void }) {
   if (!guests.length) return null;
@@ -389,7 +389,9 @@ function GuestList({ guests, onDone }: { guests: Guest[]; onDone: () => void }) 
       {guests.map((g) => (
         <div key={g.restaurant_id} style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "10px 0", borderTop: "1px solid var(--line)" }}>
           <span>
-            <strong>{g.contact_email || "Unknown email"}</strong>
+            <strong>{g.contact_name || "Guest"}</strong> · {g.contact_phone || "no phone"}
+            <br />
+            <a href={`mailto:${g.contact_email}`}>{g.contact_email || "Unknown email"}</a>
             <br />
             <small className="muted">Started {when(g.created_at)} · ends {when(g.expires_at)}</small>
           </span>

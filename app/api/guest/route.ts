@@ -12,6 +12,8 @@ export const dynamic = "force-dynamic";
 const schema = z.object({
   email: z.string().trim().toLowerCase().email().max(190),
   code: z.string().trim().regex(/^\d{6}$/),
+  name: z.string().trim().min(2).max(120),
+  phone: z.string().trim().min(6).max(40),
 });
 
 // "Test as guest" is for real people: the email must be proven with a code, and each email gets one guest week.
@@ -19,7 +21,7 @@ export async function POST(req: Request) {
   try {
     if (!sameOrigin(req)) return NextResponse.json({ error: "Request rejected." }, { status: 403 });
     const p = schema.safeParse(await req.json());
-    if (!p.success) return NextResponse.json({ error: "Enter the 6-digit code from your email." }, { status: 400 });
+    if (!p.success) return NextResponse.json({ error: "Enter your name, phone number and the 6-digit code from your email." }, { status: 400 });
 
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
     if (!rateLimit(`guest:${ip}`, 12, 60 * 60 * 1000).allowed) {
@@ -31,7 +33,7 @@ export async function POST(req: Request) {
 
     let g;
     try {
-      g = await createGuest(p.data.email);
+      g = await createGuest(p.data.email, p.data.name, p.data.phone);
     } catch (e) {
       if (e instanceof GuestUsedError) return NextResponse.json({ error: e.message }, { status: 403 });
       throw e;
