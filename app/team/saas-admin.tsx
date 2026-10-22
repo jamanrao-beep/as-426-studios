@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { shortLogin } from "@/lib/login-id";
+import { poll } from "@/lib/poller";
 import { Check, ExternalLink, Inbox, MapPin, Pencil, Plus, Trash2, X, Crown, Building2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -38,9 +40,10 @@ type Req = {
   decided_by: string | null;
   contact_email: string | null;
   plan_choice: string | null;
+  restaurant_code?: string | null;
 };
 
-const planNames: Record<string, string> = { trial: "Free 7-day trial", monthly: "Monthly", half_yearly: "Half-yearly", yearly: "Yearly" };
+const planNames: Record<string, string> = { trial: "Free 14-day trial", monthly: "Monthly", half_yearly: "Half-yearly", yearly: "Yearly" };
 
 export function RegistrationRequests({ onChange }: { onChange?: () => void }) {
   const [rows, setRows] = useState<Req[]>([]);
@@ -48,7 +51,7 @@ export function RegistrationRequests({ onChange }: { onChange?: () => void }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const [trialDays, setTrialDays] = useState(7);
+  const [trialDays, setTrialDays] = useState(14);
 
   const load = useCallback(async () => {
     try {
@@ -65,8 +68,9 @@ export function RegistrationRequests({ onChange }: { onChange?: () => void }) {
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 20000);
-    return () => clearInterval(t);
+    return poll(async () => {
+      await load();
+    }, { base: 20000, max: 40000 });
   }, [load]);
 
   async function decide(id: string, action: "approve" | "reject") {
@@ -118,8 +122,8 @@ export function RegistrationRequests({ onChange }: { onChange?: () => void }) {
           <div style={{ display: "grid", gap: 4, fontSize: "0.92rem" }}>
             <span><b>Owner:</b> {r.owner_name} · {r.phone}</span>
             <span><b>Contact email:</b> {r.contact_email || "—"} <small className="muted">(the approval mail goes here)</small></span>
-            <span><b>Login ID to create:</b> {r.email}</span>
-            <span><b>Plan interest:</b> {planNames[r.plan_choice || "trial"] || "Free 7-day trial"}</span>
+            <span><b>Username:</b> {r.email.split("@")[0]}{r.restaurant_code ? <> · <b>Restaurant code:</b> {r.restaurant_code}</> : null}</span>
+            <span><b>Plan interest:</b> {planNames[r.plan_choice || "trial"] || "Free 14-day trial"}</span>
             <span><b>Address:</b> {r.address}, {r.city}</span>
             {r.lat !== null && r.lng !== null ? (
               <a href={`https://www.google.com/maps?q=${r.lat},${r.lng}`} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -151,7 +155,7 @@ export function RegistrationRequests({ onChange }: { onChange?: () => void }) {
             {done.map((r, i) => (
               <div key={r.id} style={{ padding: "12px 16px", borderTop: i ? "1px solid var(--line)" : "none", display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                 <span>
-                  <strong>{r.restaurant_name}</strong> · {r.email}
+                  <strong>{r.restaurant_name}</strong> · {shortLogin(r.email)}
                   <br />
                   <small className="muted">{when(r.decided_at)} by {r.decided_by || "—"}{r.note ? ` · ${r.note}` : ""}</small>
                 </span>
@@ -226,7 +230,7 @@ function AccountRow({ acc, onDone }: { acc: Acc; onDone: () => void }) {
         <span>
           <strong>{acc.name || acc.email}</strong>
           <br />
-          <small className="muted">{acc.email} · {acc.status}</small>
+          <small className="muted">{shortLogin(acc.email)} · {acc.status}</small>
         </span>
       )}
       <div style={{ display: "flex", gap: 8 }}>
@@ -249,18 +253,23 @@ function AccountRow({ acc, onDone }: { acc: Acc; onDone: () => void }) {
 function AddAccount({ restaurant, role, onDone }: { restaurant: string; role: "admin" | "waiter"; onDone: () => void }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [busy, setBusy] = useState(false);
   const [temp, setTemp] = useState("");
+  const [login, setLogin] = useState("");
+  const [pw, setPw] = useState("");
+  const [mustChange, setMustChange] = useState(true);
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     try {
-      const d = await call("/api/admin/directory", "POST", { action: "add_account", role, restaurant, email, name });
+      const d = await call("/api/admin/directory", "POST", { action: "add_account", role, restaurant, username, name, password: pw.trim() || undefined, mustChange });
       setTemp(d.temporary_password);
+      setPw("");
+      setLogin(d.login);
       setName("");
-      setEmail("");
+      setUsername("");
       toast.success("Account created.");
       onDone();
     } catch (err) {
@@ -275,12 +284,19 @@ function AddAccount({ restaurant, role, onDone }: { restaurant: string; role: "a
     <form onSubmit={add} style={{ display: "grid", gap: 8, padding: "10px 0" }}>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <input required style={{ flex: "1 1 140px" }} value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
-        <input required type="email" style={{ flex: "2 1 220px" }} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
+        <input required style={{ flex: "2 1 220px" }} maxLength={30} value={username} onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""))} placeholder="Username, e.g. rahul" />
       </div>
-      {temp && <p className="success-note">Temporary password (shown once): <strong>{temp}</strong></p>}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <input style={{ flex: "1 1 220px" }} value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Password (optional, empty = we make one)" autoComplete="new-password" />
+        <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.85rem", opacity: pw.trim() ? 1 : 0.6 }}>
+          <input type="checkbox" disabled={!pw.trim()} checked={pw.trim() ? mustChange : true} onChange={(e) => setMustChange(e.target.checked)} /> They must change it at first sign-in
+        </label>
+      </div>
+      <small className="muted">Signs in as {username || "username"}@{restaurant} · restaurant code: <b>{restaurant}</b></small>
+      {temp && <p className="success-note">Login ID: <strong>{shortLogin(login)}</strong> · Restaurant code: <strong>{restaurant}</strong><br />Password (shown once): <strong>{temp}</strong></p>}
       <div style={{ display: "flex", gap: 8 }}>
         <button className="primary" disabled={busy} type="submit">Create account</button>
-        <button className="secondary" type="button" onClick={() => { setOpen(false); setTemp(""); }}>Close</button>
+        <button className="secondary" type="button" onClick={() => { setOpen(false); setTemp(""); setLogin(""); }}>Close</button>
       </div>
     </form>
   );
@@ -462,7 +478,7 @@ type Sub = {
   requestedPlan: string;
 };
 
-const planLabels: Record<string, string> = { monthly: "Monthly", half_yearly: "Half-yearly", yearly: "Yearly" };
+type PlanInfo = { key: string; label: string; active: boolean; months: number };
 
 function left(ms: number) {
   const d = Math.floor(ms / 86400000);
@@ -472,6 +488,8 @@ function left(ms: number) {
 
 export function Subscriptions() {
   const [rows, setRows] = useState<Sub[]>([]);
+  const [plans, setPlans] = useState<PlanInfo[]>([]);
+  const [payments, setPayments] = useState<{ id: string; restaurant_name: string | null; plan_key: string; amount: number; status: string; paid_at: string | null; created_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [days, setDays] = useState<Record<string, number>>({});
@@ -481,6 +499,8 @@ export function Subscriptions() {
     try {
       const d = await call("/api/admin/subscriptions");
       setRows(d.subscriptions);
+      setPlans(d.plans || []);
+      setPayments(d.payments || []);
       setError("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load plans");
@@ -491,9 +511,20 @@ export function Subscriptions() {
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 30000);
-    return () => clearInterval(t);
+    return poll(async () => {
+      await load();
+    }, { base: 30000, max: 60000 });
   }, [load]);
+
+  // What the Activate button will do, so a wrong end date never comes as a surprise.
+  const endNote = (r: Sub, p: PlanInfo) => {
+    const renewing = r.status === "active" && r.plan === p.key && !!r.endsAt;
+    const end = new Date(renewing ? (r.endsAt as string) : Date.now());
+    end.setMonth(end.getMonth() + p.months);
+    return renewing ? `Same plan, so it extends the current period. New end date: ${when(end.toISOString())}.` : `Starts today and ends on ${when(end.toISOString())}. Any time left on another plan is replaced.`;
+  };
+
+  const labelOf = (k: string) => plans.find((p) => p.key === k)?.label || k;
 
   async function act(body: Record<string, unknown>, ok: string) {
     setBusy(String(body.restaurant));
@@ -526,7 +557,7 @@ export function Subscriptions() {
               <strong style={{ fontSize: "1.05rem" }}>{r.name}</strong>
               <br />
               <small className="muted">
-                {r.status === "active" ? `${planLabels[r.plan] || "Active"} · ends ${when(r.endsAt)} (${left(r.msLeft)})` : r.status === "trial" ? `Free trial · ends ${when(r.endsAt)} (${left(r.msLeft)})` : r.status === "expired" ? "Expired. The app is locked until a plan is activated." : "No plan yet"}
+                {r.status === "active" ? `${labelOf(r.plan) || "Active"} · ends ${when(r.endsAt)} (${left(r.msLeft)})` : r.status === "trial" ? `Free trial · ends ${when(r.endsAt)} (${left(r.msLeft)})` : r.status === "expired" ? "Expired. The app is locked until a plan is activated." : "No plan yet"}
               </small>
             </span>
             <span className="tiny-badge" style={{ alignSelf: "flex-start", background: r.status === "active" ? "#dcfce7" : r.status === "trial" ? "#fef3c7" : "#fee2e2", color: r.status === "active" ? "#166534" : r.status === "trial" ? "#92400e" : "#991b1b" }}>
@@ -535,24 +566,24 @@ export function Subscriptions() {
           </div>
           {r.requestedPlan && (
             <p className="success-note" style={{ margin: 0 }}>
-              <strong>{planLabels[r.requestedPlan]} plan requested.</strong> Activate it after you receive the payment.
+              <strong>{labelOf(r.requestedPlan)} plan requested.</strong> Activate it after you receive the payment.
             </p>
           )}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            {(["monthly", "yearly", "half_yearly"] as const).map((p) => (
+            {plans.filter((p) => p.active || p.key === r.requestedPlan).map((p) => (
               <button
-                key={p}
-                className={r.requestedPlan === p ? "primary" : "secondary"}
+                key={p.key}
+                className={r.requestedPlan === p.key ? "primary" : "secondary"}
                 disabled={busy === r.id}
-                onClick={() => window.confirm(`Activate the ${planLabels[p]} plan for ${r.name}?`) && act({ action: "activate", restaurant: r.id, plan: p }, `${planLabels[p]} plan activated.`)}
+                onClick={() => window.confirm(`Activate the ${p.label} plan for ${r.name}?\n\n${endNote(r, p)}`) && act({ action: "activate", restaurant: r.id, plan: p.key }, `${p.label} plan activated.`)}
               >
-                Activate {planLabels[p]}
+                Activate {p.label}
               </button>
             ))}
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <input type="number" min={1} max={90} style={{ width: 90 }} value={days[r.id] ?? 7} onChange={(e) => setDays({ ...days, [r.id]: Number(e.target.value) })} aria-label="Trial days" />
-            <button className="secondary" disabled={busy === r.id} onClick={() => act({ action: "start_trial", restaurant: r.id, days: days[r.id] ?? 7 }, "Free trial set.")}>
+            <input type="number" min={1} max={90} style={{ width: 90 }} value={days[r.id] ?? 14} onChange={(e) => setDays({ ...days, [r.id]: Number(e.target.value) })} aria-label="Trial days" />
+            <button className="secondary" disabled={busy === r.id} onClick={() => act({ action: "start_trial", restaurant: r.id, days: days[r.id] ?? 14 }, "Free trial set.")}>
               Set free trial (days from now)
             </button>
             <button className="secondary" disabled={busy === r.id} onClick={() => window.confirm(`End access for ${r.name} now?`) && act({ action: "expire", restaurant: r.id }, "Plan ended.")}>
@@ -561,6 +592,24 @@ export function Subscriptions() {
           </div>
         </div>
       ))}
+      {payments.length > 0 && (
+        <div className="form-panel" style={{ display: "grid", gap: 6 }}>
+          <strong>Online payments</strong>
+          <small className="muted">Plans paid through Razorpay switch on by themselves. Pending rows are payments that were started but not finished.</small>
+          {payments.map((x) => (
+            <div key={x.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", borderTop: "1px solid #eee", paddingTop: 6 }}>
+              <span>
+                {x.restaurant_name || "Restaurant"} · {labelOf(x.plan_key)} · ₹{(x.amount / 100).toLocaleString("en-IN")}
+                <br />
+                <small className="muted">{when(x.paid_at || x.created_at)}</small>
+              </span>
+              <span className="tiny-badge" style={{ alignSelf: "center", background: x.status === "paid" ? "#dcfce7" : "#fef3c7", color: x.status === "paid" ? "#166534" : "#92400e" }}>
+                {x.status === "paid" ? "PAID" : "PENDING"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

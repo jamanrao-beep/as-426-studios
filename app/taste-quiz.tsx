@@ -1,6 +1,6 @@
 "use client";
 import {useState} from "react";
-import {Sparkles,Flame,Leaf} from "lucide-react";
+import { Sparkles } from "lucide-react";
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from "@/components/ui/dialog";
 import {RadioGroup,RadioGroupItem} from "@/components/ui/radio-group";
 import {recommend} from "@/lib/recommend";

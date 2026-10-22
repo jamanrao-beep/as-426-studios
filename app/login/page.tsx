@@ -1,15 +1,25 @@
 "use client";
 
-import { useState, useRef, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Utensils, Lock, Mail, Eye, EyeOff, CheckCircle2 } from "lucide-react";
+import { Utensils, Lock, Mail, Eye, EyeOff, CheckCircle2, ArrowRight } from "lucide-react";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const returnTo = searchParams.get("return_to") || "/team";
+  // Only ever go to a page on this site after signing in, never to an address someone put in the link.
+  const requested = searchParams.get("return_to") || "";
+  const returnTo = requested.startsWith("/") && !requested.startsWith("//") && !requested.startsWith("/\\") ? requested : "/team";
 
+  // Managers and staff sign in with their restaurant code and username. A full login ID (or the Super Admin's email)
+  // goes in the second box with the code left empty.
+  const [restaurant, setRestaurant] = useState("");
   const [email, setEmail] = useState("");
+  useEffect(() => {
+    try {
+      setRestaurant(localStorage.getItem("ts_restaurant_code") || "");
+    } catch {}
+  }, []);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -18,9 +28,10 @@ function LoginForm() {
 
   async function handleLogin() {
     const targetEmail = email.trim();
+    const code = restaurant.trim().toLowerCase();
 
     if (!targetEmail) {
-      setError("Please enter your sign-in email.");
+      setError("Please enter your username or login ID.");
       return;
     }
     if (!password) {
@@ -36,7 +47,7 @@ function LoginForm() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: targetEmail, password }),
+        body: JSON.stringify({ restaurant: code, username: targetEmail, password }),
       });
 
       const data = (await res.json()) as any;
@@ -44,6 +55,9 @@ function LoginForm() {
         throw new Error(data.error || "Login failed. Please check your credentials.");
       }
 
+      try {
+        if (code && !targetEmail.includes("@")) localStorage.setItem("ts_restaurant_code", code);
+      } catch {}
       // Success - navigate to destination based on role and change password status
       if (data.mustChangePassword) {
         router.push("/change-password");
@@ -87,15 +101,35 @@ function LoginForm() {
         }}
       >
         <label>
-          Email
+          Restaurant code
           <div className="input-wrap">
             <Mail size={16} className="input-icon" />
             <input
-              type="email"
-              autoComplete="email"
-              placeholder="Enter email"
+              type="text"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder="e.g. spice-route"
+              value={restaurant}
+              onChange={(e) => setRestaurant(e.target.value.replace(/\s/g, ""))}
+            />
+          </div>
+          <small className="muted">Staff and managers: your manager gave you this code. Leave it empty if you type your full login ID.</small>
+        </label>
+
+        <label>
+          Username or login ID
+          <div className="input-wrap">
+            <Mail size={16} className="input-icon" />
+            <input
+              type="text"
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder="e.g. rahul"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => setEmail(e.target.value.replace(/\s/g, ""))}
             />
           </div>
         </label>
@@ -127,7 +161,32 @@ function LoginForm() {
         <button type="submit" className="primary login-submit" disabled={loading}>
           {loading ? "Signing in…" : "Sign In"}
         </button>
+        <a href="/forgot-password" style={{ textAlign: "center", fontWeight: 700, color: "#9a3412", fontSize: "0.9rem", padding: "6px 0" }}>
+          Forgot your password?
+        </a>
       </form>
+
+      <a className="apply-cta" href="/apply">
+        <span>
+          <strong>New restaurant? Apply to join</strong>
+          <small>Takes two minutes. Our team verifies you and starts your free trial.</small>
+        </span>
+        <ArrowRight size={18} />
+      </a>
+      <a className="apply-cta" href="/guest">
+        <span>
+          <strong>Just curious? Test as a guest</strong>
+          <small>Try a sample restaurant for a week. We email you a code to confirm it is you.</small>
+        </span>
+        <ArrowRight size={18} />
+      </a>
+      <a className="apply-cta" href="/plans">
+        <span>
+          <strong>See plans and pricing</strong>
+          <small>Free trial first, then pay online by UPI, card or net banking.</small>
+        </span>
+        <ArrowRight size={18} />
+      </a>
 
       <footer className="login-footer-info">
         <div className="info-item">
@@ -170,6 +229,7 @@ export default function LoginPage() {
 
       <footer className="login-page-footer">
         AS 426 Studios · Secure Restaurant Experience Platform
+        <nav aria-label="Legal" style={{display:"flex",gap:16,flexWrap:"wrap",justifyContent:"center",marginTop:8}}><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/refunds">Refunds</a><a href="/contact">Contact</a></nav>
       </footer>
     </div>
   );

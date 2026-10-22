@@ -1,7 +1,8 @@
-import { access, db, validSlug, readMenu } from "@/db/store";
-import { yesterdayIndiaDate, dayRange, indiaDate } from "@/lib/order-time";
+import { access, db, readMenu, denied } from "@/db/store";
+import { yesterdayIndiaDate, dayRange } from "@/lib/order-time";
 import crypto from "node:crypto";
 import { z } from "zod";
+import { featureOff } from "@/lib/enforce";
 
 export const dynamic = "force-dynamic";
 
@@ -158,7 +159,11 @@ export async function GET(req: Request) {
   try {
     const a = await access();
     if (!a.allowed && !a.owner) {
-      return Response.json({ error: "Restaurant admin access required." }, { status: 403 });
+      return denied(a, "Restaurant admin access required.");
+    }
+    if (!a.owner) {
+      const off = await featureOff(a, "manager.dishInsights");
+      if (off) return off;
     }
 
     if (a.role === "waiter") {
@@ -253,7 +258,11 @@ export async function POST(req: Request) {
   try {
     const a = await access();
     if (!a.allowed && !a.owner) {
-      return Response.json({ error: "Access required." }, { status: 403 });
+      return denied(a, "Access required.");
+    }
+    if (!a.owner) {
+      const off = await featureOff(a, "manager.dishInsights");
+      if (off) return off;
     }
 
     const raw = await req.json();

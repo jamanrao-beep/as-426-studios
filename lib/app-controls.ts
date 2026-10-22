@@ -52,6 +52,8 @@ export const defaultGlobalControls: GlobalControls = {
   minVersion: "",
 };
 
+import { cached } from "@/lib/ttl-cache";
+
 let ready: Promise<void> | null = null;
 export function ensureControlsTables() {
   ready ??= (async () => {
@@ -97,7 +99,11 @@ function merge<T extends Record<string, any>>(base: T, patch: any): T {
   return out;
 }
 
-async function readScope(scope: string): Promise<any | null> {
+function readScope(scope: string): Promise<any | null> {
+  return cached(`ctl:${scope}`, 8000, () => readScopeNow(scope));
+}
+
+async function readScopeNow(scope: string): Promise<any | null> {
   await ensureControlsTables();
   const row = await db().prepare("SELECT data FROM app_controls WHERE scope = ?").bind(scope).first<{ data: string }>();
   if (!row) return null;

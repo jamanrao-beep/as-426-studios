@@ -3,6 +3,10 @@ import { hashPassword, generateTemporaryPassword } from "@/lib/password";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import crypto from "node:crypto";
+import { fail, readJson } from "@/lib/http";
+import { contactEmailOf } from "@/lib/account-mail";
+import { sendMail } from "@/lib/mailer";
+import { passwordResetEmail } from "@/lib/mail-templates";
 
 export async function GET(req: Request) {
   try {
@@ -56,8 +60,9 @@ export async function POST(req: Request) {
       return Response.json({ error: "Super Admin access required." }, { status: 403 });
     }
 
-    const raw = await req.json();
-    const parsed = managerActionSchema.safeParse(raw);
+    const body = await readJson(req);
+    if (!body.ok) return body.res;
+    const parsed = managerActionSchema.safeParse(body.data);
     if (!parsed.success) {
       return Response.json({ error: "Invalid account parameters." }, { status: 400 });
     }
@@ -67,8 +72,17 @@ export async function POST(req: Request) {
 
     // Prevent modifying Super Admin account via this endpoint
     const target = await db().prepare("SELECT role FROM accounts WHERE LOWER(email) = ?").bind(email).first<{ role: string }>();
-    if (target?.role === "super_admin" && action !== "edit") {
+    if (target?.role === "super_admin") {
       return Response.json({ error: "Super Admin account cannot be modified or deleted here." }, { status: 400 });
+    }
+    // This screen manages restaurant managers only. Waiters belong to their own restaurant's Team screen.
+    if (action !== "create" && target?.role !== "admin") {
+      return Response.json({ error: "Manager account not found." }, { status: 404 });
+    }
+    const needsRestaurant = action === "create" || action === "reassign";
+    if (needsRestaurant && restaurant_id) {
+      const rest = await db().prepare("SELECT id FROM restaurants WHERE id = ? AND status != 'archived'").bind(restaurant_id).first();
+      if (!rest) return Response.json({ error: "That restaurant does not exist." }, { status: 404 });
     }
 
     if (action === "create") {
@@ -115,7 +129,7 @@ export async function POST(req: Request) {
 
     if (action === "edit") {
       await db()
-        .prepare("UPDATE accounts SET name = ?, updated_at = ? WHERE LOWER(email) = ?")
+        .prepare("UPDATE accounts SET name = ?, updated_at = ? WHERE LOWER(email) = ? AND role = 'admin'")
         .bind(name || "", now, email)
         .run();
 
@@ -199,7 +213,15 @@ export async function POST(req: Request) {
         targetId: email,
       });
 
-      return Response.json({ ok: true, temporary_password: tempPass });
+      // Send the new temporary password to the inbox they gave us, and tell the Super Admin whether it went.
+      let mail: { sent: boolean; reason?: string } = { sent: false, reason: "No email on file for this account." };
+      const c = await contactEmailOf(email);
+      if (c) {
+        const trow = await db().prepare("SELECT restaurant_id FROM accounts WHERE LOWER(email) = ?").bind(email).first<{ restaurant_id: string | null }>();
+        const m = passwordResetEmail({ name: c.name, loginEmail: email, restaurantCode: trow?.restaurant_id || undefined, tempPassword: tempPass });
+        mail = await sendMail(c.email, m.subject, m.html, m.text);
+      }
+      return Response.json({ ok: true, temporary_password: tempPass, mail });
     }
 
     if (action === "revoke_sessions") {
@@ -235,8 +257,7 @@ export async function POST(req: Request) {
     }
 
     return Response.json({ error: "Unsupported action." }, { status: 400 });
-  } catch (err: any) {
-    console.error("POST /api/managers error:", err);
-    return Response.json({ error: err?.message || "Failed to process manager action." }, { status: 503 });
+  } catch (err) {
+    return fail(err, "POST /api/managers", "Failed to process manager action.");
   }
 }

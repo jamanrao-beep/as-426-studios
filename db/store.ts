@@ -2,8 +2,9 @@ import { getAuthUser } from "@/lib/auth";
 import { getSqliteD1 } from "@/db/sqlite";
 import { getMysqlDb, isMysqlConfigured } from "@/db/mysql";
 import { UserRole } from "@/lib/auth-constants";
+import { bustCache, cached } from "@/lib/ttl-cache";
 
-export function db(): D1Database {
+function rawDb(): D1Database {
   const cfDb = (globalThis as any).DB;
   if (cfDb) return cfDb;
   if (isMysqlConfigured()) {
@@ -13,6 +14,43 @@ export function db(): D1Database {
     throw new Error("Database is not configured: set MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD and MYSQL_DATABASE.");
   }
   return getSqliteD1() as unknown as D1Database;
+}
+
+// Writes to the tables whose reads are briefly remembered (lib/ttl-cache.ts) clear that memory, so a change made
+// by the Super Admin is seen on the very next request.
+const REMEMBERED = /\b(restaurants|subscriptions|app_controls|guest_accounts)\b/i;
+const WRITE = /^\s*(INSERT|UPDATE|DELETE|REPLACE)/i;
+
+export function db(): D1Database {
+  const d = rawDb();
+  return {
+    prepare(q: string) {
+      const st: any = d.prepare(q);
+      if (!WRITE.test(q) || !REMEMBERED.test(q)) return st;
+      const wrap = (m: "first" | "all" | "run") => async (...a: unknown[]) => {
+        try {
+          return await st[m](...a);
+        } finally {
+          bustCache();
+        }
+      };
+      const w: any = {
+        bind(...a: unknown[]) {
+          st.bind(...a);
+          return w;
+        },
+        first: wrap("first"),
+        all: wrap("all"),
+        run: wrap("run"),
+      };
+      return w;
+    },
+  } as unknown as D1Database;
+}
+
+// The restaurant's name and status, asked for by almost every staff request.
+export function restaurantInfo(id: string) {
+  return cached(`rest:${id}`, 5000, () => rawDb().prepare("SELECT name, status FROM restaurants WHERE id = ?").bind(id).first<{ name: string; status: string }>());
 }
 
 export type Access = {
@@ -27,9 +65,11 @@ export type Access = {
   restaurantName?: string;
   restaurantIds: string[];
   mustChangePassword?: boolean;
+  // Set when the account is signed in but may not act right now (temporary password, maintenance, plan ended).
+  blocked?: { code: string; message: string };
 };
 
-export async function access(restaurantId?: string): Promise<Access> {
+async function accessCore(restaurantId?: string): Promise<Access> {
   const user = await getAuthUser();
   if (!user) {
     return {
@@ -79,10 +119,7 @@ export async function access(restaurantId?: string): Promise<Access> {
     // Check if assigned restaurant is active
     let restName = userRestaurantId || "";
     if (userRestaurantId) {
-      const rest = await db()
-        .prepare("SELECT name, status FROM restaurants WHERE id = ?")
-        .bind(userRestaurantId)
-        .first<{ name: string; status: string }>();
+      const rest = await restaurantInfo(userRestaurantId);
       if (rest && (rest.status === "suspended" || rest.status === "archived")) {
         return {
           allowed: false,
@@ -122,7 +159,7 @@ export async function access(restaurantId?: string): Promise<Access> {
   const ids = userRestaurantId ? [userRestaurantId] : [];
   let waiterRestName = userRestaurantId || "";
   if (userRestaurantId) {
-    const rest = await db().prepare("SELECT name FROM restaurants WHERE id = ?").bind(userRestaurantId).first<{ name: string }>();
+    const rest = await restaurantInfo(userRestaurantId);
     if (rest) waiterRestName = rest.name;
   }
 
@@ -141,7 +178,7 @@ export async function access(restaurantId?: string): Promise<Access> {
   };
 }
 
-export async function orderAccess(restaurantId?: string, managerOnly = false): Promise<Access> {
+async function orderAccessCore(restaurantId?: string, managerOnly = false): Promise<Access> {
   const user = await getAuthUser();
   if (!user) {
     return {
@@ -156,16 +193,13 @@ export async function orderAccess(restaurantId?: string, managerOnly = false): P
   }
 
   if (user.role === "super_admin") {
-    return access(restaurantId);
+    return accessCore(restaurantId);
   }
 
   // Check restaurant status for staff
   let restaurantName = user.restaurantId || "";
   if (user.restaurantId) {
-    const rest = await db()
-      .prepare("SELECT name, status FROM restaurants WHERE id = ?")
-      .bind(user.restaurantId)
-      .first<{ name: string; status: string }>();
+    const rest = await restaurantInfo(user.restaurantId);
     if (rest && (rest.status === "suspended" || rest.status === "archived")) {
       return {
         allowed: false,
@@ -267,4 +301,25 @@ export function sameOrigin(req: Request) {
 
 export function validSlug(s: string) {
   return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(s) && s.length <= 60;
+}
+
+
+// Every staff request goes through the gate: temporary passwords, maintenance, a switched-off app and an ended plan
+// are refused here on the server, not just hidden in the apps.
+export async function access(restaurantId?: string): Promise<Access> {
+  const { gate } = await import("@/lib/enforce");
+  return gate(await accessCore(restaurantId));
+}
+
+export async function orderAccess(restaurantId?: string, managerOnly = false): Promise<Access> {
+  const { gate } = await import("@/lib/enforce");
+  return gate(await orderAccessCore(restaurantId, managerOnly));
+}
+
+// The right refusal: 401 when nobody valid is signed in (so the apps sign the person out), 403 otherwise, with the
+// reason when the gate blocked them.
+export function denied(a: Access, message: string) {
+  if (!a.role) return Response.json({ error: "Please sign in to continue.", code: "none" }, { status: 401 });
+  if (a.blocked) return Response.json({ error: a.blocked.message, code: a.blocked.code }, { status: 403 });
+  return Response.json({ error: message }, { status: 403 });
 }

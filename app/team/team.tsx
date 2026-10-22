@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { poll } from "@/lib/poller";
 import {
   Plus,
   Utensils,
@@ -14,6 +15,7 @@ import {
   Settings2,
   QrCode,
   Users,
+  UserPlus,
   Save,
   Pencil,
   Store,
@@ -44,11 +46,22 @@ import { Toaster, toast } from "sonner";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Sidebar, SidebarProvider } from "@/components/ui/sidebar";
 import Sales from "./sales";
-import Orders from "./orders";
+import OrdersBoard from "./orders-board";
+import Billing, { timeLeft } from "./billing";
+import HelpChat from "./help-chat";
+import QrRequest from "./qr-request";
+import ManagerProposals from "./manager-proposals";
+import People from "./people";
+import Onboard from "./onboard";
+import GuestBanner from "./guest-banner";
+import SignOutAll from "./sign-out-all";
+import MailCheck from "./mail-check";
 import OrderAlerts from "./order-alerts";
 import ServiceRequests from "./service-requests";
 import AppControls from "./app-controls";
 import { RegistrationRequests, Directory, Subscriptions } from "./saas-admin";
+import Queries from "./queries";
+import PlanCatalog from "./plan-catalog";
 import Waiters from "./waiters";
 import Reviews from "./reviews";
 import RestaurantAccess from "./restaurant-access";
@@ -119,17 +132,45 @@ export default function Team({
 
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [pendingRequests, setPendingRequests] = useState(0);
+  const [pendingManagers, setPendingManagers] = useState(0);
+  const [openQueries, setOpenQueries] = useState(0);
+  const [plansTick, setPlansTick] = useState(0);
+  // What the Super Admin has switched on for this restaurant, plus the plan or trial. The phone app reads the same
+  // endpoint, so both show and hide exactly the same things.
+  const [cfg, setCfg] = useState<{ restaurant: any; subscription: any; guest?: boolean; guestExpiresAt?: string | null; guestLimits?: { dishes: number; waiters: number } | null } | null>(null);
+  const loadCfg = () => {
+    if (isSuperAdmin) return;
+    fetch("/api/app-config", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: any) => d && setCfg({ restaurant: d.restaurant, subscription: d.subscription, guest: !!d.guest, guestExpiresAt: d.guestExpiresAt || null, guestLimits: d.guestLimits || null }))
+      .catch(() => {});
+  };
+  useEffect(() => {
+    loadCfg();
+    return poll(async () => {
+      await loadCfg();
+    }, { base: 60000, max: 120000 });
+  }, [isSuperAdmin]);
   const refreshRequests = () => {
     if (!isSuperAdmin) return;
     fetch("/api/admin/requests")
       .then((r) => (r.ok ? r.json() : null))
       .then((d: any) => d && setPendingRequests((d.requests || []).filter((x: any) => x.status === "pending").length))
       .catch(() => {});
+    fetch("/api/manager-proposals")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: any) => d && setPendingManagers(d.pending || 0))
+      .catch(() => {});
+    fetch("/api/admin/queries")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: any) => d && setOpenQueries(d.open || 0))
+      .catch(() => {});
   };
   useEffect(() => {
     refreshRequests();
-    const t = setInterval(refreshRequests, 30000);
-    return () => clearInterval(t);
+    return poll(async () => {
+      await refreshRequests();
+    }, { base: 30000, max: 60000 });
   }, [isSuperAdmin]);
   const [id, setId] = useState<string>("");
   const [menu, setMenu] = useState<Menu | null>(null);
@@ -142,6 +183,13 @@ export default function Team({
 
   // Tab defaults
   const [tab, setTab] = useState<string>(isSuperAdmin ? "overview" : "menu");
+  // The public Plans page links straight to Plan and billing.
+  useEffect(() => {
+    try {
+      if (!isSuperAdmin && new URLSearchParams(window.location.search).get("tab") === "billing") setTab("billing");
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // Create restaurant dialog
@@ -416,12 +464,26 @@ export default function Team({
   const currentRest = restaurants.find((r) => r.id === id);
   const savedName = currentRest?.name || "";
   const managerCanSeeQr = currentRest ? currentRest.manager_qr_visible !== false : true;
+  // Off for this restaurant, or off for everyone by the global switch. Either way the manager can ask for it.
+  const qrOn = managerCanSeeQr && cfg?.restaurant?.manager?.qrCode !== false;
+
+  // The sidebar is four short groups, not one long list.
+  const NAV_GROUPS: [string, string[]][] = [
+    ["Live", ["overview", "orders"]],
+    ["Menu and venue", ["menu", "settings", "qr", "restaurant-access"]],
+    ["Insights", ["sales", "dish-performance", "dish-insights", "reviews"]],
+    ["People and admin", ["people", "onboard", "requests", "manager-requests", "queries", "directory", "plans", "billing", "managers", "waiters", "add-manager", "app", "team"]],
+  ];
 
   // Navigation Items
   const nav = isSuperAdmin
     ? [
         { key: "overview", label: "System overview", icon: LayoutDashboard },
+        { key: "people", label: "People and usage", icon: Users },
+        { key: "onboard", label: "Set up a restaurant", icon: UserPlus },
         { key: "requests", label: pendingRequests ? `New requests (${pendingRequests})` : "New requests", icon: Inbox },
+        { key: "manager-requests", label: pendingManagers ? `Manager requests (${pendingManagers})` : "Manager requests", icon: UserPlus },
+        { key: "queries", label: openQueries ? `Queries (${openQueries})` : "Queries", icon: MessageSquare },
         { key: "directory", label: "Restaurants & accounts", icon: Building2 },
         { key: "plans", label: "Plans & trials", icon: Crown },
         { key: "dish-performance", label: "Dish performance", icon: TrendingUp },
@@ -444,11 +506,18 @@ export default function Team({
         { key: "dish-performance", label: "Dish performance", icon: TrendingUp },
         { key: "dish-insights", label: "Dish insights", icon: Sparkles },
         { key: "waiters", label: "Manage waiters", icon: Users },
+        { key: "add-manager", label: "Add a manager", icon: UserPlus },
         { key: "sales", label: "Monthly sales", icon: ShoppingBag },
         { key: "reviews", label: "Customer reviews", icon: MessageSquare },
         { key: "settings", label: "Restaurant settings", icon: Settings2 },
-        ...(managerCanSeeQr ? [{ key: "qr", label: "QR & customer link", icon: QrCode }] : []),
-      ];
+        { key: "qr", label: "QR & customer link", icon: QrCode },
+        { key: "billing", label: "Plan and billing", icon: Crown },
+      ].filter((n) => {
+        const m = cfg?.restaurant?.manager;
+        if (!m) return true;
+        const off: Record<string, string> = { menu: "menuEditing", waiters: "waiterManagement", sales: "sales", reviews: "reviews", "dish-performance": "dishPerformance", "dish-insights": "dishInsights", settings: "restaurantSettings" };
+        return !off[n.key] || m[off[n.key]] !== false;
+      });
 
   return (
     <SidebarProvider className="admin">
@@ -561,7 +630,14 @@ export default function Team({
           <div className="sidebar-divider" />
 
           {/* Nav Tabs */}
-          {nav.map((n) => (
+          {NAV_GROUPS.flatMap(([group, keys]) => {
+            const items = nav.filter((n) => keys.includes(n.key));
+            return items.length
+              ? [
+                  <p className="nav-group-label" key={"g-" + group}>
+                    {group}
+                  </p>,
+                  ...items.map((n) => (
             <button
               className={tab === n.key ? "nav-item active" : "nav-item"}
               key={n.key}
@@ -577,7 +653,10 @@ export default function Team({
               <n.icon size={18} />
               {n.label}
             </button>
-          ))}
+                  )),
+                ]
+              : [];
+          })}
         </div>
 
         {/* Current User Card - Pinned at bottom */}
@@ -606,16 +685,29 @@ export default function Team({
 
       {/* Main Workspace Area */}
       <div className="admin-main">
+        {!isSuperAdmin && cfg?.guest && <GuestBanner expiresAt={cfg.guestExpiresAt || null} limits={cfg.guestLimits || null} />}
         <header className="admin-top">
           <span>
             Workspace <span className="muted"> / {tab === "overview" ? "System Overview" : menu?.name || savedName || "Restaurant"}</span>
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+            {!isSuperAdmin && <HelpChat role="manager" />}
+            {!isSuperAdmin && cfg?.subscription && (cfg.subscription.status === "trial" || cfg.subscription.status === "active" || cfg.subscription.status === "expired") && (
+              <button
+                type="button"
+                className={`plan-pill ${cfg.subscription.status === "expired" || (cfg.subscription.status === "trial" && cfg.subscription.msLeft < 2 * 86400000) ? "urgent" : cfg.subscription.status === "active" ? "ok" : ""}`}
+                onClick={() => setTab("billing")}
+                title="Plan and billing"
+              >
+                {cfg.subscription.status === "trial" ? `Trial · ${timeLeft(cfg.subscription.msLeft)} left` : cfg.subscription.status === "active" ? "Pro plan" : "Plan ended"}
+              </button>
+            )}
             {id && (
               <a href={"/r/" + id} target="_blank" rel="noreferrer">
                 View customer menu <ExternalLink size={15} />
               </a>
             )}
+            {!isSuperAdmin && <SignOutAll />}
             <a
               className="quiet-link"
               href="/api/auth/logout?return_to=/login"
@@ -643,7 +735,7 @@ export default function Team({
           {tab !== "overview" && (
             <div className="admin-title">
               <div>
-                <p className="eyebrow">AS 426 STUDIOS · RESTAURANT WORKSPACE</p>
+                <p className="crumb">Workspace</p>
                 <h1>{nav.find((n) => n.key === tab)?.label}</h1>
                 <p>
                   {tab === "orders"
@@ -666,8 +758,20 @@ export default function Team({
                     ? "One scan. Their next favourite dish."
                     : tab === "app"
                     ? "Decide what managers and waiters can do in the phone app."
+                    : tab === "onboard"
+                    ? "Add a restaurant yourself: their details, free trial or paid plan, and a login to hand over."
+                    : tab === "people"
+                    ? "Everyone using Table Secret: contact details, free trials, guest weeks, plans and usage."
+                    : tab === "manager-requests"
+                    ? "Managers that restaurants asked to add. Approve to create the account."
+                    : tab === "add-manager"
+                    ? "Ask for another manager. The Super Admin approves before they can sign in."
                     : tab === "requests"
                     ? "Review restaurants that asked to join and start their free trial."
+                    : tab === "billing"
+                    ? "Your free trial, your plan, and how to change it."
+                    : tab === "queries"
+                    ? "Questions from people using the app. Reply by email and in the app."
                     : tab === "directory"
                     ? "Edit, add or remove any restaurant, manager or waiter."
                     : tab === "plans"
@@ -688,13 +792,25 @@ export default function Team({
                 tab !== "dish-insights" &&
                 tab !== "app" &&
                 tab !== "requests" &&
+                tab !== "manager-requests" &&
+                tab !== "people" &&
+                tab !== "onboard" &&
+                tab !== "add-manager" &&
+                tab !== "queries" &&
+                tab !== "billing" &&
                 tab !== "directory" &&
                 tab !== "plans" &&
                 tab !== "overview" && (
-                  <button className="primary" onClick={save} disabled={!dirty || busy}>
-                    <Save size={16} />
-                    {busy ? "Saving…" : dirty ? "Save changes" : "All changes saved"}
-                  </button>
+                  dirty || busy ? (
+                    <button className="primary" onClick={save} disabled={busy}>
+                      <Save size={16} />
+                      {busy ? "Saving…" : "Save changes"}
+                    </button>
+                  ) : (
+                    <span className="save-status" role="status">
+                      <Check size={15} /> All changes saved
+                    </span>
+                  )
                 )}
             </div>
           )}
@@ -721,10 +837,10 @@ export default function Team({
           )}
 
           {/* EMPTY RESTAURANTS STATE */}
-          {!id && !error && tab !== "overview" && (
+          {!id && !error && tab !== "overview" && !(isSuperAdmin && ["people", "onboard", "requests", "manager-requests", "queries", "directory", "plans", "managers", "app", "team"].includes(tab)) && (
             <div className="empty">
-              <h2>No restaurants yet.</h2>
-              <p>Add a restaurant to create its menu and QR code.</p>
+              <h2>{restaurants.length ? "Choose a restaurant." : "No restaurants yet."}</h2>
+              <p>{restaurants.length ? "Pick one from the list on the left to see its orders, menu and reports." : "Add a restaurant to create its menu and QR code."}</p>
               {isSuperAdmin && (
                 <button className="primary" onClick={() => setCreate(true)}>
                   <Plus size={16} /> Add restaurant
@@ -738,24 +854,24 @@ export default function Team({
             <>
               <div className="stats">
                 <div>
-                  <span>On the menu</span>
+                  <span>Dishes</span>
                   <strong>
                     {menu.dishes.length}
                     <small>dishes</small>
                   </strong>
                 </div>
                 <div>
-                  <span>Ready to serve</span>
+                  <span>Available</span>
                   <strong>
                     {menu.dishes.filter((d) => d.available).length}
                     <small>available</small>
                   </strong>
                 </div>
                 <div>
-                  <span>A little mystery</span>
+                  <span>Secret dishes</span>
                   <strong>
                     {menu.dishes.filter((d) => d.secret).length}
-                    <small>secret dishes</small>
+                    <small>hidden</small>
                   </strong>
                 </div>
               </div>
@@ -936,44 +1052,9 @@ export default function Team({
           )}
 
           {/* QR & CUSTOMER LINK */}
-          {tab === "qr" && !isSuperAdmin && !managerCanSeeQr && (
-            <div
-              style={{
-                background: "#fff",
-                border: "1px solid #e2e8f0",
-                borderRadius: 14,
-                padding: "48px 24px",
-                textAlign: "center",
-                maxWidth: 580,
-                margin: "24px auto",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-              }}
-            >
-              <div
-                style={{
-                  width: 58,
-                  height: 58,
-                  borderRadius: "50%",
-                  background: "#fee2e2",
-                  color: "#991b1b",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  margin: "0 auto 16px auto",
-                }}
-              >
-                <QrCode size={30} />
-              </div>
-              <h2 style={{ fontSize: "1.35rem", color: "#0f172a", marginBottom: 8, fontWeight: 700 }}>
-                QR Code Access Disabled
-              </h2>
-              <p style={{ color: "#475569", fontSize: "0.9rem", lineHeight: 1.6, margin: 0 }}>
-                The Super Admin has turned off QR code visibility for this restaurant. Please contact your Super Admin if you need access to the table QR code or printable assets.
-              </p>
-            </div>
-          )}
+          {tab === "qr" && !isSuperAdmin && !qrOn && <QrRequest restaurantName={savedName} />}
 
-          {tab === "qr" && (isSuperAdmin || managerCanSeeQr) && (
+          {tab === "qr" && (isSuperAdmin || qrOn) && (
             <div className="qr-panel">
               <div className="qr-card">
                 <p className="eyebrow">{menu?.name || savedName}</p>
@@ -1105,12 +1186,28 @@ export default function Team({
           )}
 
           {/* ORDERS & LIVE ALERTS */}
-          {isSuperAdmin && tab === "app" && <AppControls />}
+          {isSuperAdmin && tab === "app" && (
+            <>
+              <MailCheck />
+              <AppControls />
+            </>
+          )}
           {isSuperAdmin && tab === "requests" && <RegistrationRequests onChange={refreshRequests} />}
+          {isSuperAdmin && tab === "queries" && <Queries onChange={refreshRequests} />}
+          {isSuperAdmin && tab === "people" && <People />}
+          {isSuperAdmin && tab === "onboard" && <Onboard onDone={refreshRequests} />}
+          {isSuperAdmin && tab === "manager-requests" && <ManagerProposals owner onChange={refreshRequests} />}
+          {!isSuperAdmin && tab === "add-manager" && <ManagerProposals owner={false} restaurantCode={id} />}
+          {!isSuperAdmin && tab === "billing" && <Billing onChange={loadCfg} />}
           {isSuperAdmin && tab === "directory" && <Directory />}
-          {isSuperAdmin && tab === "plans" && <Subscriptions />}
+          {isSuperAdmin && tab === "plans" && (
+            <div style={{ display: "grid", gap: 28 }}>
+              <PlanCatalog onChange={() => setPlansTick((t) => t + 1)} />
+              <Subscriptions key={plansTick} />
+            </div>
+          )}
           {id && tab === "orders" && <ServiceRequests key={"sr-" + id} restaurant={id} />}
-          {id && tab === "orders" && <Orders key={id} restaurant={id} canEdit />}
+          {id && tab === "orders" && <OrdersBoard key={id} restaurant={id} canManage />}
 
           {/* WAITERS MANAGEMENT */}
           {tab === "waiters" && (

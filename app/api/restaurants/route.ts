@@ -1,6 +1,8 @@
-import { access, db, sameOrigin, validSlug, readMenu } from "@/db/store";
+import { access, db, sameOrigin, validSlug, readMenu, denied } from "@/db/store";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
+import { featureOff } from "@/lib/enforce";
+import { fail, readJson } from "@/lib/http";
 
 export async function GET(req: Request) {
   try {
@@ -11,7 +13,7 @@ export async function GET(req: Request) {
 
     const a = await access();
     if (!a.allowed && !a.owner) {
-      return Response.json({ error: "Restaurant access required." }, { status: 403 });
+      return denied(a, "Restaurant access required.");
     }
 
     // Load from restaurants table
@@ -87,8 +89,9 @@ export async function POST(req: Request) {
       return Response.json({ error: "Super Admin access required to create restaurants." }, { status: 403 });
     }
 
-    const raw = await req.json();
-    const parsed = addRestaurantSchema.safeParse(raw);
+    const body = await readJson(req);
+    if (!body.ok) return body.res;
+    const parsed = addRestaurantSchema.safeParse(body.data);
     if (!parsed.success) {
       return Response.json({ error: "Please enter a valid restaurant name and unique URL slug." }, { status: 400 });
     }
@@ -153,7 +156,7 @@ export async function POST(req: Request) {
     });
   } catch (err: any) {
     console.error("POST /api/restaurants error:", err);
-    return Response.json({ error: err?.message || "Couldn’t create the restaurant. Please try again." }, { status: 503 });
+    return fail(err, "POST /api/restaurants", "Couldn’t create the restaurant. Please try again.");
   }
 }
 
@@ -173,8 +176,9 @@ export async function PATCH(req: Request) {
   try {
     if (!sameOrigin(req)) return Response.json({ error: "Request rejected." }, { status: 403 });
 
-    const raw = await req.json();
-    const parsed = updateRestaurantSchema.safeParse(raw);
+    const body = await readJson(req);
+    if (!body.ok) return body.res;
+    const parsed = updateRestaurantSchema.safeParse(body.data);
     if (!parsed.success) {
       return Response.json({ error: "Invalid restaurant update payload." }, { status: 400 });
     }
@@ -183,10 +187,15 @@ export async function PATCH(req: Request) {
     const a = await access(id);
 
     if (!a.allowed && !a.owner) {
-      return Response.json({ error: "Restaurant manager access required." }, { status: 403 });
+      return denied(a, "Restaurant manager access required.");
     }
 
     const now = new Date().toISOString();
+
+    if (!a.owner) {
+      const off = await featureOff(a, "manager.restaurantSettings");
+      if (off) return off;
+    }
 
     // If Restaurant Admin (not Super Admin), only allow permitted fields: welcome_message, note, status (pause/resume)
     if (!a.owner) {
@@ -272,7 +281,7 @@ export async function PATCH(req: Request) {
     return Response.json({ ok: true });
   } catch (err: any) {
     console.error("PATCH /api/restaurants error:", err);
-    return Response.json({ error: err?.message || "Failed to update restaurant." }, { status: 503 });
+    return fail(err, "PATCH /api/restaurants", "Failed to update restaurant.");
   }
 }
 

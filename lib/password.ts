@@ -39,8 +39,10 @@ export async function verifyPassword(password: string, storedHash: string): Prom
     });
   }
 
-  // Fallback for legacy seeded passwords during migration
-  return password === storedHash;
+  // Fallback for legacy seeded passwords during migration, compared in constant time.
+  const a = Buffer.from(password);
+  const b = Buffer.from(storedHash);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
 /**

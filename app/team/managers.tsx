@@ -1,18 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  ShieldCheck,
-  Plus,
-  Trash2,
-  Key,
-  Copy,
-  Store,
-  RefreshCw,
-  LogOut,
-  Edit2,
-  Check,
-} from "lucide-react";
+import { shortLogin } from "@/lib/login-id";
+import { ShieldCheck, Plus, Trash2, Key, Copy, Store, RefreshCw, LogOut, Edit2 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
@@ -543,7 +533,7 @@ export default function Managers({
                     </div>
 
                     <div style={{ display: "flex", gap: 14, marginTop: 4, fontSize: "0.82rem", color: "#475569", flexWrap: "wrap", alignItems: "center" }}>
-                      <span>{m.email}</span>
+                      <span>{shortLogin(m.email)}</span>
                       {!isSuper && (
                         <span>
                           📍 Assigned: <strong style={{ color: "#0f172a" }}>{restObj?.name || m.restaurant_id || "No restaurant assigned"}</strong>
@@ -688,7 +678,7 @@ export default function Managers({
               <strong>Restaurant:</strong> {credentialModal.restaurantName}
             </div>
             <div>
-              <strong>Email:</strong> {credentialModal.email}
+              <strong>Login ID:</strong> {shortLogin(credentialModal.email)}
             </div>
             <div>
               <strong>Temporary Password:</strong>{" "}

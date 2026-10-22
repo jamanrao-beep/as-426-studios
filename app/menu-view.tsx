@@ -1,34 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  LockKeyhole,
-  Sparkles,
-  Leaf,
-  Flame,
-  Plus,
-  Minus,
-  Search,
-  Heart,
-  Shuffle,
-  Share2,
-  Moon,
-  Sun,
-  ArrowUp,
-  ArrowUpRight,
-  ReceiptText,
-  Coffee,
-  CakeSlice,
-  Salad,
-  Soup,
-  UtensilsCrossed,
-  BellRing,
-  Receipt,
-  Languages,
-  Download,
-  WifiOff,
-  Flame as FlameIcon,
-} from "lucide-react";
+import { poll } from "@/lib/poller";
+import { LockKeyhole, Sparkles, Leaf, Flame, Plus, Minus, Search, Heart, Shuffle, Share2, Moon, Sun, ArrowUp, ArrowUpRight, ReceiptText, Coffee, CakeSlice, Salad, Soup, UtensilsCrossed, BellRing, Receipt, Languages, Download, WifiOff } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import PlacedOrders from "./placed-orders";
 import Cart, { type CartItem } from "./cart";
@@ -285,8 +259,9 @@ export default function MenuView({ restaurant }: { restaurant: string }) {
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 60000);
-    return () => clearInterval(t);
+    return poll(async () => {
+      await load();
+    }, { base: 60000, max: 120000 });
   }, [restaurant]);
 
   useEffect(() => {
@@ -406,28 +381,10 @@ export default function MenuView({ restaurant }: { restaurant: string }) {
             </p>
             <h1>{menu.name}</h1>
             <p className="hero-tagline">{menu.tagline}</p>
-            <a className="hero-browse" href="#restaurant-menu">
-              <span>{t("Find something delicious")}</span>
-              <span className="hero-arrow">
-                <ArrowUpRight size={20} />
-              </span>
+            <a className="hero-cta" href="#restaurant-menu">
+              {t("View the menu")}
+              <ArrowUpRight size={18} />
             </a>
-            <span className="hero-endnote">{t("A menu made for a little discovery.")}</span>
-          </div>
-          <div className="hero-visual">
-            <span className="hero-edition" aria-hidden="true">
-              THE TABLE EDIT
-            </span>
-            <img className="restaurant-cover" src="/food.jpg" alt="Illustrative restaurant dish" />
-            <span className="hero-photo-note">Illustrative food photography</span>
-            <span className="discovery-seal" aria-hidden="true">
-              <Sparkles size={23} strokeWidth={1} />
-              <span>
-                Stay curious.
-                <br />
-                Eat well.
-              </span>
-            </span>
           </div>
         </section>
 

@@ -1,5 +1,6 @@
-import { access, db, validSlug } from "@/db/store";
+import { access, db, denied } from "@/db/store";
 import { indiaDate, monthRange } from "@/lib/order-time";
+import { featureOff } from "@/lib/enforce";
 
 export async function GET(req: Request) {
   try {
@@ -9,7 +10,11 @@ export async function GET(req: Request) {
 
     const a = await access(restaurant || undefined);
     if (!a.allowed && !a.owner) {
-      return Response.json({ error: "Restaurant manager access required." }, { status: 403 });
+      return denied(a, "Restaurant manager access required.");
+    }
+    if (!a.owner) {
+      const off = await featureOff(a, "manager.sales");
+      if (off) return off;
     }
 
     // Waiters are strictly forbidden from viewing sales reports

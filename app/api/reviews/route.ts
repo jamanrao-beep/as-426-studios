@@ -1,5 +1,7 @@
-import { access, db, readMenu, sameOrigin, validSlug } from "@/db/store";
+import { access, db, readMenu, sameOrigin, validSlug, denied } from "@/db/store";
 import { z } from "zod";
+import { rateLimitDb, clientIp } from "@/lib/rate-limit-db";
+import { featureOff } from "@/lib/enforce";
 
 const submission = z.object({
   restaurant: z.string().refine(validSlug),
@@ -26,6 +28,8 @@ export async function POST(req: Request) {
     if (!parsed.success) return Response.json({ error: "Choose 1–5 stars and write a message of 3–2,000 characters." }, { status: 400 });
 
     const { restaurant, id, rating, message, name } = parsed.data;
+    const limit = await rateLimitDb(`review:${clientIp(req)}:${restaurant}`, 5, 60 * 60 * 1000);
+    if (!limit.allowed) return Response.json({ error: "You have sent several reviews already. Please try again later." }, { status: 429 });
     const menu = await readMenu(restaurant);
     if (!menu?.menu.active) return Response.json({ error: "This restaurant isn’t accepting reviews right now." }, { status: 404 });
 
@@ -62,7 +66,11 @@ export async function GET(req: Request) {
 
     const a = await access(restaurant);
     if (!a.allowed && !a.owner) {
-      return Response.json({ error: "You don’t have access to these reviews." }, { status: 403 });
+      return denied(a, "You don’t have access to these reviews.");
+    }
+    if (!a.owner) {
+      const off = await featureOff(a, "manager.reviews");
+      if (off) return off;
     }
 
     if (a.role === "waiter") {
@@ -93,7 +101,11 @@ export async function PATCH(req: Request) {
 
     const a = await access(b.restaurant);
     if (!a.allowed && !a.owner) {
-      return Response.json({ error: "You don’t have access to these reviews." }, { status: 403 });
+      return denied(a, "You don’t have access to these reviews.");
+    }
+    if (!a.owner) {
+      const off = await featureOff(a, "manager.reviews");
+      if (off) return off;
     }
 
     if (a.role === "waiter") {

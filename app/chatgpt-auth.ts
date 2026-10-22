@@ -1,4 +1,3 @@
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/auth";
 
@@ -10,12 +9,6 @@ export type ChatGPTUser = {
   role?: "super_admin" | "admin" | "waiter";
 };
 
-const USER_ID_HEADER = "oai-authenticated-user-id";
-const USER_EMAIL_HEADER = "oai-authenticated-user-email";
-const USER_FULL_NAME_HEADER = "oai-authenticated-user-full-name";
-const USER_FULL_NAME_ENCODING_HEADER =
-  "oai-authenticated-user-full-name-encoding";
-const PERCENT_ENCODED_UTF8 = "percent-encoded-utf-8";
 const SIGN_IN_PATH = "/login";
 const SIGN_OUT_PATH = "/api/auth/logout";
 const CALLBACK_PATH = "/callback";
@@ -79,10 +72,3 @@ function isReservedAuthPath(pathname: string): boolean {
   );
 }
 
-function safeDecodeURIComponent(value: string): string | null {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return null;
-  }
-}

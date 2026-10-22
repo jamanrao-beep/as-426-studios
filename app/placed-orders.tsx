@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { orderKeys, type OrderKey } from "@/lib/customer-orders";
 import { money, type StoredOrder } from "@/lib/orders";
 import { orderTime } from "@/lib/order-time";
+import { poll } from "@/lib/poller";
 import DishRatingWidget from "./dish-rating-widget";
 import { useLang } from "@/lib/i18n";
 
@@ -79,8 +80,9 @@ export default function PlacedOrders({ restaurant }: { restaurant: string }) {
 
   useEffect(() => {
     let alive = true;
-    async function load() {
-      if (typeof document !== "undefined" && document.hidden) return;
+    let sig = "";
+    async function load(): Promise<boolean> {
+      if (typeof document !== "undefined" && document.hidden) return false;
       try {
         const keys = orderKeys(restaurant);
         if (alive) setKeysList(keys);
@@ -95,6 +97,9 @@ export default function PlacedOrders({ restaurant }: { restaurant: string }) {
           if (!r.ok) throw Error(d.error);
           all.push(...d.orders);
         }
+        const now = JSON.stringify(all.map((o) => [o.id, o.status]));
+        const changed = now !== sig;
+        sig = now;
         if (alive) {
           for (const o of all) {
             const before = prevStatus.current[o.id];
@@ -104,8 +109,10 @@ export default function PlacedOrders({ restaurant }: { restaurant: string }) {
           setRows(all.sort((a, b) => b.created_at.localeCompare(a.created_at)));
           setError("");
         }
+        return changed;
       } catch (e) {
         if (alive) setError(e instanceof Error ? e.message : "Unable to refresh");
+        return true;
       } finally {
         if (alive) setLoading(false);
       }
@@ -118,14 +125,12 @@ export default function PlacedOrders({ restaurant }: { restaurant: string }) {
     }
 
     load();
-    const t = setInterval(load, 8000);
+    const stop = poll(load);
     window.addEventListener("table-order-placed", placed);
-    window.addEventListener("focus", load);
     return () => {
       alive = false;
-      clearInterval(t);
+      stop();
       window.removeEventListener("table-order-placed", placed);
-      window.removeEventListener("focus", load);
     };
   }, [restaurant]);
 

@@ -1,8 +1,9 @@
 import { cookies, headers } from "next/headers";
 import { AuthUser, AUTH_COOKIE_NAME, UserRole } from "./auth-constants";
 import { db } from "@/db/store";
-import { verifyPassword } from "./password";
+import { hashPassword, verifyPassword } from "./password";
 import { ensureSaasTables } from "./saas";
+import { rateLimitDb, clearRateLimitDb } from "@/lib/rate-limit-db";
 import { rateLimit, clearRateLimit } from "./rate-limit";
 import crypto from "node:crypto";
 
@@ -18,6 +19,9 @@ function signPayload(dataStr: string): string {
 /**
  * Authenticate credentials against SQLite accounts table with rate limiting and password verification.
  */
+let dummy: Promise<string> | null = null;
+const dummyHash = () => (dummy ??= hashPassword("not-a-real-password-" + crypto.randomBytes(8).toString("hex")));
+
 export async function authenticate(
   email: string,
   pass: string,
@@ -25,12 +29,18 @@ export async function authenticate(
 ): Promise<{ user: AuthUser | null; error?: string; rateLimited?: boolean }> {
   const normalizedEmail = email.trim().toLowerCase();
 
-  // 1. Check rate limit: 6 attempts per 15 minutes
-  const limitCheck = rateLimit(`login:${clientIp}:${normalizedEmail}`, 6, 15 * 60 * 1000);
-  if (!limitCheck.allowed) {
+  // 1. Rate limits that live in the database, so every server instance shares them:
+  //    per address and account, per account from anywhere, and per address across accounts.
+  const checks = [
+    await rateLimitDb(`login:${clientIp}:${normalizedEmail}`, 6, 15 * 60 * 1000),
+    await rateLimitDb(`login-acct:${normalizedEmail}`, 20, 15 * 60 * 1000),
+    await rateLimitDb(`login-ip:${clientIp}`, 60, 15 * 60 * 1000),
+  ];
+  const blocked = checks.find((c) => !c.allowed);
+  if (blocked) {
     return {
       user: null,
-      error: `Too many login attempts. Please try again in ${Math.ceil(limitCheck.resetInSeconds / 60)} minutes.`,
+      error: `Too many login attempts. Please try again in ${Math.ceil(blocked.resetInSeconds / 60)} minutes.`,
       rateLimited: true,
     };
   }
@@ -54,14 +64,18 @@ export async function authenticate(
         session_version?: number;
       }>();
 
+    if (!row) {
+      // Do the same slow work for an unknown account, so response time never reveals which emails exist.
+      await verifyPassword(pass, await dummyHash());
+    }
     if (row) {
-      if (row.status === "suspended") {
+      const isValid = await verifyPassword(pass, row.password_hash);
+      // The suspended notice is only shown to someone who proves they know the password, so it cannot be used to probe accounts.
+      if (isValid && row.status === "suspended") {
         return { user: null, error: "This account has been suspended. Please contact your administrator." };
       }
-
-      const isValid = await verifyPassword(pass, row.password_hash);
       if (isValid) {
-        clearRateLimit(`login:${clientIp}:${normalizedEmail}`);
+        await clearRateLimitDb(`login:${clientIp}:${normalizedEmail}`);
         return {
           user: {
             userId: row.id || row.email,
@@ -205,6 +219,16 @@ export async function resolveAuth(): Promise<{ user: AuthUser | null; reason: Au
       return { user: null, reason: guestEnded ? "expired" : "removed" };
     }
     if (dbRow.status === "suspended") return { user: null, reason: "suspended" };
+    // A guest sandbox lasts its seven days and then stops working on the server, whether or not a clean-up has run.
+    if (/@guest\./i.test(session.email)) {
+      try {
+        const g = await db().prepare("SELECT expires_at FROM guest_accounts WHERE LOWER(email) = ?").bind(session.email).first<{ expires_at: string }>();
+        if (g && g.expires_at < new Date().toISOString()) {
+          import("@/lib/saas").then((m) => m.cleanupGuests()).catch(() => {});
+          return { user: null, reason: "expired" };
+        }
+      } catch {}
+    }
     if (session.sv && dbRow.session_version && dbRow.session_version !== session.sv) {
       // Session was revoked (e.g. password reset, email changed or admin revoke)
       return { user: null, reason: "revoked" };

@@ -1,10 +1,12 @@
 import { indiaDate, dayRange } from "@/lib/order-time";
-import { access, orderAccess, db, readMenu, sameOrigin, validSlug } from "@/db/store";
+import { orderAccess, db, readMenu, sameOrigin, validSlug, denied } from "@/db/store";
 import { after } from "next/server";
 import { notifyRestaurantStaff } from "@/lib/push-server";
 import { orderInput, priceOrder, transitions, type OrderStatus } from "@/lib/orders";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
+import { rateLimitDb, clientIp } from "@/lib/rate-limit-db";
+import { featureOff } from "@/lib/enforce";
 
 async function hash(value: string) {
   const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
@@ -46,18 +48,26 @@ export async function POST(req: Request) {
     }
     const b = parsed.data;
 
+    // Guests share a restaurant's Wi-Fi, so the ceiling is generous, but a flood from one device is cut off.
+    const ip = clientIp(req);
+    const perRestaurant = await rateLimitDb(`order:${ip}:${b.restaurant}`, 60, 10 * 60 * 1000);
+    const perTable = await rateLimitDb(`order:${ip}:${b.restaurant}:${b.table.toLowerCase()}`, 12, 10 * 60 * 1000);
+    if (!perRestaurant.allowed || !perTable.allowed) {
+      return Response.json({ error: "You have sent a lot of orders in a short time. Please ask your server for help." }, { status: 429 });
+    }
+
     const requestHash = await hash(JSON.stringify({ ...b, items: [...b.items].sort((a, b) => a.id.localeCompare(b.id)) }));
 
     const [prior, current] = await Promise.all([
       db()
-        .prepare("SELECT id, request_hash, status, total, table_label, created_at FROM orders WHERE id = ?")
+        .prepare("SELECT id, restaurant_id, request_hash, status, total, table_label, created_at FROM orders WHERE id = ?")
         .bind(b.id)
         .first<any>(),
       readMenu(b.restaurant),
     ]);
 
     if (prior) {
-      if (prior.request_hash !== requestHash) {
+      if (prior.request_hash !== requestHash || (prior.restaurant_id && prior.restaurant_id !== b.restaurant)) {
         return Response.json({ error: "This order was already submitted with different details." }, { status: 409 });
       }
       return Response.json({ order: receipt(prior) });
@@ -78,7 +88,13 @@ export async function POST(req: Request) {
     }
 
     const now = new Date().toISOString();
-    const isTestOrder = b.isTest ? 1 : 0;
+    // Only signed-in staff of this restaurant can place a silent test order. A guest's isTest flag is ignored.
+    let staffTest = false;
+    if (b.isTest) {
+      const who = await orderAccess(b.restaurant);
+      staffTest = !!(who.allowed || who.owner);
+    }
+    const isTestOrder = staffTest ? 1 : 0;
     const initialStatusHistory = JSON.stringify([{ status: "new", by: "customer", role: "customer", at: now }]);
 
     const result = await db()
@@ -125,7 +141,7 @@ export async function POST(req: Request) {
       { order: receipt({ id: b.id, status: "new", total: priced.total, table_label: b.table, created_at: now }) },
       { status: 201, headers: { "Cache-Control": "no-store" } }
     );
-  } catch (err: any) {
+  } catch (err) {
     console.error("POST /api/orders error:", err);
     return Response.json(
       { error: "We couldn’t confirm your order. Retry without changing your cart, or ask your server." },
@@ -152,7 +168,15 @@ export async function GET(req: Request) {
 
     const a = await orderAccess(id, managerOnly);
     if (!a.allowed && !a.owner) {
-      return Response.json({ error: "Order access required." }, { status: 403 });
+      return denied(a, "Order access required.");
+    }
+
+    if (a.role === "waiter" && !alerts) {
+      const viewParam = u.searchParams.get("view") || "today";
+      if (viewParam !== "today") {
+        const off = await featureOff(a, "waiter.orderHistory");
+        if (off) return off;
+      }
     }
 
     // Waiter restaurant isolation: cannot query another restaurant
@@ -205,9 +229,11 @@ export async function GET(req: Request) {
       where += " AND o.status = 'new'";
     }
 
-    if (statusFilter && ["new", "accepted", "preparing", "served", "cancelled"].includes(statusFilter)) {
-      where += " AND o.status = ?";
-      params.push(statusFilter);
+    // One status, or a comma list such as "accepted,preparing" for the In progress tab.
+    const wanted = statusFilter.split(",").map((x) => x.trim()).filter((x) => ["new", "accepted", "preparing", "served", "cancelled"].includes(x));
+    if (wanted.length) {
+      where += ` AND o.status IN (${wanted.map(() => "?").join(",")})`;
+      params.push(...wanted);
     }
 
     if (tableFilter) {
@@ -301,7 +327,7 @@ export async function PATCH(req: Request) {
     // Check authenticated session and order access
     const actor = await orderAccess(b.restaurant);
     if (!actor.allowed && !actor.owner) {
-      return Response.json({ error: "Order access required." }, { status: 403 });
+      return denied(actor, "Order access required.");
     }
 
     // Role-based restaurant scoping:
@@ -311,6 +337,11 @@ export async function PATCH(req: Request) {
         { error: "Access denied. You can only update orders for your assigned restaurant." },
         { status: 403 }
       );
+    }
+
+    if (b.status === "cancelled") {
+      const off = await featureOff(actor, "waiter.cancelOrders");
+      if (off) return off;
     }
 
     // Fetch existing order to validate current status and prevent conflicting/backwards changes

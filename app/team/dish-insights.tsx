@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sparkles, Check, ExternalLink, Calendar, Bell, ChevronRight, CheckCircle2 } from "lucide-react";
+import { Sparkles, Check, Calendar, Bell, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 interface InsightNotification {

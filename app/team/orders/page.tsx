@@ -27,6 +27,16 @@ export default async function Page() {
       );
     }
 
+    if (a.blocked) {
+      return (
+        <main className="access">
+          <h1>{a.blocked.code === "maintenance" ? "Back in a moment" : "Workspace unavailable"}</h1>
+          <p>{a.blocked.code === "plan_expired" ? "Your restaurant's plan has ended. Please ask your manager to choose a plan." : a.blocked.message}</p>
+          <a href="/api/auth/logout?return_to=/login">Sign out</a>
+        </main>
+      );
+    }
+
     return (
       <main className="access">
         <h1>Order access required</h1>

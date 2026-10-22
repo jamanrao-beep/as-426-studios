@@ -5,6 +5,8 @@ import { access, db, sameOrigin, validSlug } from "@/db/store";
 import { logAudit } from "@/lib/audit";
 import { hashPassword, generateTemporaryPassword } from "@/lib/password";
 import { deleteRestaurantData, ensureSaasTables } from "@/lib/saas";
+import { checkUsernameAt, staffLogin } from "@/lib/usernames";
+import { isDuplicate, weakPassword } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
@@ -45,8 +47,13 @@ const schema = z.discriminatedUnion("action", [
     action: z.literal("add_account"),
     role: z.enum(["admin", "waiter"]),
     restaurant: z.string().refine(validSlug),
-    email: z.string().trim().toLowerCase().email().max(190),
+    // A new account is made from a username (unique at that restaurant); a full login ID is still accepted.
+    username: z.string().trim().toLowerCase().max(30).optional(),
+    email: z.string().trim().toLowerCase().email().max(190).optional(),
     name: z.string().trim().min(1).max(80),
+    // Optional: set the password yourself and give it later. By default they must change it at first sign-in.
+    password: z.string().max(100).optional(),
+    mustChange: z.boolean().default(true),
   }),
   z.object({
     action: z.literal("edit_account"),
@@ -81,23 +88,43 @@ export async function POST(req: Request) {
     if (d.action === "add_account") {
       const rest = await db().prepare("SELECT id FROM restaurants WHERE id = ?").bind(d.restaurant).first();
       if (!rest) return NextResponse.json({ error: "Restaurant not found." }, { status: 404 });
-      const exists = await db().prepare("SELECT id FROM accounts WHERE LOWER(email) = ?").bind(d.email).first();
-      if (exists) return NextResponse.json({ error: "An account with this email already exists." }, { status: 409 });
-      const temp = generateTemporaryPassword();
-      const id = "acc_" + crypto.randomBytes(6).toString("hex");
-      await db()
-        .prepare(
-          "INSERT INTO accounts (id, email, password_hash, name, role, restaurant_id, status, must_change_password, session_version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'active', 1, 1, ?, ?)"
-        )
-        .bind(id, d.email, await hashPassword(temp), d.name, d.role, d.restaurant, now, now)
-        .run();
-      if (d.role === "waiter") {
-        await db().prepare("INSERT OR IGNORE INTO waiters (restaurant_id, email, name, created_at) VALUES (?, ?, ?, ?)").bind(d.restaurant, d.email, d.name, now).run();
-      } else {
-        await db().prepare("INSERT OR IGNORE INTO restaurant_members (restaurant_id, email) VALUES (?, ?)").bind(d.restaurant, d.email).run();
+      let login = d.email || "";
+      if (d.username) {
+        const shape = checkUsernameAt(d.username, d.restaurant);
+        const r = await shape;
+        if (!r.ok) return NextResponse.json({ error: r.reason }, { status: r.status });
+        login = staffLogin(d.username, d.restaurant);
       }
-      await logAudit({ action: "account_created", actorEmail: a.email, actorRole: a.role, targetType: "account", targetId: id, details: { email: d.email, role: d.role } });
-      return NextResponse.json({ ok: true, id, temporary_password: temp });
+      if (!login) return NextResponse.json({ error: "Enter a username." }, { status: 400 });
+      const exists = await db().prepare("SELECT id FROM accounts WHERE LOWER(email) = ?").bind(login).first();
+      if (exists) return NextResponse.json({ error: "An account with that login already exists." }, { status: 409 });
+      const chosen = (d.password || "").trim();
+      if (chosen) {
+        const weak = weakPassword(chosen, login);
+        if (weak) return NextResponse.json({ error: weak.replace("New password", "The password") }, { status: 400 });
+      }
+      const temp = chosen || generateTemporaryPassword();
+      const mustChange = chosen ? d.mustChange : true;
+      const id = "acc_" + crypto.randomBytes(6).toString("hex");
+      try {
+        await db()
+          .prepare(
+            "INSERT INTO accounts (id, email, password_hash, name, role, restaurant_id, status, must_change_password, session_version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, 1, ?, ?)"
+          )
+          .bind(id, login, await hashPassword(temp), d.name, d.role, d.restaurant, mustChange ? 1 : 0, now, now)
+          .run();
+      } catch (e) {
+        // Someone added the same login in the same instant. The first one stays; this one is refused, nothing is overwritten.
+        if (isDuplicate(e)) return NextResponse.json({ error: "That username was just taken at this restaurant. Please choose another." }, { status: 409 });
+        throw e;
+      }
+      if (d.role === "waiter") {
+        await db().prepare("INSERT OR IGNORE INTO waiters (restaurant_id, email, name, created_at) VALUES (?, ?, ?, ?)").bind(d.restaurant, login, d.name, now).run();
+      } else {
+        await db().prepare("INSERT OR IGNORE INTO restaurant_members (restaurant_id, email) VALUES (?, ?)").bind(d.restaurant, login).run();
+      }
+      await logAudit({ action: "account_created", actorEmail: a.email, actorRole: a.role, targetType: "account", targetId: id, details: { email: login, role: d.role } });
+      return NextResponse.json({ ok: true, id, login, restaurant_code: d.restaurant, temporary_password: temp, must_change: mustChange });
     }
 
     if (d.action === "edit_account") {
@@ -109,6 +136,10 @@ export async function POST(req: Request) {
         if (clash) return NextResponse.json({ error: "Another account already uses that email." }, { status: 409 });
       }
       const newRest = d.restaurant ?? row.restaurant_id;
+      if (d.restaurant) {
+        const target = await db().prepare("SELECT id FROM restaurants WHERE id = ? AND status != 'archived'").bind(d.restaurant).first();
+        if (!target) return NextResponse.json({ error: "That restaurant does not exist." }, { status: 404 });
+      }
       await db()
         .prepare("UPDATE accounts SET email = ?, name = COALESCE(?, name), restaurant_id = ?, session_version = session_version + 1, updated_at = ? WHERE id = ?")
         .bind(newEmail, d.name ?? null, newRest, now, row.id)
@@ -168,6 +199,10 @@ export async function POST(req: Request) {
     const rest = await db().prepare("SELECT name FROM restaurants WHERE id = ?").bind(d.id).first<{ name: string }>();
     if (!rest) return NextResponse.json({ error: "Restaurant not found." }, { status: 404 });
     if (d.confirm.trim() !== rest.name) return NextResponse.json({ error: "Type the restaurant name exactly to confirm." }, { status: 400 });
+    const open = await db().prepare("SELECT COUNT(*) AS n FROM orders WHERE restaurant_id = ? AND status IN ('new','accepted','preparing')").bind(d.id).first<{ n: number }>();
+    if (Number(open?.n || 0) > 0) {
+      return NextResponse.json({ error: `This restaurant has ${open?.n} live order(s). Finish or cancel them first, or archive the restaurant instead, which keeps its history.` }, { status: 409 });
+    }
     await deleteRestaurantData(d.id);
     await logAudit({ action: "restaurant_removed", actorEmail: a.email, actorRole: a.role, targetType: "restaurant", targetId: d.id, details: { name: rest.name } });
     return NextResponse.json({ ok: true });

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { access, db, sameOrigin, validSlug } from "@/db/store";
 import { logAudit } from "@/lib/audit";
-import { ensureSaasTables, getSubscription, PLANS, startTrial } from "@/lib/saas";
+import { activatePlan, ensureSaasTables, getPlan, getSubscription, listPlans, startTrial } from "@/lib/saas";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +22,10 @@ export async function GET() {
         .filter((r) => !guestIds.has(r.id))
         .map(async (r) => ({ id: r.id, name: r.name, ...(await getSubscription(r.id)) }))
     );
-    return NextResponse.json({ subscriptions: rows, plans: PLANS }, { headers: { "Cache-Control": "no-store" } });
+    const payments = await db()
+      .prepare("SELECT p.id, p.restaurant_id, r.name AS restaurant_name, p.plan_key, p.amount, p.status, p.paid_by, p.created_at, p.paid_at FROM payments p LEFT JOIN restaurants r ON r.id = p.restaurant_id ORDER BY p.created_at DESC LIMIT 30")
+      .all();
+    return NextResponse.json({ subscriptions: rows, plans: await listPlans(), payments: payments.results }, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     console.error("GET /api/admin/subscriptions error:", err);
     return NextResponse.json({ error: "Could not load plans." }, { status: 503 });
@@ -30,7 +33,7 @@ export async function GET() {
 }
 
 const schema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("activate"), restaurant: z.string().refine(validSlug), plan: z.enum(["monthly", "half_yearly", "yearly"]) }),
+  z.object({ action: z.literal("activate"), restaurant: z.string().refine(validSlug), plan: z.string().min(2).max(16) }),
   z.object({ action: z.literal("start_trial"), restaurant: z.string().refine(validSlug), days: z.number().int().min(1).max(90) }),
   z.object({ action: z.literal("expire"), restaurant: z.string().refine(validSlug) }),
 ]);
@@ -51,29 +54,21 @@ export async function POST(req: Request) {
     if (d.action === "start_trial") {
       await startTrial(d.restaurant, a.email, d.days);
     } else if (d.action === "expire") {
-      await db()
+      const ended = await db()
         .prepare("UPDATE subscriptions SET status = 'expired', trial_ends_at = ?, period_end = ?, updated_at = ?, updated_by = ? WHERE restaurant_id = ?")
         .bind(now.toISOString(), now.toISOString(), now.toISOString(), a.email, d.restaurant)
         .run();
-    } else {
-      const months = PLANS[d.plan].months;
-      const current = await getSubscription(d.restaurant);
-      // Paying early adds to the time left instead of losing it.
-      const base = current.status === "active" && current.endsAt ? new Date(current.endsAt) : now;
-      const end = new Date(base);
-      end.setMonth(end.getMonth() + months);
-      const have = await db().prepare("SELECT restaurant_id FROM subscriptions WHERE restaurant_id = ?").bind(d.restaurant).first();
-      if (have) {
+      // A restaurant the Super Admin added by hand has no plan row yet. Ending its access must still work.
+      if (!ended.meta.changes) {
         await db()
-          .prepare("UPDATE subscriptions SET status = 'active', plan = ?, period_end = ?, requested_plan = NULL, requested_at = NULL, updated_at = ?, updated_by = ? WHERE restaurant_id = ?")
-          .bind(d.plan, end.toISOString(), now.toISOString(), a.email, d.restaurant)
-          .run();
-      } else {
-        await db()
-          .prepare("INSERT INTO subscriptions (restaurant_id, status, plan, period_end, updated_at, updated_by) VALUES (?, 'active', ?, ?, ?, ?)")
-          .bind(d.restaurant, d.plan, end.toISOString(), now.toISOString(), a.email)
+          .prepare("INSERT INTO subscriptions (restaurant_id, status, trial_ends_at, period_end, updated_at, updated_by) VALUES (?, 'expired', ?, ?, ?, ?)")
+          .bind(d.restaurant, now.toISOString(), now.toISOString(), now.toISOString(), a.email)
           .run();
       }
+    } else {
+      const chosen = await getPlan(d.plan);
+      if (!chosen) return NextResponse.json({ error: "That plan no longer exists." }, { status: 404 });
+      await activatePlan(d.restaurant, d.plan, a.email);
     }
     await logAudit({ action: "subscription_updated", actorEmail: a.email, actorRole: a.role, targetType: "restaurant", targetId: d.restaurant, details: { change: d.action } });
     return NextResponse.json({ ok: true, subscription: await getSubscription(d.restaurant) });

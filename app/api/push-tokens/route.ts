@@ -36,6 +36,12 @@ export async function POST(req: Request) {
         .bind(p.data.token, user.email.toLowerCase(), user.role, user.restaurantId || null, p.data.platform || null, now)
         .run();
     }
+    // Keep only this account's ten most recent devices.
+    await db()
+      .prepare("DELETE FROM push_tokens WHERE LOWER(user_email) = ? AND token NOT IN (SELECT token FROM (SELECT token FROM push_tokens WHERE LOWER(user_email) = ? ORDER BY updated_at DESC, token DESC LIMIT 10) keep)")
+      .bind(user.email.toLowerCase(), user.email.toLowerCase())
+      .run()
+      .catch(() => {});
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("POST /api/push-tokens error:", err);

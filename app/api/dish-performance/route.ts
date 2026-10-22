@@ -1,4 +1,4 @@
-import { access, db, validSlug, readMenu } from "@/db/store";
+import { access, db, validSlug, readMenu, denied } from "@/db/store";
 import {
   indiaDate,
   yesterdayIndiaDate,
@@ -7,7 +7,8 @@ import {
   lastMonth,
   customDateRange,
 } from "@/lib/order-time";
-import type { Dish, Menu } from "@/lib/menu";
+import type { Dish } from "@/lib/menu";
+import { featureOff } from "@/lib/enforce";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,11 @@ export async function GET(req: Request) {
 
     const a = await access(restaurant || undefined);
     if (!a.allowed && !a.owner) {
-      return Response.json({ error: "Restaurant admin access required." }, { status: 403 });
+      return denied(a, "Restaurant admin access required.");
+    }
+    if (!a.owner) {
+      const off = await featureOff(a, "manager.dishPerformance");
+      if (off) return off;
     }
 
     // Waiters are strictly forbidden
