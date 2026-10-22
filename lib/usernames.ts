@@ -1,5 +1,6 @@
 import { db } from "@/db/store";
 import { LOGIN_DOMAIN } from "@/lib/saas";
+import { fullLogin } from "@/lib/login-id";
 
 // A person signs in with a login ID. Every account belongs to one restaurant, and the ID carries that restaurant:
 //
@@ -57,11 +58,11 @@ export async function firstInLine(username: string, restaurantCode: string, myId
 export function composeLogin(input: { email?: unknown; username?: unknown; restaurant?: unknown }): string {
   const clean = (v: unknown) => (typeof v === "string" ? v.trim().toLowerCase() : "");
   const email = clean(input.email);
-  if (email) return email;
+  if (email) return fullLogin(email);
   const username = clean(input.username);
   const code = clean(input.restaurant).replace(/^@+/, "");
   if (!username) return "";
-  if (username.includes("@")) return username;
+  if (username.includes("@")) return fullLogin(username);
   // No restaurant code: the Super Admin and older accounts type their whole ID, so this only helps the old short form.
   return code && /^[a-z0-9][a-z0-9-]{0,60}$/.test(code) ? staffLogin(username, code) : `${username}@${LOGIN_DOMAIN}`;
 }

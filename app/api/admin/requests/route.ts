@@ -28,6 +28,7 @@ type Row = {
   decided_by: string | null;
   contact_email: string | null;
   plan_choice: string | null;
+  restaurant_code: string | null;
 };
 
 // Super Admin: restaurant registration requests, newest first.
@@ -38,7 +39,7 @@ export async function GET() {
     await ensureSaasTables();
     const rows = await db()
       .prepare(
-        `SELECT id, email, owner_name, phone, restaurant_name, address, city, lat, lng, status, note, restaurant_id, created_at, decided_at, decided_by, contact_email, plan_choice
+        `SELECT id, email, owner_name, phone, restaurant_name, address, city, lat, lng, status, note, restaurant_id, created_at, decided_at, decided_by, contact_email, plan_choice, restaurant_code
          FROM registration_requests ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, created_at DESC LIMIT 200`
       )
       .all<Row>();
@@ -66,10 +67,10 @@ export async function POST(req: Request) {
 
     const r = await db()
       .prepare(
-        "SELECT id, email, password_hash, owner_name, phone, restaurant_name, address, city, lat, lng, status, contact_email, plan_choice FROM registration_requests WHERE id = ?"
+        "SELECT id, email, password_hash, owner_name, phone, restaurant_name, address, city, lat, lng, status, contact_email, plan_choice, restaurant_code FROM registration_requests WHERE id = ?"
       )
       .bind(p.data.id)
-      .first<Row & { password_hash: string }>();
+      .first<Row & { password_hash: string; restaurant_code: string | null }>();
     if (!r) return NextResponse.json({ error: "Request not found." }, { status: 404 });
     if (r.status !== "pending") return NextResponse.json({ error: "This request was already decided." }, { status: 409 });
 
@@ -112,6 +113,7 @@ export async function POST(req: Request) {
         passwordHash: r.password_hash,
         mustChange: false,
         by: a.email,
+        code: r.restaurant_code || undefined,
       });
       restaurantId = created.restaurantId;
       loginEmail = created.loginEmail;

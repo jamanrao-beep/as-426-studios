@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import EmailVerify from "../email-verify";
+import { codeOf, shortLogin } from "@/lib/login-id";
 import { inr, PlanCards, PLAN_CSS, TrialGlow, type Plan, type Trial } from "../plan-cards";
 import {
   ArrowLeft,
@@ -55,7 +56,7 @@ const faqsFor = (trialDays: string, guestDays: string) => [
   { q: "Do my guests need to download anything?", a: "No. They scan the QR code and the menu opens in their browser. They can also save the menu offline on their phone." },
   { q: "How long does approval take?", a: "Our team reviews every request by hand, normally within one working day. You see the status live on this page, and we email you the moment you are approved." },
   { q: "What do I get after approval?", a: `Your restaurant page, a starter menu, a manager login, a ${trialDays} free trial with everything unlocked, and your table QR code ready to print.` },
-  { q: "What is my login ID?", a: "Your username plus your restaurant code, for example asha@spice-route.as426studios.com. We create the restaurant code when we approve you and email it to you. It is only used to sign in, it is not a mailbox. We send all emails to the contact email you give us." },
+  { q: "What is my login ID?", a: "Your username, then @, then your restaurant code, for example asha@spice-route. You choose the restaurant code yourself on this form. It is only used to sign in, it is not a mailbox. We send all emails to the contact email you give us." },
   { q: "How do waiters get accounts?", a: "Once you are approved, you add waiters yourself from the Team section. Each gets a temporary password and chooses their own on first sign-in. You can reset, suspend or remove a waiter any time." },
   { q: "What happens after the free trial?", a: "You pick one of the plans shown on this page. Our team contacts you to complete payment and activates it. Your data is always kept." },
   { q: "Can I try it before applying?", a: `Yes. On the staff app you can start a free ${guestDays} guest week with a sample restaurant. It has a few limits, and registering removes them.` },
@@ -70,12 +71,13 @@ const TIPS: Record<string, { what: string; example: string; avoid?: string }> = 
   restaurantName: { what: "The name guests will see on your menu and QR page. Use the name on your signboard.", example: "Spice Route Kitchen" },
   address: { what: "Your street address, the way it appears on Google Maps: building or road, area, then a nearby landmark.", example: "12 MG Road, near the clock tower, Indiranagar" },
   city: { what: "The city or town where the restaurant is.", example: "Bengaluru" },
-  username: { what: "Pick a short name for signing in: 3 to 30 letters, numbers, dots or dashes, with no spaces. Your restaurant code is added when we approve you, and you sign in with your restaurant code and this username. Two people at your restaurant cannot share a username, but another restaurant can use the same one.", example: "asha → asha@your-restaurant-code.as426studios.com", avoid: "It is only a login, not a mailbox. Nobody can email it." },
+  username: { what: "Pick a short name for signing in: 3 to 30 letters, numbers, dots or dashes, with no spaces. Your login is this name, then @, then your restaurant code. Two people at your restaurant cannot share a username, but another restaurant can use the same one.", example: "asha → asha@spice-route", avoid: "It is only a login, not a mailbox. Nobody can email it." },
+  restaurantCode: { what: "A short name for your restaurant that goes after the @ in every login there, and in your menu link. Use 3 to 40 letters, numbers or hyphens. Your staff will type it when they sign in, so keep it easy.", example: "spice-route", avoid: "No spaces or capital letters. It cannot be changed later." },
   password: { what: "Choose something only you know: at least 6 characters, with a mix of letters and numbers.", example: "Spice@2026", avoid: "Do not reuse your bank or email password." },
 };
 
 
-type Status = { status: "pending" | "approved" | "rejected"; restaurantName?: string; loginEmail?: string; note?: string | null };
+type Status = { status: "pending" | "approved" | "rejected"; restaurantName?: string; loginEmail?: string; restaurantCode?: string | null; note?: string | null };
 
 export default function ApplyPage() {
   const [step, setStep] = useState(0);
@@ -87,6 +89,7 @@ export default function ApplyPage() {
     address: "",
     city: "",
     username: "",
+    restaurantCode: "",
     password: "",
     planChoice: "trial" as PlanKey,
   });
@@ -96,6 +99,9 @@ export default function ApplyPage() {
   const [showPw, setShowPw] = useState(false);
   const [reqId, setReqId] = useState("");
   const [loginEmail, setLoginEmail] = useState("");
+  // The restaurant code: suggested from the restaurant name until they type their own, and checked while they type.
+  const [codeTouched, setCodeTouched] = useState(false);
+  const [codeMsg, setCodeMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [phase, setPhase] = useState(0);
   const [faqOpen, setFaqOpen] = useState(0);
@@ -136,6 +142,28 @@ export default function ApplyPage() {
       }
     } catch {}
   }, []);
+
+  // Suggest a code from the restaurant name until they type their own; then check the code while they type.
+  useEffect(() => {
+    if (codeTouched || step < 2) return;
+    fetch(`/api/register/code?name=${encodeURIComponent(f.restaurantName)}`, { cache: "no-store" })
+      .then((r) => r.json() as Promise<{ suggestion?: string }>)
+      .then((d) => d.suggestion && setF((x) => (codeTouched ? x : { ...x, restaurantCode: d.suggestion as string })))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, codeTouched]);
+  useEffect(() => {
+    const c = f.restaurantCode.trim().toLowerCase();
+    if (!c) return setCodeMsg(null);
+    setCodeMsg({ ok: true, text: "Checking…" });
+    const t = setTimeout(() => {
+      fetch(`/api/register/code?code=${encodeURIComponent(c)}`, { cache: "no-store" })
+        .then((r) => r.json() as Promise<{ available?: boolean; reason?: string }>)
+        .then((d) => setCodeMsg(d.available ? { ok: true, text: `${c} is free ✓` } : d.reason ? { ok: false, text: d.reason } : null))
+        .catch(() => setCodeMsg(null));
+    }, 450);
+    return () => clearTimeout(t);
+  }, [f.restaurantCode]);
 
   // The price list comes from the database, so a plan the Super Admin adds or changes shows up here at once.
   useEffect(() => {
@@ -205,6 +233,8 @@ export default function ApplyPage() {
     }
     if (s === 2) {
       if (!/^[a-z0-9][a-z0-9._-]{2,29}$/.test(f.username.trim().toLowerCase())) return "Username: 3 to 30 letters, numbers, dots or dashes.";
+      if (!/^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/.test(f.restaurantCode.trim().toLowerCase())) return "Restaurant code: 3 to 40 letters, numbers or hyphens, with no spaces.";
+      if (codeMsg && !codeMsg.ok && codeMsg.text !== "Checking…") return codeMsg.text;
       if (f.password.length < 6) return "Password needs at least 6 characters.";
     }
     return "";
@@ -242,6 +272,7 @@ export default function ApplyPage() {
           contactEmail: f.contactEmail.trim().toLowerCase(),
           emailProof,
           username: f.username.trim().toLowerCase(),
+          restaurantCode: f.restaurantCode.trim().toLowerCase(),
           lat: coords?.lat ?? null,
           lng: coords?.lng ?? null,
         }),
@@ -267,7 +298,9 @@ export default function ApplyPage() {
     setReqId("");
     setStatus(null);
     setStep(0);
-    setF({ ownerName: "", phone: "", contactEmail: "", restaurantName: "", address: "", city: "", username: "", password: "", planChoice: "trial" });
+    setF({ ownerName: "", phone: "", contactEmail: "", restaurantName: "", address: "", city: "", username: "", restaurantCode: "", password: "", planChoice: "trial" });
+    setCodeTouched(false);
+    setCodeMsg(null);
   }
 
   const stages = useMemo(() => {
@@ -401,13 +434,30 @@ export default function ApplyPage() {
                 <div className="ap-fields" key="s2">
                   <h2>Choose your login and plan</h2>
                   <label>
+                    Restaurant code
+                    {tip("restaurantCode")}
+                    <input
+                      {...fp("restaurantCode")}
+                      value={f.restaurantCode}
+                      onChange={(e) => {
+                        setCodeTouched(true);
+                        set("restaurantCode", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""));
+                      }}
+                      placeholder="spice-route"
+                      autoCapitalize="none"
+                      maxLength={40}
+                    />
+                    <small style={{ color: codeMsg ? (codeMsg.ok ? "#166534" : "#b91c1c") : undefined, fontWeight: codeMsg ? 700 : 400 }}>
+                      {codeMsg ? codeMsg.text : "A short name for your restaurant. Every login there ends with it. It cannot be changed later."}
+                    </small>
+                  </label>
+                  <label>
                     Username
                     {tip("username")}
-                    <div className="ap-suffix">
-                      <input {...fp("username")} value={f.username} onChange={(e) => set("username", e.target.value.replace(/\s/g, ""))} placeholder="spiceroute" autoCapitalize="none" />
-                      <span>@your-restaurant-code…</span>
-                    </div>
-                    <small>You sign in with your restaurant code and this username. We create the code when we approve you and email it to you.</small>
+                    <input {...fp("username")} value={f.username} onChange={(e) => set("username", e.target.value.replace(/\s/g, ""))} placeholder="asha" autoCapitalize="none" />
+                    <small>
+                      Your login will be <b>{(f.username.trim().toLowerCase() || "username") + "@" + (f.restaurantCode || "restaurant-code")}</b>. Your staff use the same restaurant code with their own usernames.
+                    </small>
                   </label>
                   <label>
                     Password
@@ -490,7 +540,7 @@ export default function ApplyPage() {
             {status?.status === "approved" && (
               <div className="ap-done">
                 <p>
-                  Your login ID is <b>{status.loginEmail}</b>. Sign in with it, or with your restaurant code <b>{(status.loginEmail || "").split("@")[1]?.replace(".as426studios.com", "")}</b> and your username, and the password you chose. Your free trial has started.
+                  Your login ID is <b>{shortLogin(status.loginEmail || "")}</b>. Sign in with it, or with your restaurant code <b>{status.restaurantCode || codeOf(status.loginEmail || "")}</b> and your username, and the password you chose. Your free trial has started.
                 </p>
                 <a className="ap-primary" href="/login">
                   Sign in now <ArrowRight size={15} />
@@ -506,7 +556,7 @@ export default function ApplyPage() {
             )}
             {(!status || status.status === "pending") && (
               <p className="ap-fine">
-                Username you chose: <b>{loginEmail}</b> · your restaurant code arrives by email when you are approved · <button className="ap-text" onClick={startOver}>Start a new application</button>
+                Your login will be <b>{loginEmail}@{f.restaurantCode || "your-code"}</b> · <button className="ap-text" onClick={startOver}>Start a new application</button>
               </p>
             )}
           </div>

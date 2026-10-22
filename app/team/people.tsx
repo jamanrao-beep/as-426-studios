@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { shortLogin } from "@/lib/login-id";
 import { Mail, Phone, RotateCcw, Search, Utensils, Users as UsersIcon, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 
@@ -123,9 +124,9 @@ export default function People() {
           <div key={r.login} style={card}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
               <div>
-                <strong style={{ fontSize: "1.05rem" }}>{r.name || r.login}</strong>
+                <strong style={{ fontSize: "1.05rem" }}>{r.name || shortLogin(r.login)}</strong>
                 <div style={{ color: "#57534e", fontSize: "0.88rem" }}>
-                  {r.restaurant} · <span style={{ fontFamily: "monospace" }}>{r.login}</span>
+                  {r.restaurant} · <span style={{ fontFamily: "monospace" }}>{shortLogin(r.login)}</span>
                 </div>
                 <div style={{ color: "#57534e", fontSize: "0.85rem", display: "flex", gap: 14, flexWrap: "wrap", marginTop: 4 }}>
                   {r.contactEmail ? (

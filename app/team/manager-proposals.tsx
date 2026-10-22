@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { shortLogin } from "@/lib/login-id";
 import { Check, Copy, Send, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import EmailVerify from "../email-verify";
@@ -133,14 +134,14 @@ export default function ManagerProposals({ owner, restaurantCode = "", onChange 
             {issued.mailed ? "We emailed these details to them." : "The email could not be sent, so share these details with them yourself."} The password works once and they must change it when they sign in.
           </p>
           <div style={{ fontFamily: "monospace", background: "#fff", border: "1px solid #bbf7d0", borderRadius: 10, padding: 12, lineHeight: 1.7 }}>
-            Login ID: {issued.loginEmail}
+            Login ID: {shortLogin(issued.loginEmail)}
             <br />
             Restaurant code: {issued.loginEmail.split("@")[1]?.replace(".as426studios.com", "")}
             <br />
             Temporary password: {issued.temporaryPassword}
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-            <button type="button" onClick={() => navigator.clipboard?.writeText(`Login ID: ${issued.loginEmail}\nRestaurant code: ${issued.loginEmail.split("@")[1]?.replace(".as426studios.com", "")}\nTemporary password: ${issued.temporaryPassword}`).then(() => toast.success("Copied"))} style={{ ...input, width: "auto", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 }}>
+            <button type="button" onClick={() => navigator.clipboard?.writeText(`Login ID: ${shortLogin(issued.loginEmail)}\nRestaurant code: ${issued.loginEmail.split("@")[1]?.replace(".as426studios.com", "")}\nTemporary password: ${issued.temporaryPassword}`).then(() => toast.success("Copied"))} style={{ ...input, width: "auto", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 }}>
               <Copy size={14} /> Copy
             </button>
             <button type="button" onClick={() => setIssued(null)} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 700 }}>
@@ -167,7 +168,7 @@ export default function ManagerProposals({ owner, restaurantCode = "", onChange 
             <div>
               <label style={label}>Username they will use</label>
               <input style={input} value={username} onChange={(e) => setUsername(e.target.value.toLowerCase())} placeholder="e.g. rahul.spiceroute" required />
-              <small style={{ color: nameMsg ? (nameMsg.ok ? "#166534" : "#b91c1c") : "#78716c", fontWeight: nameMsg ? 700 : 400 }}>{nameMsg ? nameMsg.text : `They sign in as ${username || "username"}@${restaurantCode || "restaurant-code"}.as426studios.com`}</small>
+              <small style={{ color: nameMsg ? (nameMsg.ok ? "#166534" : "#b91c1c") : "#78716c", fontWeight: nameMsg ? 700 : 400 }}>{nameMsg ? nameMsg.text : `They sign in as ${username || "username"}@${restaurantCode || "restaurant-code"}`}</small>
             </div>
             <div>
               <label style={label}>Their real email</label>
@@ -200,7 +201,7 @@ export default function ManagerProposals({ owner, restaurantCode = "", onChange 
                   <strong>{r.name}</strong> <Status s={r.status} />
                   <div style={{ color: "#57534e", fontSize: "0.85rem", marginTop: 4, lineHeight: 1.6 }}>
                     {owner ? <>Restaurant: <b>{r.restaurant_name || r.restaurant_id}</b> · asked by {r.proposer_name || r.proposed_by}<br /></> : null}
-                    Login: {r.username}@{r.restaurant_id}.as426studios.com · {r.contact_email}
+                    Login: {r.username}@{r.restaurant_id} · {r.contact_email}
                     {r.phone ? ` · ${r.phone}` : ""}
                     <br />
                     {when(r.created_at)}

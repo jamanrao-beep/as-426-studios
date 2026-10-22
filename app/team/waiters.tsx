@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { shortLogin } from "@/lib/login-id";
 import { Plus, Copy, Users, Key, Trash2, Store } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -32,7 +33,7 @@ export default function Waiters({
 
   // Form states
   const [name, setName] = useState("");
-  // A waiter signs in as username@restaurant-code.as426studios.com. The username only has to be free at this restaurant.
+  // A waiter signs in as username@restaurant-code. The username only has to be free at this restaurant.
   const [username, setUsername] = useState("");
   const [nameMsg, setNameMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [tempPass, setTempPass] = useState("");
@@ -170,7 +171,7 @@ export default function Waiters({
   }
 
   async function handleResetPassword(w: WaiterAccount) {
-    if (!confirm(`Generate a new temporary password for ${w.name} (${w.email})? This will immediately revoke their existing active sessions.`)) {
+    if (!confirm(`Generate a new temporary password for ${w.name} (${shortLogin(w.email)})? This will immediately revoke their existing active sessions.`)) {
       return;
     }
     setBusy(true);
@@ -233,7 +234,7 @@ export default function Waiters({
   const loginUrl = typeof window !== "undefined" ? `${window.location.origin}/login` : "";
 
   function copyCredentialText() {
-    const text = `🍽️ Staff Login Details\nRestaurant: ${credentialModal.restaurantName}\nRole: Waiter\nRestaurant code: ${credentialModal.code}\nUsername: ${credentialModal.email.split("@")[0]}\nLogin ID: ${credentialModal.email}\nTemporary Password: ${credentialModal.temporaryPassword}\nLogin URL: ${loginUrl}\n\n*Note: You will be required to create a new password on your first sign-in.`;
+    const text = `🍽️ Staff Login Details\nRestaurant: ${credentialModal.restaurantName}\nRole: Waiter\nRestaurant code: ${credentialModal.code}\nUsername: ${credentialModal.email.split("@")[0]}\nLogin ID: ${shortLogin(credentialModal.email)}\nTemporary Password: ${credentialModal.temporaryPassword}\nLogin URL: ${loginUrl}\n\n*Note: You will be required to create a new password on your first sign-in.`;
     navigator.clipboard
       .writeText(text)
       .then(() => toast.success("Credentials copied to clipboard! Share manually with waiter."))
@@ -347,7 +348,7 @@ export default function Waiters({
               style={{ width: "100%", marginTop: 4 }}
             />
             <small style={{ color: nameMsg ? (nameMsg.ok ? "#6ee7b7" : "#fca5a5") : "#bda69c", fontWeight: nameMsg ? 700 : 400 }}>
-              {nameMsg ? nameMsg.text : `Signs in as ${username || "username"}@${codeNow || "restaurant-code"}.as426studios.com`}
+              {nameMsg ? nameMsg.text : `Signs in as ${username || "username"}@${codeNow || "restaurant-code"}`}
             </small>
           </label>
         </div>
@@ -450,7 +451,7 @@ export default function Waiters({
                       )}
                     </div>
                     <div style={{ display: "flex", gap: 12, marginTop: 4, fontSize: "0.82rem", color: "#ac8e81" }}>
-                      <span>{w.email}</span>
+                      <span>{shortLogin(w.email)}</span>
                       {isSuperAdmin && restObj && (
                         <span>
                           📍 <strong>{restObj.name}</strong>
@@ -536,7 +537,7 @@ export default function Waiters({
               <strong>Username:</strong> {credentialModal.email.split("@")[0]}
             </div>
             <div>
-              <strong>Login ID:</strong> {credentialModal.email}
+              <strong>Login ID:</strong> {shortLogin(credentialModal.email)}
             </div>
             <div>
               <strong>Temporary Password:</strong>{" "}

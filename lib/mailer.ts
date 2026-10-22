@@ -48,7 +48,7 @@ function buildMessage(from: string, fromName: string, to: string, subject: strin
   ].join("\r\n");
 }
 
-export async function sendMail(to: string, subject: string, html: string, text: string, replyTo?: string): Promise<Result> {
+async function sendRaw(to: string, subject: string, html: string, text: string, replyTo?: string): Promise<Result> {
   if (!mailConfigured()) {
     console.warn(`[mail] not configured, would have sent "${subject}" to ${to}`);
     return { sent: false, reason: "Email is not set up on the server yet." };
@@ -132,4 +132,35 @@ export async function sendMail(to: string, subject: string, html: string, text: 
     socket.on("error", onError);
     socket.on("close", () => clearTimeout(timer));
   });
+}
+
+// Every email the server tries to send, with the result, so a missing email can be explained: it is either in the list
+// with the reason it failed, or it was never tried at all. Shown to the Super Admin under Mobile app > Recent emails.
+let logReady: Promise<void> | null = null;
+// Some subjects carry a one-time code ("Your code: 123456"). A code must never be kept in a log.
+const maskCodes = (subject: string) => subject.replace(/[0-9]{6}/g, "******");
+async function logMail(to: string, subject: string, r: Result) {
+  const { db } = await import("@/db/store");
+  logReady ??= db()
+    .prepare("CREATE TABLE IF NOT EXISTS mail_log (id VARCHAR(40) PRIMARY KEY NOT NULL, to_email VARCHAR(190) NOT NULL, subject VARCHAR(200) NOT NULL, sent INT NOT NULL, reason VARCHAR(300), created_at VARCHAR(40) NOT NULL)")
+    .run()
+    .then(() => undefined);
+  await logReady;
+  const now = new Date().toISOString();
+  await db()
+    .prepare("INSERT INTO mail_log (id, to_email, subject, sent, reason, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind("m_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8), to.slice(0, 190), maskCodes(subject).slice(0, 200), r.sent ? 1 : 0, r.sent ? null : String(r.reason || "").slice(0, 300), now)
+    .run();
+  // Keep a month of history.
+  if (Math.random() < 0.05) await db().prepare("DELETE FROM mail_log WHERE created_at < ?").bind(new Date(Date.now() - 30 * 86400000).toISOString()).run();
+}
+
+export async function sendMail(to: string, subject: string, html: string, text: string, replyTo?: string): Promise<Result> {
+  const r = await sendRaw(to, subject, html, text, replyTo);
+  try {
+    await logMail(to, subject, r);
+  } catch {
+    // The log is a convenience. It must never stop an email, or turn a sent email into a failure.
+  }
+  return r;
 }

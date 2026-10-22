@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Copy, Mail, Rocket } from "lucide-react";
 import { toast } from "sonner";
 import EmailVerify from "../email-verify";
+import { shortLogin } from "@/lib/login-id";
 
 type Plan = { key: string; label: string; price: number; months: number; best: boolean };
 type Done = { restaurantCode: string; loginEmail: string; temporaryPassword: string; mustChange: boolean; mailed: boolean; status: string; plan: string; endsAt: string | null };
@@ -24,13 +25,39 @@ const grid = { display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, 
 // so the owner signs in and sees their restaurant straight away.
 export default function Onboard({ onDone }: { onDone?: () => void }) {
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [f, setF] = useState({ restaurantName: "", address: "", city: "", ownerName: "", phone: "", contactEmail: "", username: "", start: "trial" as "trial" | "paid", plan: "", password: "" });
+  const [f, setF] = useState({ restaurantName: "", address: "", city: "", ownerName: "", phone: "", contactEmail: "", username: "", restaurantCode: "", start: "trial" as "trial" | "paid", plan: "", password: "" });
   // By default they must choose their own password when they first sign in, and we email them the login.
   const [mustChange, setMustChange] = useState(true);
   const [sendEmail, setSendEmail] = useState(true);
   const [showPw, setShowPw] = useState(false);
   // They read the 6-digit code from their own inbox (over the phone if they are not next to you).
   const [emailProof, setEmailProof] = useState("");
+  // The restaurant code (the part after the @): suggested from the name until you type your own, checked as you type.
+  const [codeTouched, setCodeTouched] = useState(false);
+  const [codeMsg, setCodeMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  useEffect(() => {
+    if (codeTouched) return;
+    const t = setTimeout(() => {
+      fetch(`/api/register/code?name=${encodeURIComponent(f.restaurantName)}`, { cache: "no-store" })
+        .then((r) => r.json() as Promise<{ suggestion?: string }>)
+        .then((d) => d.suggestion && !codeTouched && setF((x) => ({ ...x, restaurantCode: d.suggestion as string })))
+        .catch(() => {});
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [f.restaurantName, codeTouched]);
+  useEffect(() => {
+    const c = f.restaurantCode.trim().toLowerCase();
+    if (!c) return setCodeMsg(null);
+    setCodeMsg({ ok: true, text: "Checking…" });
+    const t = setTimeout(() => {
+      fetch(`/api/register/code?code=${encodeURIComponent(c)}`, { cache: "no-store" })
+        .then((r) => r.json() as Promise<{ available?: boolean; reason?: string }>)
+        .then((d) => setCodeMsg(d.available ? { ok: true, text: `${c} is free ✓` } : d.reason ? { ok: false, text: d.reason } : null))
+        .catch(() => setCodeMsg(null));
+    }, 450);
+    return () => clearTimeout(t);
+  }, [f.restaurantCode]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState<Done | null>(null);
@@ -51,6 +78,7 @@ export default function Onboard({ onDone }: { onDone?: () => void }) {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (f.start === "paid" && !plan) return setError("Choose the plan they paid for.");
+    if (codeMsg && !codeMsg.ok && codeMsg.text !== "Checking…") return setError(codeMsg.text);
     if (!emailProof) return setError("Verify their email first: send the code and enter the 6 digits they read out.");
     setBusy(true);
     setError("");
@@ -58,7 +86,7 @@ export default function Onboard({ onDone }: { onDone?: () => void }) {
       const res = await fetch("/api/admin/onboard", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...f, username: f.username.trim().toLowerCase(), plan: f.plan || undefined, password: f.password.trim() || undefined, mustChange, sendEmail, emailProof }),
+        body: JSON.stringify({ ...f, username: f.username.trim().toLowerCase(), restaurantCode: f.restaurantCode.trim().toLowerCase() || undefined, plan: f.plan || undefined, password: f.password.trim() || undefined, mustChange, sendEmail, emailProof }),
       });
       const d = (await res.json().catch(() => ({}))) as any;
       if (!res.ok) throw new Error(d.error || "Could not set up the restaurant.");
@@ -74,11 +102,12 @@ export default function Onboard({ onDone }: { onDone?: () => void }) {
 
   function reset() {
     setDone(null);
-    setF((x) => ({ ...x, restaurantName: "", address: "", city: "", ownerName: "", phone: "", contactEmail: "", username: "", password: "" }));
+    setF((x) => ({ ...x, restaurantName: "", address: "", city: "", ownerName: "", phone: "", contactEmail: "", username: "", restaurantCode: "", password: "" }));
+    setCodeTouched(false);
   }
 
   if (done) {
-    const text = `Table Secret login\nRestaurant code: ${done.restaurantCode}\nUsername: ${done.loginEmail.split("@")[0]}\nLogin ID: ${done.loginEmail}\n${done.mustChange ? "Temporary password" : "Password"}: ${done.temporaryPassword}\n\nSign in on the website or in the app.${done.mustChange ? " You will choose your own password first." : " You can change it any time."}`;
+    const text = `Table Secret login\nRestaurant code: ${done.restaurantCode}\nUsername: ${done.loginEmail.split("@")[0]}\nLogin ID: ${shortLogin(done.loginEmail)}\n${done.mustChange ? "Temporary password" : "Password"}: ${done.temporaryPassword}\n\nSign in on the website or in the app.${done.mustChange ? " You will choose your own password first." : " You can change it any time."}`;
     return (
       <div style={{ ...card, maxWidth: 640, borderColor: "#bbf7d0", background: "#f0fdf4" }}>
         <strong style={{ fontSize: "1.1rem" }}>Restaurant is ready</strong>
@@ -91,7 +120,7 @@ export default function Onboard({ onDone }: { onDone?: () => void }) {
           <br />
           Username: {done.loginEmail.split("@")[0]}
           <br />
-          Login ID: {done.loginEmail}
+          Login ID: {shortLogin(done.loginEmail)}
           <br />
           {done.mustChange ? "Temporary password" : "Password"}: {done.temporaryPassword}
         </div>
@@ -145,9 +174,26 @@ export default function Onboard({ onDone }: { onDone?: () => void }) {
           <EmailVerify email={f.contactEmail} onProof={setEmailProof} />
         </div>
         <div>
+          <label style={label}>Restaurant code *</label>
+          <input
+            style={input}
+            required
+            maxLength={40}
+            value={f.restaurantCode}
+            onChange={(e) => {
+              setCodeTouched(true);
+              set("restaurantCode", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""));
+            }}
+            placeholder="spice-route"
+          />
+          <small style={{ color: codeMsg ? (codeMsg.ok ? "#166534" : "#b91c1c") : "#78716c", fontWeight: codeMsg ? 700 : 400 }}>
+            {codeMsg ? codeMsg.text : "Goes after the @ in every login at this restaurant. Cannot be changed later."}
+          </small>
+        </div>
+        <div>
           <label style={label}>Their username *</label>
           <input style={input} required maxLength={30} value={f.username} onChange={(e) => set("username", e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""))} placeholder="e.g. asha" />
-          <small style={{ color: "#78716c" }}>They sign in as {f.username || "username"}@(restaurant code).as426studios.com</small>
+          <small style={{ color: "#78716c" }}>They sign in as {f.username || "username"}@{f.restaurantCode || "restaurant-code"}</small>
         </div>
       </div>
 

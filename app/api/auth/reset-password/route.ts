@@ -3,7 +3,7 @@ import { after } from "next/server";
 import { z } from "zod";
 import { db, sameOrigin } from "@/db/store";
 import { composeLogin } from "@/lib/usernames";
-import { contactEmailOf } from "@/lib/account-mail";
+import { lookupForReset } from "@/lib/account-mail";
 import { checkEmailCode, ensureSaasTables } from "@/lib/saas";
 import { hashPassword } from "@/lib/password";
 import { logAudit } from "@/lib/audit";
@@ -34,13 +34,11 @@ export async function POST(req: Request) {
     }
     await ensureSaasTables();
 
-    const row = await db()
-      .prepare("SELECT id, email, role, status, name FROM accounts WHERE LOWER(email) = ?")
-      .bind(login)
-      .first<{ id: string; email: string; role: string; status: string; name: string }>();
-    const eligible = !!row && row.role !== "super_admin" && row.role !== "waiter" && row.status !== "suspended";
-    const contact = eligible ? await contactEmailOf(login) : null;
-    if (!row || !contact) return NextResponse.json({ error: BAD_CODE }, { status: 400 });
+    // The same account lookup as "Forgot password", so whichever login form the code was asked for also works here.
+    const target = await lookupForReset(body.data as Record<string, unknown>);
+    if (!target || target.reason !== "ok" || !target.contact) return NextResponse.json({ error: BAD_CODE }, { status: 400 });
+    const contact = target.contact;
+    const row = { id: target.id, email: target.login, role: target.role, name: target.name };
 
     const weak = weakPassword(p.data.newPassword, login);
     if (weak) return NextResponse.json({ error: weak.replace("New password", "The password") }, { status: 400 });

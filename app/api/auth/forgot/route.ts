@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { after } from "next/server";
-import { db, sameOrigin } from "@/db/store";
+import { sameOrigin } from "@/db/store";
+import { lookupForReset } from "@/lib/account-mail";
 import { composeLogin } from "@/lib/usernames";
-import { contactEmailOf } from "@/lib/account-mail";
 import { ensureSaasTables, issueEmailCode } from "@/lib/saas";
 import { mailConfigured, sendMail } from "@/lib/mailer";
 import { resetCodeEmail } from "@/lib/mail-templates";
@@ -34,14 +34,19 @@ export async function POST(req: Request) {
     const prod = process.env.NODE_ENV === "production";
     if (prod && !mailConfigured()) return NextResponse.json({ error: "Email sending is not set up yet. Please contact Table Secret." }, { status: 503 });
 
-    const row = await db().prepare("SELECT role, status, name FROM accounts WHERE LOWER(email) = ?").bind(login).first<{ role: string; status: string; name: string }>();
-    const eligible = !!row && row.role !== "super_admin" && row.role !== "waiter" && row.status !== "suspended";
-    const contact = eligible ? await contactEmailOf(login) : null;
+    const target = await lookupForReset(body.data as Record<string, unknown>);
     let devCode = "";
-    if (contact) {
+    // The reason is written to the server log (never shown here) so a missing email can always be explained: the Super
+    // Admin screen "Why didn't a code arrive?" shows it in plain words.
+    if (!target || target.reason !== "ok" || !target.contact) {
+      console.info(`[forgot password] no code sent: ${target?.reason || "no_account"}`);
+    } else {
+      const contact = target.contact;
       const issued = await issueEmailCode(contact.email);
-      if (issued.ok) {
-        const m = resetCodeEmail({ name: contact.name || row?.name, loginEmail: login, code: issued.code });
+      if (!issued.ok) {
+        console.info(`[forgot password] no code sent: ${issued.error}`);
+      } else {
+        const m = resetCodeEmail({ name: contact.name || target.name, loginEmail: target.login, code: issued.code });
         // Sent after the reply, so the answer takes the same time whether or not an email goes out.
         after(async () => {
           try {

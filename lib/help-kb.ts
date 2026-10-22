@@ -53,7 +53,7 @@ const WEB: Record<string, string> = {
 export function buildKb(plans: HelpPlan[], client: Client = "app"): Entry[] {
   const list = buildApp(plans);
   if (client === "app") return list;
-  return list.map((e) => ({ ...e, a: WEB[e.id] ?? e.a.replace(/tap/g, "click").replace(/Tap/g, "Click") }));
+  return list.map((e) => ({ ...e, a: WEB[e.id] ?? e.a.replace(/\btap\b/g, "click").replace(/\bTap\b/g, "Click") }));
 }
 
 function buildApp(plans: HelpPlan[]): Entry[] {
@@ -231,14 +231,14 @@ function buildApp(plans: HelpPlan[]): Entry[] {
     id: "register",
     q: "How do I register my restaurant?",
     keys: ["register", "sign up", "signup", "join", "new restaurant", "create account", "get started", "onboard", "apply", "registration"],
-    a: "Tap 'Join the Table Secret team' and fill in 4 short steps: about you, your restaurant and location, your username, and a plan (or the free trial). Our team reviews it and emails you your restaurant code when you're approved. Then you sign in with your restaurant code, username and password.",
+    a: "Tap 'Join the Table Secret team' and fill in 4 short steps: about you, your restaurant and location, your username, and a plan (or the free trial). You choose your restaurant code on the form. Our team reviews it and emails you when you're approved. Then you sign in with your restaurant code, username and password.",
     suggest: true,
   },
   {
     id: "loginId",
     q: "What is my login ID?",
     keys: ["login id", "username", "restaurant code", "code", "login", "sign in", "log in", "email to sign in", "@as426studios", "which email", "cant login", "can't login", "cannot login", "unable to login"],
-    a: "You sign in with your restaurant code and your username, for example code spice-route and username asha. Together they make your login ID, asha@spice-route.as426studios.com, which you can also type in full. It isn't a real mailbox; our emails go to the contact email you gave when registering. Your restaurant code comes in the approval email, and your manager can tell your waiters theirs. A username only has to be unique inside one restaurant, so two restaurants can each have an asha.",
+    a: "You sign in with your restaurant code and your username, for example code spice-route and username asha. Together they make your login ID, asha@spice-route, which you can also type in the username box with the code left empty. It isn't a real mailbox; our emails go to the contact email you gave when registering. You choose your restaurant code when you register, and it is in your approval email. Your manager tells your waiters theirs. A username only has to be unique inside one restaurant, so two restaurants can each have an asha.",
     suggest: true,
   },
   {

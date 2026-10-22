@@ -7,6 +7,7 @@ import { logAudit } from "@/lib/audit";
 import { fail, readJson, weakPassword } from "@/lib/http";
 import { activatePlan, createRestaurantWithOwner, deleteRestaurantData, ensureSaasTables, getPlan, getSubscription, startTrial } from "@/lib/saas";
 import { checkUsernameShape } from "@/lib/usernames";
+import { checkCodeFree, suggestCode } from "@/lib/restaurant-code";
 import { checkEmailProof, EMAIL_PROOF_MESSAGE } from "@/lib/email-proof";
 import { sendMail } from "@/lib/mailer";
 import { onboardedEmail } from "@/lib/mail-templates";
@@ -22,6 +23,8 @@ const schema = z.object({
   contactEmail: z.string().trim().toLowerCase().email().max(190),
   emailProof: z.string().max(400).optional(),
   username: z.string().trim().toLowerCase().max(30),
+  // Optional: the restaurant code to use. Made from the restaurant name when left empty.
+  restaurantCode: z.string().trim().toLowerCase().max(40).optional(),
   // What they get: a free trial, or a plan that has already been paid for (cash, bank transfer, UPI to you...).
   start: z.enum(["trial", "paid"]),
   plan: z.string().trim().max(16).optional(),
@@ -53,6 +56,9 @@ export async function POST(req: Request) {
     const shape = checkUsernameShape(d.username);
     if (!shape.ok) return NextResponse.json({ error: shape.reason }, { status: 400 });
     await ensureSaasTables();
+    const wantedCode = (d.restaurantCode || suggestCode(d.restaurantName)).slice(0, 40);
+    const codeCheck = await checkCodeFree(wantedCode);
+    if (!codeCheck.ok) return NextResponse.json({ error: codeCheck.reason, field: "restaurantCode" }, { status: codeCheck.status });
 
     const plan = d.plan && d.plan !== "trial" ? await getPlan(d.plan) : null;
     if (d.plan && d.plan !== "trial" && !plan) return NextResponse.json({ error: "That plan does not exist." }, { status: 400 });
@@ -77,6 +83,7 @@ export async function POST(req: Request) {
       passwordHash: await hashPassword(temp),
       mustChange,
       by: a.email,
+      code: wantedCode,
     });
     restaurantId = created.restaurantId;
 

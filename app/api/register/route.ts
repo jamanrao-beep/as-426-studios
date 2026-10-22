@@ -6,6 +6,7 @@ import { hashPassword } from "@/lib/password";
 import { rateLimit } from "@/lib/rate-limit";
 import { ensureSaasTables, getPlan } from "@/lib/saas";
 import { checkUsernameShape } from "@/lib/usernames";
+import { checkCodeFree, suggestCode } from "@/lib/restaurant-code";
 import { checkEmailProof, EMAIL_PROOF_MESSAGE } from "@/lib/email-proof";
 import { LOGIN_DOMAIN } from "@/lib/saas";
 import { rateLimitDb } from "@/lib/rate-limit-db";
@@ -16,6 +17,8 @@ const schema = z.object({
   contactEmail: z.string().trim().toLowerCase().email().max(190),
   // Proof from /api/email/verify that this address really belongs to them.
   emailProof: z.string().max(400).optional(),
+  // The short name that goes after the @ in every login at this restaurant, e.g. spice-route.
+  restaurantCode: z.string().trim().toLowerCase().max(40).optional(),
   username: z
     .string()
     .trim()
@@ -68,6 +71,9 @@ export async function POST(req: Request) {
     if (!checkEmailProof(d.contactEmail, d.emailProof)) return NextResponse.json({ error: EMAIL_PROOF_MESSAGE, needEmailCode: true }, { status: 400 });
     const name = checkUsernameShape(d.username);
     if (!name.ok) return NextResponse.json({ error: name.reason }, { status: name.status });
+    const wantedCode = (d.restaurantCode || suggestCode(d.restaurantName)).slice(0, 40);
+    const codeCheck = await checkCodeFree(wantedCode);
+    if (!codeCheck.ok) return NextResponse.json({ error: codeCheck.reason, field: "restaurantCode" }, { status: codeCheck.status });
     const loginEmail = `${d.username}@${LOGIN_DOMAIN}`; // holds the username until approval
     const pending = await db()
       .prepare("SELECT id FROM registration_requests WHERE contact_email = ? AND status = 'pending'")
@@ -79,8 +85,8 @@ export async function POST(req: Request) {
     await db()
       .prepare(
         `INSERT INTO registration_requests
-         (id, email, password_hash, owner_name, phone, restaurant_name, address, city, lat, lng, status, created_at, contact_email, plan_choice)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)`
+         (id, email, password_hash, owner_name, phone, restaurant_name, address, city, lat, lng, status, created_at, contact_email, plan_choice, restaurant_code)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)`
       )
       .bind(
         id,
@@ -95,11 +101,21 @@ export async function POST(req: Request) {
         d.lng ?? null,
         new Date().toISOString(),
         d.contactEmail,
-        d.planChoice
+        d.planChoice,
+        wantedCode
       )
       .run();
 
-    return NextResponse.json({ ok: true, username: d.username, id });
+    // Two sign-ups can ask for the same free code in the same instant. The one that asked first keeps it.
+    const firstAsk = await db()
+      .prepare("SELECT id FROM registration_requests WHERE restaurant_code = ? AND status IN ('pending','approving') ORDER BY created_at ASC, id ASC LIMIT 1")
+      .bind(wantedCode)
+      .first<{ id: string }>();
+    if (firstAsk && firstAsk.id !== id) {
+      await db().prepare("DELETE FROM registration_requests WHERE id = ?").bind(id).run();
+      return NextResponse.json({ error: `The restaurant code "${wantedCode}" was just taken. Please choose another.`, field: "restaurantCode" }, { status: 409 });
+    }
+    return NextResponse.json({ ok: true, username: d.username, restaurantCode: wantedCode, id });
   } catch (err) {
     console.error("POST /api/register error:", err);
     return NextResponse.json({ error: "Could not send your request. Please try again." }, { status: 503 });
@@ -115,13 +131,13 @@ export async function GET(req: Request) {
     if (!rateLimit(`regstatus:${ip}`, 120, 60 * 60 * 1000).allowed) return NextResponse.json({ error: "Too many checks." }, { status: 429 });
     await ensureSaasTables();
     const r = await db()
-      .prepare("SELECT status, restaurant_name, email, note FROM registration_requests WHERE id = ?")
+      .prepare("SELECT status, restaurant_name, email, note, restaurant_code FROM registration_requests WHERE id = ?")
       .bind(id)
-      .first<{ status: string; restaurant_name: string; email: string; note: string | null }>();
+      .first<{ status: string; restaurant_name: string; email: string; note: string | null; restaurant_code: string | null }>();
     if (!r) return NextResponse.json({ error: "Not found." }, { status: 404 });
     const status = r.status === "approved" ? "approved" : r.status === "rejected" ? "rejected" : "pending";
     return NextResponse.json(
-      { status, restaurantName: r.restaurant_name, loginEmail: status === "approved" ? r.email : null, username: r.email.split("@")[0], note: status === "rejected" ? r.note : null },
+      { status, restaurantName: r.restaurant_name, loginEmail: status === "approved" ? r.email : null, username: r.email.split("@")[0], restaurantCode: r.restaurant_code, note: status === "rejected" ? r.note : null },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (err) {

@@ -39,7 +39,8 @@ export const TRIAL_BASE_DAYS = 7;
 export const TRIAL_BONUS_DAYS = 7;
 export const TRIAL_DAYS = TRIAL_BASE_DAYS + TRIAL_BONUS_DAYS;
 export const GUEST_DAYS = 7;
-export const LOGIN_DOMAIN = "as426studios.com";
+import { LOGIN_DOMAIN as LOGIN_DOMAIN_NAME } from "@/lib/login-id";
+export const LOGIN_DOMAIN = LOGIN_DOMAIN_NAME;
 export const GUEST_MAX_DISHES = 12;
 export const GUEST_MAX_WAITERS = 1;
 
@@ -190,6 +191,22 @@ export function ensureSaasTables() {
       } catch {}
     }
     if (!done) await db().prepare("INSERT OR IGNORE INTO schema_marks (mark, applied_at) VALUES (?, ?)").bind("saas-v4", new Date().toISOString()).run();
+    // An email address the Super Admin attached by hand to an account that had none, so it can reset its password.
+    await run(`CREATE TABLE IF NOT EXISTS account_contacts (
+      login VARCHAR(190) PRIMARY KEY NOT NULL,
+      contact_email VARCHAR(190) NOT NULL,
+      name VARCHAR(120),
+      set_by VARCHAR(190),
+      updated_at VARCHAR(40) NOT NULL
+    )`);
+    // The restaurant code a sign-up asked for, so the owner sees their full login ID right away.
+    const done6 = await db().prepare("SELECT mark FROM schema_marks WHERE mark = ?").bind("saas-v6").first();
+    if (!done6) {
+      try {
+        await run("ALTER TABLE registration_requests ADD COLUMN restaurant_code VARCHAR(60)");
+      } catch {}
+      await db().prepare("INSERT OR IGNORE INTO schema_marks (mark, applied_at) VALUES (?, ?)").bind("saas-v6", new Date().toISOString()).run();
+    }
     // Added later, with its own mark: a payment reference can belong to one payment only.
     const done5 = await db().prepare("SELECT mark FROM schema_marks WHERE mark = ?").bind("saas-v5").first();
     if (!done5) {
@@ -513,11 +530,21 @@ export async function createRestaurantWithOwner(p: {
   passwordHash: string;
   mustChange: boolean;
   by: string;
+  // The restaurant code the owner asked for. Used when it is still free, otherwise one is made from the name.
+  code?: string;
 }) {
   const { staffLogin } = await import("@/lib/usernames");
   await ensureSaasTables();
   const now = new Date().toISOString();
-  const restaurantId = await uniqueSlug(p.restaurantName);
+  let restaurantId = "";
+  if (p.code) {
+    const [r, m] = await Promise.all([
+      db().prepare("SELECT id FROM restaurants WHERE id = ?").bind(p.code).first(),
+      db().prepare("SELECT id FROM menu WHERE id = ?").bind(p.code).first(),
+    ]);
+    if (!r && !m) restaurantId = p.code;
+  }
+  if (!restaurantId) restaurantId = await uniqueSlug(p.restaurantName);
   const loginEmail = staffLogin(p.username, restaurantId);
   try {
     await db()

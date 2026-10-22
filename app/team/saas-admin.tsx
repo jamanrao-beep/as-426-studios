@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { shortLogin } from "@/lib/login-id";
 import { poll } from "@/lib/poller";
 import { Check, ExternalLink, Inbox, MapPin, Pencil, Plus, Trash2, X, Crown, Building2 } from "lucide-react";
 import { toast } from "sonner";
@@ -39,6 +40,7 @@ type Req = {
   decided_by: string | null;
   contact_email: string | null;
   plan_choice: string | null;
+  restaurant_code?: string | null;
 };
 
 const planNames: Record<string, string> = { trial: "Free 14-day trial", monthly: "Monthly", half_yearly: "Half-yearly", yearly: "Yearly" };
@@ -120,7 +122,7 @@ export function RegistrationRequests({ onChange }: { onChange?: () => void }) {
           <div style={{ display: "grid", gap: 4, fontSize: "0.92rem" }}>
             <span><b>Owner:</b> {r.owner_name} · {r.phone}</span>
             <span><b>Contact email:</b> {r.contact_email || "—"} <small className="muted">(the approval mail goes here)</small></span>
-            <span><b>Login ID to create:</b> {r.email}</span>
+            <span><b>Username:</b> {r.email.split("@")[0]}{r.restaurant_code ? <> · <b>Restaurant code:</b> {r.restaurant_code}</> : null}</span>
             <span><b>Plan interest:</b> {planNames[r.plan_choice || "trial"] || "Free 14-day trial"}</span>
             <span><b>Address:</b> {r.address}, {r.city}</span>
             {r.lat !== null && r.lng !== null ? (
@@ -153,7 +155,7 @@ export function RegistrationRequests({ onChange }: { onChange?: () => void }) {
             {done.map((r, i) => (
               <div key={r.id} style={{ padding: "12px 16px", borderTop: i ? "1px solid var(--line)" : "none", display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                 <span>
-                  <strong>{r.restaurant_name}</strong> · {r.email}
+                  <strong>{r.restaurant_name}</strong> · {shortLogin(r.email)}
                   <br />
                   <small className="muted">{when(r.decided_at)} by {r.decided_by || "—"}{r.note ? ` · ${r.note}` : ""}</small>
                 </span>
@@ -228,7 +230,7 @@ function AccountRow({ acc, onDone }: { acc: Acc; onDone: () => void }) {
         <span>
           <strong>{acc.name || acc.email}</strong>
           <br />
-          <small className="muted">{acc.email} · {acc.status}</small>
+          <small className="muted">{shortLogin(acc.email)} · {acc.status}</small>
         </span>
       )}
       <div style={{ display: "flex", gap: 8 }}>
@@ -290,8 +292,8 @@ function AddAccount({ restaurant, role, onDone }: { restaurant: string; role: "a
           <input type="checkbox" disabled={!pw.trim()} checked={pw.trim() ? mustChange : true} onChange={(e) => setMustChange(e.target.checked)} /> They must change it at first sign-in
         </label>
       </div>
-      <small className="muted">Signs in as {username || "username"}@{restaurant}.as426studios.com · restaurant code: <b>{restaurant}</b></small>
-      {temp && <p className="success-note">Login ID: <strong>{login}</strong> · Restaurant code: <strong>{restaurant}</strong><br />Password (shown once): <strong>{temp}</strong></p>}
+      <small className="muted">Signs in as {username || "username"}@{restaurant} · restaurant code: <b>{restaurant}</b></small>
+      {temp && <p className="success-note">Login ID: <strong>{shortLogin(login)}</strong> · Restaurant code: <strong>{restaurant}</strong><br />Password (shown once): <strong>{temp}</strong></p>}
       <div style={{ display: "flex", gap: 8 }}>
         <button className="primary" disabled={busy} type="submit">Create account</button>
         <button className="secondary" type="button" onClick={() => { setOpen(false); setTemp(""); setLogin(""); }}>Close</button>
