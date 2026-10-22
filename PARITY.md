@@ -20,6 +20,12 @@ they can do in the other, behind the same permissions. Super Admin tools are web
 | Table requests (Call waiter, Bill) | `app/team/service-requests.tsx` | `src/components/ServiceRequests.tsx` |
 | Menu editor | Menu manager (`team.tsx`) | Menu tab |
 | Waiters: add, reset, suspend, remove | Manage waiters | Team tab |
+| Ask for another manager (Super Admin approves; waiters need no approval) | Add a manager (`app/team/manager-proposals.tsx`) | Add a manager (`app/(manager)/managers.tsx`) |
+| Sign in with restaurant code + username (usernames unique per restaurant) | login page (`app/login/page.tsx`) | login (`src/app/login.tsx`) |
+| Forgot password: email a 6-digit code, choose a new password | `app/forgot-password/page.tsx` | `src/app/forgot-password.tsx` |
+| Verify an email with a 6-digit code (sign-up, new manager, setup by hand) | `app/email-verify.tsx` | `src/components/EmailVerify.tsx` |
+| Add a waiter by username | Manage waiters | Waiters tab |
+| Set up a restaurant by hand (Super Admin only) | Set up a restaurant (`app/team/onboard.tsx`) | website only |
 | Sales, dish performance, reviews, daily insights | sidebar > Insights | Insights tab |
 | Restaurant details and QR code | Restaurant settings, QR & customer link | side menu |
 | Plan, trial countdown, request a plan | Plan and billing + header pill (`app/team/billing.tsx`) | Plans & billing + header badge |

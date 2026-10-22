@@ -2,8 +2,9 @@ import { getAuthUser } from "@/lib/auth";
 import { getSqliteD1 } from "@/db/sqlite";
 import { getMysqlDb, isMysqlConfigured } from "@/db/mysql";
 import { UserRole } from "@/lib/auth-constants";
+import { bustCache, cached } from "@/lib/ttl-cache";
 
-export function db(): D1Database {
+function rawDb(): D1Database {
   const cfDb = (globalThis as any).DB;
   if (cfDb) return cfDb;
   if (isMysqlConfigured()) {
@@ -13,6 +14,43 @@ export function db(): D1Database {
     throw new Error("Database is not configured: set MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD and MYSQL_DATABASE.");
   }
   return getSqliteD1() as unknown as D1Database;
+}
+
+// Writes to the tables whose reads are briefly remembered (lib/ttl-cache.ts) clear that memory, so a change made
+// by the Super Admin is seen on the very next request.
+const REMEMBERED = /\b(restaurants|subscriptions|app_controls|guest_accounts)\b/i;
+const WRITE = /^\s*(INSERT|UPDATE|DELETE|REPLACE)/i;
+
+export function db(): D1Database {
+  const d = rawDb();
+  return {
+    prepare(q: string) {
+      const st: any = d.prepare(q);
+      if (!WRITE.test(q) || !REMEMBERED.test(q)) return st;
+      const wrap = (m: "first" | "all" | "run") => async (...a: unknown[]) => {
+        try {
+          return await st[m](...a);
+        } finally {
+          bustCache();
+        }
+      };
+      const w: any = {
+        bind(...a: unknown[]) {
+          st.bind(...a);
+          return w;
+        },
+        first: wrap("first"),
+        all: wrap("all"),
+        run: wrap("run"),
+      };
+      return w;
+    },
+  } as unknown as D1Database;
+}
+
+// The restaurant's name and status, asked for by almost every staff request.
+export function restaurantInfo(id: string) {
+  return cached(`rest:${id}`, 5000, () => rawDb().prepare("SELECT name, status FROM restaurants WHERE id = ?").bind(id).first<{ name: string; status: string }>());
 }
 
 export type Access = {
@@ -81,10 +119,7 @@ async function accessCore(restaurantId?: string): Promise<Access> {
     // Check if assigned restaurant is active
     let restName = userRestaurantId || "";
     if (userRestaurantId) {
-      const rest = await db()
-        .prepare("SELECT name, status FROM restaurants WHERE id = ?")
-        .bind(userRestaurantId)
-        .first<{ name: string; status: string }>();
+      const rest = await restaurantInfo(userRestaurantId);
       if (rest && (rest.status === "suspended" || rest.status === "archived")) {
         return {
           allowed: false,
@@ -124,7 +159,7 @@ async function accessCore(restaurantId?: string): Promise<Access> {
   const ids = userRestaurantId ? [userRestaurantId] : [];
   let waiterRestName = userRestaurantId || "";
   if (userRestaurantId) {
-    const rest = await db().prepare("SELECT name FROM restaurants WHERE id = ?").bind(userRestaurantId).first<{ name: string }>();
+    const rest = await restaurantInfo(userRestaurantId);
     if (rest) waiterRestName = rest.name;
   }
 
@@ -164,10 +199,7 @@ async function orderAccessCore(restaurantId?: string, managerOnly = false): Prom
   // Check restaurant status for staff
   let restaurantName = user.restaurantId || "";
   if (user.restaurantId) {
-    const rest = await db()
-      .prepare("SELECT name, status FROM restaurants WHERE id = ?")
-      .bind(user.restaurantId)
-      .first<{ name: string; status: string }>();
+    const rest = await restaurantInfo(user.restaurantId);
     if (rest && (rest.status === "suspended" || rest.status === "archived")) {
       return {
         allowed: false,

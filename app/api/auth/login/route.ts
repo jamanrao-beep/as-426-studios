@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
 import { authenticate, encodeSession, AUTH_COOKIE_NAME } from "@/lib/auth";
+import { composeLogin } from "@/lib/usernames";
 
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as Record<string, any>;
-    const { email, password } = body || {};
+    // Either a full login ID in `email`, or a restaurant code plus a username.
+    const email = composeLogin({ email: body?.email, username: body?.username, restaurant: body?.restaurant });
+    const password = body?.password;
 
-    if (!email || !password || typeof email !== "string" || typeof password !== "string") {
+    if (!email || !password || typeof password !== "string") {
       return NextResponse.json(
-        { error: "Please enter both email and password." },
+        { error: "Please enter your login and password." },
         { status: 400 }
       );
     }

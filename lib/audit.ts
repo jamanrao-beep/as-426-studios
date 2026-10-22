@@ -20,6 +20,8 @@ export type AuditAction =
   | "app_controls_updated"
   | "app_notification_sent"
   | "registration_decided"
+  | "manager_proposed"
+  | "manager_proposal_decided"
   | "subscription_updated"
   | "plan_created"
   | "plan_updated"

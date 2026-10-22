@@ -4,13 +4,18 @@ import crypto from "node:crypto";
 import { db, sameOrigin } from "@/db/store";
 import { hashPassword } from "@/lib/password";
 import { rateLimit } from "@/lib/rate-limit";
-import { ensureSaasTables, getPlan, LOGIN_DOMAIN } from "@/lib/saas";
+import { ensureSaasTables, getPlan } from "@/lib/saas";
+import { checkUsernameShape } from "@/lib/usernames";
+import { checkEmailProof, EMAIL_PROOF_MESSAGE } from "@/lib/email-proof";
+import { LOGIN_DOMAIN } from "@/lib/saas";
 import { rateLimitDb } from "@/lib/rate-limit-db";
 
 export const dynamic = "force-dynamic";
 
 const schema = z.object({
   contactEmail: z.string().trim().toLowerCase().email().max(190),
+  // Proof from /api/email/verify that this address really belongs to them.
+  emailProof: z.string().max(400).optional(),
   username: z
     .string()
     .trim()
@@ -48,11 +53,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `Please check ${label[field] || field}.` }, { status: 400 });
     }
     const d = parsed.data;
-    const RESERVED = new Set(["admin", "administrator", "root", "support", "help", "info", "owner", "manager", "staff", "waiter", "tablesecret", "table-secret", "as426", "as426studios", "superadmin", "super-admin", "system", "noreply", "no-reply", "postmaster", "security", "billing", "sales", "team", "official"]);
-    if (RESERVED.has(d.username)) {
-      return NextResponse.json({ error: "That login name is reserved. Please choose another." }, { status: 400 });
-    }
-
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
     if (!(await rateLimitDb(`register:${ip}`, 5, 60 * 60 * 1000)).allowed) {
       return NextResponse.json({ error: "Too many requests from this device. Please try again later." }, { status: 429 });
@@ -63,14 +63,17 @@ export async function POST(req: Request) {
       const wanted = await getPlan(d.planChoice);
       if (!wanted || !wanted.active) return NextResponse.json({ error: "That plan is not available. Please pick another." }, { status: 400 });
     }
-    const loginEmail = `${d.username}@${LOGIN_DOMAIN}`;
-    const account = await db().prepare("SELECT id FROM accounts WHERE LOWER(email) = ?").bind(loginEmail).first();
-    if (account) return NextResponse.json({ error: `The login ${loginEmail} is already taken. Try another name.` }, { status: 409 });
+    // The username only has to be acceptable here. The login ID (username@restaurant-code...) is made when the
+    // restaurant is approved and its code exists, and nobody else can clash with it because the code is unique.
+    if (!checkEmailProof(d.contactEmail, d.emailProof)) return NextResponse.json({ error: EMAIL_PROOF_MESSAGE, needEmailCode: true }, { status: 400 });
+    const name = checkUsernameShape(d.username);
+    if (!name.ok) return NextResponse.json({ error: name.reason }, { status: name.status });
+    const loginEmail = `${d.username}@${LOGIN_DOMAIN}`; // holds the username until approval
     const pending = await db()
-      .prepare("SELECT id FROM registration_requests WHERE (email = ? OR contact_email = ?) AND status = 'pending'")
-      .bind(loginEmail, d.contactEmail)
+      .prepare("SELECT id FROM registration_requests WHERE contact_email = ? AND status = 'pending'")
+      .bind(d.contactEmail)
       .first();
-    if (pending) return NextResponse.json({ error: "A request for this login or email is already waiting for review." }, { status: 409 });
+    if (pending) return NextResponse.json({ error: "A request for this email is already waiting for review." }, { status: 409 });
 
     const id = "req_" + crypto.randomBytes(8).toString("hex");
     await db()
@@ -96,7 +99,7 @@ export async function POST(req: Request) {
       )
       .run();
 
-    return NextResponse.json({ ok: true, loginEmail, id });
+    return NextResponse.json({ ok: true, username: d.username, id });
   } catch (err) {
     console.error("POST /api/register error:", err);
     return NextResponse.json({ error: "Could not send your request. Please try again." }, { status: 503 });
@@ -118,7 +121,7 @@ export async function GET(req: Request) {
     if (!r) return NextResponse.json({ error: "Not found." }, { status: 404 });
     const status = r.status === "approved" ? "approved" : r.status === "rejected" ? "rejected" : "pending";
     return NextResponse.json(
-      { status, restaurantName: r.restaurant_name, loginEmail: r.email, note: status === "rejected" ? r.note : null },
+      { status, restaurantName: r.restaurant_name, loginEmail: status === "approved" ? r.email : null, username: r.email.split("@")[0], note: status === "rejected" ? r.note : null },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (err) {

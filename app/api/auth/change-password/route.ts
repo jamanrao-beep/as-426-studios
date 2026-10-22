@@ -5,6 +5,10 @@ import { rateLimitDb } from "@/lib/rate-limit-db";
 import { fail, readJson, weakPassword } from "@/lib/http";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { logAudit } from "@/lib/audit";
+import { after } from "next/server";
+import { contactEmailOf } from "@/lib/account-mail";
+import { sendMail } from "@/lib/mailer";
+import { passwordChangedEmail } from "@/lib/mail-templates";
 
 export async function POST(req: Request) {
   try {
@@ -78,6 +82,18 @@ export async function POST(req: Request) {
       actorRole: row.role,
       targetType: "account",
       targetId: row.id,
+    });
+
+    // Tell them by email, so a change they did not make is noticed. This runs after the reply, so it never slows sign-in.
+    after(async () => {
+      try {
+        const c = await contactEmailOf(user.email);
+        if (!c) return;
+        const m = passwordChangedEmail({ name: c.name || row.name, loginEmail: row.email, when: new Date() });
+        await sendMail(c.email, m.subject, m.html, m.text);
+      } catch (e) {
+        console.error("password-changed email failed:", e);
+      }
     });
 
     // Update session cookie with mustChangePassword = false

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { poll } from "@/lib/poller";
 import { Bell, BellOff, Check, MoreHorizontal, MoreVertical, Search, ShoppingBag, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { indiaDate, orderTime } from "@/lib/order-time";
@@ -83,6 +84,7 @@ export default function OrdersBoard({
   const version = useRef(0);
   const seen = useRef<Set<string>>(new Set());
   const first = useRef(true);
+  const sig = useRef("");
   const soundRef = useRef(false);
   const ordersRef = useRef<StoredOrder[]>([]);
   ordersRef.current = orders;
@@ -94,7 +96,7 @@ export default function OrdersBoard({
   }, [search]);
 
   const load = useCallback(
-    async (append = false, quiet = false) => {
+    async (append = false, quiet = false): Promise<boolean> => {
       const v = ++version.current;
       if (!quiet) setLoading(true);
       try {
@@ -104,9 +106,12 @@ export default function OrdersBoard({
         if (dSearch.trim()) q.set("search", dSearch.trim());
         const r = await fetch(`/api/orders?${q}`, { cache: "no-store" });
         const d = (await r.json()) as { orders?: StoredOrder[]; hasMore?: boolean; summary?: Summary; error?: string };
-        if (v !== version.current) return;
+        if (v !== version.current) return true;
         if (!r.ok) throw Error(d.error || "Couldn’t load orders");
         const list = d.orders || [];
+        const now = JSON.stringify([list.map((o) => [o.id, o.status]), d.summary, d.hasMore]);
+        const changed = append || now !== sig.current;
+        sig.current = now;
         if (soundRef.current && !first.current && list.some((o) => o.status === "new" && !seen.current.has(o.id))) chime();
         list.forEach((o) => seen.current.add(o.id));
         first.current = false;
@@ -116,11 +121,13 @@ export default function OrdersBoard({
         setLive(true);
         setLastAt(new Date().toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }));
         setError("");
+        return changed;
       } catch (e) {
         if (v === version.current) {
           setLive(false);
           setError(e instanceof Error ? e.message : "Couldn’t load orders");
         }
+        return true;
       } finally {
         if (v === version.current) setLoading(false);
       }
@@ -130,11 +137,12 @@ export default function OrdersBoard({
 
   useEffect(() => {
     first.current = true;
+    sig.current = "";
     load(false, false);
-    const t = setInterval(() => document.visibilityState === "visible" && load(false, true), 8000);
+    const stop = poll(() => load(false, true));
     return () => {
       version.current++;
-      clearInterval(t);
+      stop();
     };
   }, [load]);
 

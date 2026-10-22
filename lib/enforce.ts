@@ -11,16 +11,14 @@ export async function gate(a: Access): Promise<Access> {
   }
   if (!a.restaurantId) return a;
   try {
-    const g = await readGlobalControls();
+    const [g, rc, guest, sub] = await Promise.all([readGlobalControls(), readRestaurantControls(a.restaurantId), isGuestEmail(a.email), getSubscription(a.restaurantId)]);
     if (g.maintenance.on) {
       return { ...a, allowed: false, blocked: { code: "maintenance", message: g.maintenance.message || "Table Secret is being updated. Please try again soon." } };
     }
-    const rc = await readRestaurantControls(a.restaurantId);
     if (!rc.appEnabled) {
       return { ...a, allowed: false, blocked: { code: "app_disabled", message: "The app is switched off for your restaurant. Please contact Table Secret." } };
     }
-    if (!(await isGuestEmail(a.email))) {
-      const sub = await getSubscription(a.restaurantId);
+    if (!guest) {
       if (sub.status === "expired") {
         return { ...a, allowed: false, blocked: { code: "plan_expired", message: "Your plan has ended. Choose a plan to continue." } };
       }

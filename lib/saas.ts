@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { db } from "@/db/store";
+import { cached } from "@/lib/ttl-cache";
 import { hashPassword } from "@/lib/password";
 
 export type PlanKey = string;
@@ -131,6 +132,37 @@ export function ensureSaasTables() {
       question TEXT NOT NULL,
       emailed INT NOT NULL DEFAULT 0
     )`);
+    // One row per attempt to pay for a plan online. The amount is fixed on the server when the row is made.
+    await run(`CREATE TABLE IF NOT EXISTS payments (
+      id VARCHAR(40) PRIMARY KEY NOT NULL,
+      restaurant_id VARCHAR(80) NOT NULL,
+      plan_key VARCHAR(16) NOT NULL,
+      amount INT NOT NULL,
+      status VARCHAR(16) NOT NULL,
+      kind VARCHAR(8) NOT NULL,
+      provider_ref VARCHAR(80),
+      provider_payment VARCHAR(80),
+      paid_by VARCHAR(190),
+      created_at VARCHAR(40) NOT NULL,
+      paid_at VARCHAR(40)
+    )`);
+    // A manager asks for another manager at their restaurant. Nothing happens until the Super Admin approves.
+    await run(`CREATE TABLE IF NOT EXISTS manager_proposals (
+      id VARCHAR(40) PRIMARY KEY NOT NULL,
+      restaurant_id VARCHAR(80) NOT NULL,
+      proposed_by VARCHAR(190) NOT NULL,
+      proposer_name VARCHAR(120),
+      name VARCHAR(120) NOT NULL,
+      username VARCHAR(40) NOT NULL,
+      contact_email VARCHAR(190) NOT NULL,
+      phone VARCHAR(40),
+      status VARCHAR(16) NOT NULL,
+      note VARCHAR(300),
+      login_email VARCHAR(190),
+      created_at VARCHAR(40) NOT NULL,
+      decided_at VARCHAR(40),
+      decided_by VARCHAR(190)
+    )`);
     // Columns and indexes added after the first release. They run once and are then marked done, so a normal start
     // does not try them again (and does not fill the logs with "already exists" errors).
     await run("CREATE TABLE IF NOT EXISTS schema_marks (mark VARCHAR(60) PRIMARY KEY NOT NULL, applied_at VARCHAR(40) NOT NULL)");
@@ -158,6 +190,14 @@ export function ensureSaasTables() {
       } catch {}
     }
     if (!done) await db().prepare("INSERT OR IGNORE INTO schema_marks (mark, applied_at) VALUES (?, ?)").bind("saas-v4", new Date().toISOString()).run();
+    // Added later, with its own mark: a payment reference can belong to one payment only.
+    const done5 = await db().prepare("SELECT mark FROM schema_marks WHERE mark = ?").bind("saas-v5").first();
+    if (!done5) {
+      try {
+        await run("CREATE UNIQUE INDEX idx_payments_ref ON payments (provider_ref)");
+      } catch {}
+      await db().prepare("INSERT OR IGNORE INTO schema_marks (mark, applied_at) VALUES (?, ?)").bind("saas-v5", new Date().toISOString()).run();
+    }
   })().catch((e) => {
     ready = null;
     throw e;
@@ -214,7 +254,11 @@ export type SubscriptionInfo = {
   requestedPlan: PlanKey | "";
 };
 
-export async function getSubscription(restaurantId: string): Promise<SubscriptionInfo> {
+export function getSubscription(restaurantId: string): Promise<SubscriptionInfo> {
+  return cached(`sub:${restaurantId}`, 5000, () => getSubscriptionNow(restaurantId));
+}
+
+async function getSubscriptionNow(restaurantId: string): Promise<SubscriptionInfo> {
   await ensureSaasTables();
   const row = await db()
     .prepare("SELECT status, plan, trial_ends_at, period_end, requested_plan FROM subscriptions WHERE restaurant_id = ?")
@@ -234,7 +278,11 @@ export async function getSubscription(restaurantId: string): Promise<Subscriptio
   };
 }
 
-export async function isGuestEmail(email: string) {
+export function isGuestEmail(email: string) {
+  return cached(`guest:${email.toLowerCase()}`, 20000, () => isGuestEmailNow(email));
+}
+
+async function isGuestEmailNow(email: string) {
   await ensureSaasTables();
   const row = await db().prepare("SELECT email FROM guest_accounts WHERE LOWER(email) = ?").bind(email.toLowerCase()).first();
   return !!row;
@@ -398,4 +446,103 @@ export async function deleteRestaurantData(restaurantId: string) {
   }
   await db().prepare("DELETE FROM menu WHERE id = ?").bind(restaurantId).run();
   await db().prepare("DELETE FROM restaurants WHERE id = ?").bind(restaurantId).run();
+}
+
+// Make a plan active: the one place that works out the new end date. Renewing the same plan adds to the time left.
+// Switching to another plan starts from today, so a monthly and a yearly never pile up into one confusing end date.
+export async function activatePlan(restaurantId: string, planKey: string, by: string) {
+  const chosen = await getPlan(planKey);
+  if (!chosen) throw new Error("That plan no longer exists.");
+  const now = new Date();
+  const current = await getSubscription(restaurantId);
+  const renewing = current.status === "active" && current.plan === planKey && !!current.endsAt;
+  const end = new Date(renewing ? new Date(current.endsAt as string) : now);
+  end.setMonth(end.getMonth() + chosen.months);
+  const have = await db().prepare("SELECT restaurant_id FROM subscriptions WHERE restaurant_id = ?").bind(restaurantId).first();
+  if (have) {
+    await db()
+      .prepare("UPDATE subscriptions SET status = 'active', plan = ?, period_end = ?, requested_plan = NULL, requested_at = NULL, updated_at = ?, updated_by = ? WHERE restaurant_id = ?")
+      .bind(planKey, end.toISOString(), now.toISOString(), by, restaurantId)
+      .run();
+  } else {
+    await db()
+      .prepare("INSERT INTO subscriptions (restaurant_id, status, plan, period_end, updated_at, updated_by) VALUES (?, 'active', ?, ?, ?, ?)")
+      .bind(restaurantId, planKey, end.toISOString(), now.toISOString(), by)
+      .run();
+  }
+  return end.toISOString();
+}
+
+// A payment came back as paid (from the buyer's browser or from Razorpay's webhook, whichever lands first). It is
+// settled exactly once: the row is claimed before the plan is activated, so a repeat does nothing.
+export async function settlePayment(providerRef: string, paymentId: string, paidPaise?: number | null) {
+  await ensureSaasTables();
+  const row = await db()
+    .prepare("SELECT id, restaurant_id, plan_key, amount, status FROM payments WHERE provider_ref = ?")
+    .bind(providerRef)
+    .first<{ id: string; restaurant_id: string; plan_key: string; amount: number; status: string }>();
+  if (!row) return { ok: false as const, reason: "unknown" as const };
+  if (row.status === "paid") return { ok: true as const, already: true, restaurantId: row.restaurant_id, plan: row.plan_key };
+  if (paidPaise != null && Number(paidPaise) !== Number(row.amount)) return { ok: false as const, reason: "amount" as const };
+  const now = new Date().toISOString();
+  const claim = await db().prepare("UPDATE payments SET status = 'paid', provider_payment = ?, paid_at = ? WHERE id = ? AND status = 'created'").bind(paymentId, now, row.id).run();
+  if (!claim.meta.changes) return { ok: true as const, already: true, restaurantId: row.restaurant_id, plan: row.plan_key };
+  try {
+    await activatePlan(row.restaurant_id, row.plan_key, `payment:${paymentId}`);
+  } catch (e) {
+    // Money was taken but the plan could not be switched on: put the row back so the next webhook retry finishes it.
+    await db().prepare("UPDATE payments SET status = 'created', paid_at = NULL WHERE id = ?").bind(row.id).run().catch(() => {});
+    throw e;
+  }
+  return { ok: true as const, already: false, restaurantId: row.restaurant_id, plan: row.plan_key };
+}
+
+// Make a restaurant and its first manager in one go. Used when the Super Admin approves a sign-up and when they
+// onboard a restaurant by hand. The manager's login ID is `username@restaurant-code.as426studios.com`. If anything
+// fails half way, nothing is left behind.
+export async function createRestaurantWithOwner(p: {
+  restaurantName: string;
+  address: string;
+  city?: string;
+  phone: string;
+  contactEmail: string;
+  lat?: number | null;
+  lng?: number | null;
+  ownerName: string;
+  username: string;
+  passwordHash: string;
+  mustChange: boolean;
+  by: string;
+}) {
+  const { staffLogin } = await import("@/lib/usernames");
+  await ensureSaasTables();
+  const now = new Date().toISOString();
+  const restaurantId = await uniqueSlug(p.restaurantName);
+  const loginEmail = staffLogin(p.username, restaurantId);
+  try {
+    await db()
+      .prepare(
+        "INSERT INTO restaurants (id, name, slug, address, contact_phone, contact_email, welcome_message, note, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, '', 'active', ?, ?)"
+      )
+      .bind(restaurantId, p.restaurantName, restaurantId, p.city ? `${p.address}, ${p.city}` : p.address, p.phone, p.contactEmail || "", `Welcome to ${p.restaurantName}.`, now, now)
+      .run();
+    await db()
+      .prepare("INSERT INTO menu (id, data, revision) VALUES (?, ?, 1)")
+      .bind(restaurantId, JSON.stringify({ name: p.restaurantName, active: true, tagline: `Welcome to ${p.restaurantName}.`, note: "", dishes: [] }))
+      .run();
+    await db()
+      .prepare(
+        "INSERT INTO accounts (id, email, password_hash, name, role, restaurant_id, status, must_change_password, session_version, created_at, updated_at) VALUES (?, ?, ?, ?, 'admin', ?, 'active', ?, 1, ?, ?)"
+      )
+      .bind("acc_" + crypto.randomBytes(6).toString("hex"), loginEmail, p.passwordHash, p.ownerName, restaurantId, p.mustChange ? 1 : 0, now, now)
+      .run();
+    await db().prepare("INSERT OR IGNORE INTO restaurant_members (restaurant_id, email) VALUES (?, ?)").bind(restaurantId, loginEmail).run();
+    if (p.lat != null && p.lng != null) {
+      await db().prepare("INSERT INTO restaurant_locations (restaurant_id, lat, lng, city) VALUES (?, ?, ?, ?)").bind(restaurantId, p.lat, p.lng, p.city || "").run();
+    }
+    return { restaurantId, loginEmail };
+  } catch (e) {
+    await deleteRestaurantData(restaurantId).catch(() => {});
+    throw e;
+  }
 }

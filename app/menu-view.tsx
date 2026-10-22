@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { poll } from "@/lib/poller";
 import { LockKeyhole, Sparkles, Leaf, Flame, Plus, Minus, Search, Heart, Shuffle, Share2, Moon, Sun, ArrowUp, ArrowUpRight, ReceiptText, Coffee, CakeSlice, Salad, Soup, UtensilsCrossed, BellRing, Receipt, Languages, Download, WifiOff } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import PlacedOrders from "./placed-orders";
@@ -258,8 +259,9 @@ export default function MenuView({ restaurant }: { restaurant: string }) {
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 60000);
-    return () => clearInterval(t);
+    return poll(async () => {
+      await load();
+    }, { base: 60000, max: 120000 });
   }, [restaurant]);
 
   useEffect(() => {

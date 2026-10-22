@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import EmailVerify from "../email-verify";
 import {
   ArrowLeft,
   ArrowRight,
@@ -54,7 +55,7 @@ const faqsFor = (trialDays: string, guestDays: string) => [
   { q: "Do my guests need to download anything?", a: "No. They scan the QR code and the menu opens in their browser. They can also save the menu offline on their phone." },
   { q: "How long does approval take?", a: "Our team reviews every request by hand, normally within one working day. You see the status live on this page, and we email you the moment you are approved." },
   { q: "What do I get after approval?", a: `Your restaurant page, a starter menu, a manager login, a ${trialDays} free trial with everything unlocked, and your table QR code ready to print.` },
-  { q: "What is my login ID?", a: "The name you choose here plus @as426studios.com, for example spice@as426studios.com. It is only used to sign in, it is not a mailbox. We send all emails to the contact email you give us." },
+  { q: "What is my login ID?", a: "Your username plus your restaurant code, for example asha@spice-route.as426studios.com. We create the restaurant code when we approve you and email it to you. It is only used to sign in, it is not a mailbox. We send all emails to the contact email you give us." },
   { q: "How do waiters get accounts?", a: "Once you are approved, you add waiters yourself from the Team section. Each gets a temporary password and chooses their own on first sign-in. You can reset, suspend or remove a waiter any time." },
   { q: "What happens after the free trial?", a: "You pick one of the plans shown on this page. Our team contacts you to complete payment and activates it. Your data is always kept." },
   { q: "Can I try it before applying?", a: `Yes. On the staff app you can start a free ${guestDays} guest week with a sample restaurant. It has a few limits, and registering removes them.` },
@@ -69,7 +70,7 @@ const TIPS: Record<string, { what: string; example: string; avoid?: string }> = 
   restaurantName: { what: "The name guests will see on your menu and QR page. Use the name on your signboard.", example: "Spice Route Kitchen" },
   address: { what: "Your street address, the way it appears on Google Maps: building or road, area, then a nearby landmark.", example: "12 MG Road, near the clock tower, Indiranagar" },
   city: { what: "The city or town where the restaurant is.", example: "Bengaluru" },
-  username: { what: "Pick a short name for signing in: 3 to 30 letters, numbers, dots or dashes, with no spaces. We add @as426studios.com after it, and the full ID is what you type to sign in.", example: "spiceroute → spiceroute@as426studios.com", avoid: "It is only a login ID, not a mailbox. Nobody can email it." },
+  username: { what: "Pick a short name for signing in: 3 to 30 letters, numbers, dots or dashes, with no spaces. Your restaurant code is added when we approve you, and you sign in with your restaurant code and this username. Two people at your restaurant cannot share a username, but another restaurant can use the same one.", example: "asha → asha@your-restaurant-code.as426studios.com", avoid: "It is only a login, not a mailbox. Nobody can email it." },
   password: { what: "Choose something only you know: at least 6 characters, with a mix of letters and numbers.", example: "Spice@2026", avoid: "Do not reuse your bank or email password." },
 };
 
@@ -231,12 +232,15 @@ export default function ApplyPage() {
   }, [reqId]);
 
   const emailOk = /^\S+@\S+\.\S+$/.test(f.contactEmail.trim());
+  // Proof that they own the contact email: they type a code we email them.
+  const [emailProof, setEmailProof] = useState("");
 
   function validate(s: number) {
     if (s === 0) {
       if (f.ownerName.trim().length < 2) return "Please enter your name.";
       if (f.phone.trim().length < 6) return "Please enter a phone number we can call.";
       if (!emailOk) return "Please enter a valid contact email. Your approval email goes there.";
+      if (!emailProof) return "Please verify your email: tap Send me a code, then type the 6-digit code.";
     }
     if (s === 1) {
       if (f.restaurantName.trim().length < 2) return "Please enter your restaurant name.";
@@ -244,7 +248,7 @@ export default function ApplyPage() {
       if (f.city.trim().length < 2) return "Please enter the city.";
     }
     if (s === 2) {
-      if (!/^[a-z0-9][a-z0-9._-]{2,29}$/.test(f.username.trim().toLowerCase())) return "Login name: 3 to 30 letters, numbers, dots or dashes.";
+      if (!/^[a-z0-9][a-z0-9._-]{2,29}$/.test(f.username.trim().toLowerCase())) return "Username: 3 to 30 letters, numbers, dots or dashes.";
       if (f.password.length < 6) return "Password needs at least 6 characters.";
     }
     return "";
@@ -280,6 +284,7 @@ export default function ApplyPage() {
         body: JSON.stringify({
           ...f,
           contactEmail: f.contactEmail.trim().toLowerCase(),
+          emailProof,
           username: f.username.trim().toLowerCase(),
           lat: coords?.lat ?? null,
           lng: coords?.lng ?? null,
@@ -287,8 +292,8 @@ export default function ApplyPage() {
       });
       const data = (await res.json()) as any;
       if (!res.ok) throw new Error(data.error || "Could not send your request.");
-      localStorage.setItem("ts_apply", JSON.stringify({ id: data.id, email: data.loginEmail }));
-      setLoginEmail(data.loginEmail);
+      localStorage.setItem("ts_apply", JSON.stringify({ id: data.id, email: data.username }));
+      setLoginEmail(data.username || f.username.trim().toLowerCase());
       setReqId(data.id);
       setStatus({ status: "pending", restaurantName: f.restaurantName });
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -406,6 +411,7 @@ export default function ApplyPage() {
                     <input value={f.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} placeholder="you@gmail.com" type="email" autoComplete="email" {...fp("contactEmail")} />
                     {tip("contactEmail")}
                     <small>Use an inbox you check. Your approval message is sent here.</small>
+                    <EmailVerify email={f.contactEmail} onProof={setEmailProof} />
                   </label>
                 </div>
               )}
@@ -439,13 +445,13 @@ export default function ApplyPage() {
                 <div className="ap-fields" key="s2">
                   <h2>Choose your login and plan</h2>
                   <label>
-                    Login name
+                    Username
                     {tip("username")}
                     <div className="ap-suffix">
                       <input {...fp("username")} value={f.username} onChange={(e) => set("username", e.target.value.replace(/\s/g, ""))} placeholder="spiceroute" autoCapitalize="none" />
-                      <span>@as426studios.com</span>
+                      <span>@your-restaurant-code…</span>
                     </div>
-                    <small>This is how you sign in. It is not a mailbox.</small>
+                    <small>You sign in with your restaurant code and this username. We create the code when we approve you and email it to you.</small>
                   </label>
                   <label>
                     Password
@@ -458,18 +464,32 @@ export default function ApplyPage() {
                     </div>
                   </label>
                   {trial && <TrialGlow trial={trial} on={f.planChoice === "trial"} onPick={() => set("planChoice", "trial")} />}
-                  <div className="ap-plans">
-                    {(plans || []).map((p) => (
-                      <button type="button" key={p.key} className={`ap-plan ${f.planChoice === p.key ? "on" : ""}`} onClick={() => set("planChoice", p.key)}>
-                        {p.best && <b>BEST VALUE</b>}
-                        <strong>{p.label}</strong>
-                        <span>{inr(p.price)}</span>
-                        <small>
-                          {p.blurb || `${p.months} ${p.months === 1 ? "month" : "months"}`}
-                          {p.strike > p.price ? ` · save ${Math.round(((p.strike - p.price) / p.strike) * 100)}%` : ""}
-                        </small>
-                      </button>
-                    ))}
+                  <div className="ap-plans" role="radiogroup" aria-label="Plan you are interested in">
+                    {(plans || []).map((p) => {
+                      const on = f.planChoice === p.key;
+                      const pct = p.strike > p.price ? Math.round(((p.strike - p.price) / p.strike) * 100) : 0;
+                      return (
+                        <button type="button" role="radio" aria-checked={on} key={p.key} className={`ap-plan ${on ? "on" : ""} ${p.best ? "best" : ""}`} onClick={() => set("planChoice", on ? "trial" : p.key)}>
+                          {p.best && <b>★ BEST VALUE</b>}
+                          <i className="rd" aria-hidden />
+                          <span className="mid">
+                            <strong>{p.label}</strong>
+                            <small>
+                              {inr(p.price)} {p.months === 1 ? "billed monthly" : `for ${p.months === 12 ? "12 months" : p.months + " months"}`}
+                            </small>
+                            {pct > 0 && (
+                              <em>
+                                <s>{inr(p.strike)}</s> <u>Save {inr(p.strike - p.price)} · {pct}%</u>
+                              </em>
+                            )}
+                          </span>
+                          <span className="pr">
+                            <big>{inr(Math.round(p.price / p.months))}</big>
+                            <small>per month</small>
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                   <small className="ap-fine">Nothing is charged today. Every plan starts with your free trial.</small>
                 </div>
@@ -540,7 +560,7 @@ export default function ApplyPage() {
             {status?.status === "approved" && (
               <div className="ap-done">
                 <p>
-                  Sign in with <b>{status.loginEmail || loginEmail}</b> and the password you chose. Your free trial has started.
+                  Your login ID is <b>{status.loginEmail}</b>. Sign in with it, or with your restaurant code <b>{(status.loginEmail || "").split("@")[1]?.replace(".as426studios.com", "")}</b> and your username, and the password you chose. Your free trial has started.
                 </p>
                 <a className="ap-primary" href="/login">
                   Sign in now <ArrowRight size={15} />
@@ -556,7 +576,7 @@ export default function ApplyPage() {
             )}
             {(!status || status.status === "pending") && (
               <p className="ap-fine">
-                Login ID you chose: <b>{loginEmail}</b> · <button className="ap-text" onClick={startOver}>Start a new application</button>
+                Username you chose: <b>{loginEmail}</b> · your restaurant code arrives by email when you are approved · <button className="ap-text" onClick={startOver}>Start a new application</button>
               </p>
             )}
           </div>
@@ -610,7 +630,7 @@ export default function ApplyPage() {
 const css = `
 @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&family=Michroma&display=swap");
 .ap{--o:#c2410c;--od:#9a3412;--ink:#1c1917;--mut:#57534e;--line:#e8e6e2;min-height:100vh;background:linear-gradient(180deg,#fff 0,#f8f7f5 380px);color:var(--ink);font-family:"Manrope",system-ui,sans-serif;font-weight:400;-webkit-font-smoothing:antialiased}
-.ap h1,.ap h2,.ap h3,.ap-trial-num b,.ap-plan span,.ap-side h3{font-family:"Michroma","Manrope",sans-serif;font-weight:400;letter-spacing:.01em}
+.ap h1,.ap h2,.ap h3,.ap-trial-num b,.ap-side h3{font-family:"Michroma","Manrope",sans-serif;font-weight:400;letter-spacing:.01em}
 .ap *{box-sizing:border-box}
 .ap-bar{display:flex;justify-content:space-between;align-items:center;padding:16px clamp(16px,4vw,40px)}
 .ap-brand{min-height:44px;display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:.04em;color:var(--ink);text-decoration:none}
@@ -648,11 +668,18 @@ const css = `
 .ap-suffix span{display:flex;align-items:center;padding:0 12px;color:var(--mut);font-size:.82rem;background:#f3f1ee;white-space:nowrap;font-weight:600}
 .ap-suffix button{border:0;background:#f3f1ee;padding:0 14px;font-weight:600;color:var(--od);cursor:pointer}
 .ap-ghost{display:inline-flex;gap:8px;align-items:center;justify-content:center;border:1px dashed #f0b999;background:#fffaf6;color:var(--od);border-radius:12px;min-height:46px;font-weight:600;cursor:pointer}
-.ap-plans{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-.ap-plan{position:relative;display:grid;gap:2px;text-align:left;border:1.5px solid var(--line);background:#fff;border-radius:14px;padding:14px;cursor:pointer;font:inherit;transition:all .15s}
-.ap-plan strong{font-size:.92rem}.ap-plan span{font-size:1.05rem}.ap-plan small{color:var(--mut)}
-.ap-plan b{position:absolute;top:-9px;right:10px;background:var(--o);color:#fff;border-radius:999px;font-size:.62rem;padding:3px 8px;letter-spacing:.06em}
-.ap-plan:hover{border-color:#f0b999}.ap-plan.on{border-color:var(--o);background:#fff7f1;box-shadow:0 0 0 3px rgba(194,65,12,.12)}
+.ap-plans{display:grid;grid-template-columns:1fr;gap:14px;padding-top:6px}
+.ap-plan{position:relative;display:flex;align-items:center;gap:14px;text-align:left;border:1.5px solid var(--line);background:#fff;border-radius:18px;padding:16px 18px;min-height:76px;cursor:pointer;font:inherit;transition:border-color .15s,box-shadow .15s,transform .15s,background .15s}
+.ap-plan .rd{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid #a8a29e;display:grid;place-items:center;transition:all .15s}
+.ap-plan.on .rd{border-color:var(--o);background:var(--o)}.ap-plan.on .rd::after{content:"";width:8px;height:8px;border-radius:50%;background:#fff}
+.ap-plan .mid{flex:1;display:grid;gap:3px;min-width:0}.ap-plan .mid strong{font-size:1.05rem;font-weight:800}
+.ap-plan .mid small{color:var(--mut);font-size:.82rem}
+.ap-plan .mid em{font-style:normal;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.8rem;margin-top:2px}.ap-plan .mid em s{color:var(--mut)}
+.ap-plan .mid em u{text-decoration:none;background:#dcfce7;color:#166534;font-weight:800;padding:2px 9px;border-radius:999px}
+.ap-plan .pr{display:grid;justify-items:end;gap:0}.ap-plan .pr big{font-size:1.45rem;font-weight:800;line-height:1.15;color:var(--ink,#1c1917)}.ap-plan .pr small{color:var(--mut);font-size:.75rem}
+.ap-plan b{position:absolute;top:-11px;right:16px;background:linear-gradient(135deg,#c2410c,#ea580c);color:#fff;border-radius:999px;font-size:.66rem;padding:4px 11px;letter-spacing:.08em;box-shadow:0 4px 10px rgba(194,65,12,.3)}
+.ap-plan.best{border-color:#f0b999}
+.ap-plan:hover{border-color:#ea8a58;transform:translateY(-1px)}.ap-plan.on{border-color:var(--o);background:#fff7f1;box-shadow:0 0 0 4px rgba(194,65,12,.12),0 10px 24px rgba(194,65,12,.12)}
 .ap-trial{position:relative;overflow:hidden;display:flex;align-items:center;gap:18px;border:2px solid #f0b999;border-radius:18px;padding:18px 20px;background:linear-gradient(135deg,#fff7f1,#ffe9d9);cursor:pointer;animation:apglow 2.6s ease-in-out infinite;transition:transform .15s}
 .ap-trial:hover{transform:translateY(-2px)}.ap-trial.on{border-color:var(--o)}
 @keyframes apglow{0%,100%{box-shadow:0 0 0 0 rgba(194,65,12,.0),0 6px 18px rgba(194,65,12,.18)}50%{box-shadow:0 0 0 6px rgba(194,65,12,.12),0 10px 34px rgba(194,65,12,.45)}}
@@ -721,6 +748,6 @@ const css = `
 .ap-a p{overflow:hidden;margin:0;padding:0 18px;color:var(--mut);line-height:1.6;font-size:.93rem}
 .ap-q.open .ap-a p{padding-bottom:16px}
 .ap-foot{text-align:center;color:var(--mut);font-size:.8rem;padding:24px}
-@media(max-width:860px){.ap-grid{grid-template-columns:1fr}.ap-side{position:static}.ap-card{padding:20px}.ap-plans{grid-template-columns:1fr 1fr}}
-@media(max-width:420px){.ap-plans{grid-template-columns:1fr}}
+@media(max-width:860px){.ap-grid{grid-template-columns:1fr}.ap-side{position:static}.ap-card{padding:20px}}
+@media(max-width:420px){.ap-plan{padding:14px}.ap-plan .pr big{font-size:1.25rem}}
 `;

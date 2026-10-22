@@ -4,6 +4,9 @@ import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import crypto from "node:crypto";
 import { fail, readJson } from "@/lib/http";
+import { contactEmailOf } from "@/lib/account-mail";
+import { sendMail } from "@/lib/mailer";
+import { passwordResetEmail } from "@/lib/mail-templates";
 
 export async function GET(req: Request) {
   try {
@@ -210,7 +213,15 @@ export async function POST(req: Request) {
         targetId: email,
       });
 
-      return Response.json({ ok: true, temporary_password: tempPass });
+      // Send the new temporary password to the inbox they gave us, and tell the Super Admin whether it went.
+      let mail: { sent: boolean; reason?: string } = { sent: false, reason: "No email on file for this account." };
+      const c = await contactEmailOf(email);
+      if (c) {
+        const trow = await db().prepare("SELECT restaurant_id FROM accounts WHERE LOWER(email) = ?").bind(email).first<{ restaurant_id: string | null }>();
+        const m = passwordResetEmail({ name: c.name, loginEmail: email, restaurantCode: trow?.restaurant_id || undefined, tempPassword: tempPass });
+        mail = await sendMail(c.email, m.subject, m.html, m.text);
+      }
+      return Response.json({ ok: true, temporary_password: tempPass, mail });
     }
 
     if (action === "revoke_sessions") {

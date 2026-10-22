@@ -3,7 +3,8 @@ import { z } from "zod";
 import crypto from "node:crypto";
 import { access, db, sameOrigin } from "@/db/store";
 import { logAudit } from "@/lib/audit";
-import { deleteRestaurantData, ensureSaasTables, startTrial, TRIAL_DAYS, uniqueSlug, listPlans } from "@/lib/saas";
+import { createRestaurantWithOwner, deleteRestaurantData, ensureSaasTables, startTrial, TRIAL_DAYS, listPlans } from "@/lib/saas";
+import { usernameOf } from "@/lib/usernames";
 import { sendMail } from "@/lib/mailer";
 import { approvedEmail, rejectedEmail } from "@/lib/mail-templates";
 
@@ -93,40 +94,31 @@ export async function POST(req: Request) {
     if (!claim.meta.changes) return NextResponse.json({ error: "This request was already decided." }, { status: 409 });
     const release = () => db().prepare("UPDATE registration_requests SET status = 'pending' WHERE id = ? AND status = 'approving'").bind(r.id).run().catch(() => {});
 
-    const taken = await db().prepare("SELECT id FROM accounts WHERE LOWER(email) = ?").bind(r.email).first();
-    if (taken) {
-      await release();
-      return NextResponse.json({ error: "An account with this email already exists." }, { status: 409 });
-    }
-
+    // The login ID is built from the username they chose and the new restaurant's code, so it only exists now.
     let restaurantId = "";
+    let loginEmail = "";
     let trialEnds = "";
     try {
-      restaurantId = await uniqueSlug(r.restaurant_name);
-      await db()
-        .prepare(
-          "INSERT INTO restaurants (id, name, slug, address, contact_phone, contact_email, welcome_message, note, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, '', 'active', ?, ?)"
-        )
-        .bind(restaurantId, r.restaurant_name, restaurantId, `${r.address}, ${r.city}`, r.phone, r.contact_email || "", `Welcome to ${r.restaurant_name}.`, now, now)
-        .run();
-      await db()
-        .prepare("INSERT INTO menu (id, data, revision) VALUES (?, ?, 1)")
-        .bind(restaurantId, JSON.stringify({ name: r.restaurant_name, active: true, tagline: `Welcome to ${r.restaurant_name}.`, note: "", dishes: [] }))
-        .run();
-      await db()
-        .prepare(
-          "INSERT INTO accounts (id, email, password_hash, name, role, restaurant_id, status, must_change_password, session_version, created_at, updated_at) VALUES (?, ?, ?, ?, 'admin', ?, 'active', 0, 1, ?, ?)"
-        )
-        .bind("acc_" + crypto.randomBytes(6).toString("hex"), r.email, r.password_hash, r.owner_name, restaurantId, now, now)
-        .run();
-      await db().prepare("INSERT OR IGNORE INTO restaurant_members (restaurant_id, email) VALUES (?, ?)").bind(restaurantId, r.email).run();
-      if (r.lat !== null && r.lng !== null) {
-        await db().prepare("INSERT INTO restaurant_locations (restaurant_id, lat, lng, city) VALUES (?, ?, ?, ?)").bind(restaurantId, r.lat, r.lng, r.city).run();
-      }
+      const created = await createRestaurantWithOwner({
+        restaurantName: r.restaurant_name,
+        address: r.address,
+        city: r.city,
+        phone: r.phone,
+        contactEmail: r.contact_email || "",
+        lat: r.lat,
+        lng: r.lng,
+        ownerName: r.owner_name,
+        username: usernameOf(r.email),
+        passwordHash: r.password_hash,
+        mustChange: false,
+        by: a.email,
+      });
+      restaurantId = created.restaurantId;
+      loginEmail = created.loginEmail;
       trialEnds = await startTrial(restaurantId, a.email);
       await db()
-        .prepare("UPDATE registration_requests SET status = 'approved', restaurant_id = ?, note = ?, decided_at = ?, decided_by = ? WHERE id = ?")
-        .bind(restaurantId, p.data.note || "", now, a.email, r.id)
+        .prepare("UPDATE registration_requests SET status = 'approved', restaurant_id = ?, email = ?, note = ?, decided_at = ?, decided_by = ? WHERE id = ?")
+        .bind(restaurantId, loginEmail, p.data.note || "", now, a.email, r.id)
         .run();
       await logAudit({
         action: "registration_decided",
@@ -134,7 +126,7 @@ export async function POST(req: Request) {
         actorRole: a.role,
         targetType: "restaurant",
         targetId: restaurantId,
-        details: { decision: "approved", email: r.email, trialEnds },
+        details: { decision: "approved", email: loginEmail, trialEnds },
       });
     } catch (e) {
       // Nothing half-built is left behind, and the request goes back to the queue.
@@ -149,7 +141,8 @@ export async function POST(req: Request) {
       const m = approvedEmail({
         ownerName: r.owner_name,
         restaurantName: r.restaurant_name,
-        loginEmail: r.email,
+        loginEmail,
+        restaurantCode: restaurantId,
         trialEnds,
         plan: r.plan_choice && r.plan_choice !== "trial" ? planNames[r.plan_choice] : undefined,
       });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthUser } from "@/lib/auth";
 import { db, sameOrigin } from "@/db/store";
+import { razorpayConfigured, razorpayTestMode } from "@/lib/razorpay";
 import { ensureSaasTables, getPlan, getSubscription, isGuestEmail, listPlans, TRIAL_BASE_DAYS, TRIAL_BONUS_DAYS, TRIAL_DAYS } from "@/lib/saas";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,7 @@ export async function GET() {
     const guest = await isGuestEmail(user.email);
     const sub = user.restaurantId ? await getSubscription(user.restaurantId) : null;
     return NextResponse.json(
-      { guest, subscription: guest ? null : sub, plans: await listPlans({ activeOnly: true }), trialDays: TRIAL_DAYS, trialBaseDays: TRIAL_BASE_DAYS, trialBonusDays: TRIAL_BONUS_DAYS },
+      { guest, subscription: guest ? null : sub, plans: await listPlans({ activeOnly: true }), trialDays: TRIAL_DAYS, trialBaseDays: TRIAL_BASE_DAYS, trialBonusDays: TRIAL_BONUS_DAYS, payOnline: razorpayConfigured(), payTestMode: razorpayTestMode() },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (err) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { poll } from "@/lib/poller";
 import { Check, Mail, MessageCircleQuestion, Phone, Send, Smartphone, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -61,8 +62,9 @@ export default function Queries({ onChange }: { onChange?: () => void }) {
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 20000);
-    return () => clearInterval(t);
+    return poll(async () => {
+      await load();
+    }, { base: 20000, max: 40000 });
   }, [load]);
 
   async function act(body: Record<string, unknown>, ok: string) {

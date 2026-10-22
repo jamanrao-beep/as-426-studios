@@ -32,21 +32,40 @@ export default function Waiters({
 
   // Form states
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  // A waiter signs in as username@restaurant-code.as426studios.com. The username only has to be free at this restaurant.
+  const [username, setUsername] = useState("");
+  const [nameMsg, setNameMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [tempPass, setTempPass] = useState("");
 
   // Credentials copy modal
   const [credentialModal, setCredentialModal] = useState<{
     open: boolean;
     email: string;
+    code: string;
     temporaryPassword: string;
     restaurantName: string;
   }>({
     open: false,
     email: "",
+    code: "",
     temporaryPassword: "",
     restaurantName: "",
   });
+
+  const codeNow = selectedRest || restaurant || "";
+  useEffect(() => {
+    const u = username.trim().toLowerCase();
+    if (!u || !codeNow) return setNameMsg(null);
+    if (!/^[a-z0-9][a-z0-9._-]{2,29}$/.test(u)) return setNameMsg({ ok: false, text: "Use 3 to 30 letters, numbers, dots or dashes." });
+    setNameMsg({ ok: true, text: "Checking…" });
+    const t = setTimeout(() => {
+      fetch(`/api/usernames/check?username=${encodeURIComponent(u)}&restaurant=${encodeURIComponent(codeNow)}`, { cache: "no-store" })
+        .then((r) => r.json() as Promise<{ available?: boolean; reason?: string }>)
+        .then((d) => setNameMsg(d.available ? { ok: true, text: `${u} is free at this restaurant ✓` } : d.reason ? { ok: false, text: d.reason } : null))
+        .catch(() => setNameMsg(null));
+    }, 450);
+    return () => clearTimeout(t);
+  }, [username, codeNow]);
 
   async function load() {
     setLoading(true);
@@ -95,7 +114,7 @@ export default function Waiters({
           action: "create",
           restaurant: effectiveRest,
           name: name.trim(),
-          email: email.trim(),
+          username: username.trim().toLowerCase(),
           temporary_password: tempPass.trim() || undefined,
         }),
       });
@@ -106,13 +125,15 @@ export default function Waiters({
       const restObj = restaurants.find((r) => r.id === effectiveRest);
       setCredentialModal({
         open: true,
-        email: data.waiter?.email || email.trim(),
+        email: data.waiter?.email || "",
+        code: data.waiter?.restaurant_code || effectiveRest,
         temporaryPassword: data.waiter?.temporary_password || data.temporary_password,
         restaurantName: restObj?.name || effectiveRest,
       });
 
       setName("");
-      setEmail("");
+      setUsername("");
+      setNameMsg(null);
       setTempPass("");
       await load();
       toast.success("Waiter account created successfully.");
@@ -170,6 +191,7 @@ export default function Waiters({
       setCredentialModal({
         open: true,
         email: w.email,
+        code: w.restaurant_id,
         temporaryPassword: data.temporary_password,
         restaurantName: restObj?.name || w.restaurant_id,
       });
@@ -211,7 +233,7 @@ export default function Waiters({
   const loginUrl = typeof window !== "undefined" ? `${window.location.origin}/login` : "";
 
   function copyCredentialText() {
-    const text = `🍽️ Staff Login Details\nRestaurant: ${credentialModal.restaurantName}\nRole: Waiter\nEmail: ${credentialModal.email}\nTemporary Password: ${credentialModal.temporaryPassword}\nLogin URL: ${loginUrl}\n\n*Note: You will be required to create a new password on your first sign-in.`;
+    const text = `🍽️ Staff Login Details\nRestaurant: ${credentialModal.restaurantName}\nRole: Waiter\nRestaurant code: ${credentialModal.code}\nUsername: ${credentialModal.email.split("@")[0]}\nLogin ID: ${credentialModal.email}\nTemporary Password: ${credentialModal.temporaryPassword}\nLogin URL: ${loginUrl}\n\n*Note: You will be required to create a new password on your first sign-in.`;
     navigator.clipboard
       .writeText(text)
       .then(() => toast.success("Credentials copied to clipboard! Share manually with waiter."))
@@ -313,17 +335,20 @@ export default function Waiters({
             />
           </label>
           <label>
-            <span style={{ fontSize: "0.85rem", color: "#bda69c" }}>Email Address (Gmail / Email) *</span>
+            <span style={{ fontSize: "0.85rem", color: "#bda69c" }}>Username *</span>
             <input
               required
-              type="email"
-              maxLength={254}
-              value={email}
+              maxLength={30}
+              value={username}
               disabled={busy}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="waiter@example.com"
+              onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""))}
+              placeholder="e.g. rahul"
+              autoCapitalize="none"
               style={{ width: "100%", marginTop: 4 }}
             />
+            <small style={{ color: nameMsg ? (nameMsg.ok ? "#6ee7b7" : "#fca5a5") : "#bda69c", fontWeight: nameMsg ? 700 : 400 }}>
+              {nameMsg ? nameMsg.text : `Signs in as ${username || "username"}@${codeNow || "restaurant-code"}.as426studios.com`}
+            </small>
           </label>
         </div>
 
@@ -505,7 +530,13 @@ export default function Waiters({
               <strong>Restaurant:</strong> {credentialModal.restaurantName}
             </div>
             <div>
-              <strong>Email:</strong> {credentialModal.email}
+              <strong>Restaurant code:</strong> {credentialModal.code}
+            </div>
+            <div>
+              <strong>Username:</strong> {credentialModal.email.split("@")[0]}
+            </div>
+            <div>
+              <strong>Login ID:</strong> {credentialModal.email}
             </div>
             <div>
               <strong>Temporary Password:</strong>{" "}

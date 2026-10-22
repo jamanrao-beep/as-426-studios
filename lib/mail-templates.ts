@@ -26,7 +26,7 @@ export function otpEmail(code: string) {
   };
 }
 
-export function approvedEmail(p: { ownerName: string; restaurantName: string; loginEmail: string; trialEnds: string; plan?: string }) {
+export function approvedEmail(p: { ownerName: string; restaurantName: string; loginEmail: string; restaurantCode: string; trialEnds: string; plan?: string }) {
   const ends = new Date(p.trialEnds).toLocaleDateString("en-IN", { dateStyle: "long" });
   return {
     subject: `${p.restaurantName} is approved on Table Secret`,
@@ -37,14 +37,17 @@ export function approvedEmail(p: { ownerName: string; restaurantName: string; lo
 <div style="background:#fde4d2;border-radius:12px;padding:14px 18px;margin:14px 0">
 <div style="color:#7b6d64;font-size:12px">YOUR LOGIN ID</div>
 <div style="font-size:20px;font-weight:700">${esc(p.loginEmail)}</div>
+<div style="color:#7b6d64;font-size:12px;margin-top:8px">RESTAURANT CODE</div>
+<div style="font-size:18px;font-weight:700">${esc(p.restaurantCode)}</div>
 <div style="color:#7b6d64;font-size:12px;margin-top:8px">PASSWORD</div>
 <div>The one you chose when you registered</div></div>
+<p style="color:#7b6d64;font-size:13px">To sign in, type your login ID, or your restaurant code and username. Your waiters use the same restaurant code.</p>
 <p>Open the Table Secret app and sign in. Your <b>${TRIAL_DAYS}-day free trial</b> (${TRIAL_BASE_DAYS} days plus a ${TRIAL_BONUS_DAYS}-day welcome bonus) is running and ends on <b>${esc(ends)}</b>.${
         p.plan ? ` We noted that you are interested in the <b>${esc(p.plan)}</b> plan, and we will be in touch before your trial ends.` : ""
       }</p>
-<p>Add your dishes, invite your waiters and print your table QR code. Tabi, our little robot, will guide you on your first sign-in.</p>`
+<p>Add your dishes, invite your waiters and print your table QR code. Mira, our little robot, will guide you on your first sign-in.</p>`
     ),
-    text: `Hi ${p.ownerName}, ${p.restaurantName} is approved on Table Secret. Login ID: ${p.loginEmail}. Use the password you chose when you registered. Your ${TRIAL_DAYS}-day free trial ends on ${ends}.`,
+    text: `Hi ${p.ownerName}, ${p.restaurantName} is approved on Table Secret. Login ID: ${p.loginEmail}. Restaurant code: ${p.restaurantCode}. Use the password you chose when you registered. Your ${TRIAL_DAYS}-day free trial ends on ${ends}.`,
   };
 }
 
@@ -101,5 +104,114 @@ export function replyEmail(p: { name?: string; question: string; reply: string }
 <p style="color:#7b6d64">You can reply to this email if you need more help. The same answer is waiting for you in the app, in your chat with Mira.</p>`
     ),
     text: `${p.reply}\n\nYou asked: ${p.question}`,
+  };
+}
+
+export function managerApprovedEmail(p: { name: string; restaurantName: string; loginEmail: string; restaurantCode: string; tempPassword: string; proposedBy: string }) {
+  return {
+    subject: `You are now a manager at ${p.restaurantName} on Table Secret`,
+    html: shell(
+      "Your manager account is ready",
+      `<p>Hi ${esc(p.name)},</p>
+<p>${esc(p.proposedBy)} asked for you to manage <b>${esc(p.restaurantName)}</b> on Table Secret, and the request was approved.</p>
+<div style="background:#fde4d2;border-radius:12px;padding:14px 18px;margin:14px 0">
+<div style="color:#7b6d64;font-size:12px">YOUR LOGIN ID</div>
+<div style="font-size:20px;font-weight:700">${esc(p.loginEmail)}</div>
+<div style="color:#7b6d64;font-size:12px;margin-top:8px">RESTAURANT CODE</div>
+<div style="font-size:18px;font-weight:700">${esc(p.restaurantCode)}</div>
+<div style="color:#7b6d64;font-size:12px;margin-top:8px">TEMPORARY PASSWORD</div>
+<div style="font-size:20px;font-weight:700">${esc(p.tempPassword)}</div></div>
+<p>Sign in on the website or in the app. You will be asked to choose your own password straight away.</p>`
+    ),
+    text: `Hi ${p.name}, your manager account for ${p.restaurantName} on Table Secret is ready. Login ID: ${p.loginEmail}. Restaurant code: ${p.restaurantCode}. Temporary password: ${p.tempPassword}. You will choose your own password when you sign in.`,
+  };
+}
+
+export function managerRejectedEmail(p: { name: string; restaurantName: string; note?: string }) {
+  return {
+    subject: `Manager request for ${p.restaurantName}`,
+    html: shell(
+      "Your manager request was not approved",
+      `<p>The request to add <b>${esc(p.name)}</b> as a manager at <b>${esc(p.restaurantName)}</b> was not approved.${p.note ? ` Note from the team: ${esc(p.note)}` : ""}</p><p>You can write to us from the Help chat if you would like to talk about it.</p>`
+    ),
+    text: `The request to add ${p.name} as a manager at ${p.restaurantName} was not approved.${p.note ? ` Note: ${p.note}` : ""}`,
+  };
+}
+
+// Sent when the Super Admin sets a restaurant up by hand: the login, the restaurant code, a temporary password and
+// what they are on (a free trial that ends on a date, or a plan that has been paid for).
+export function onboardedEmail(p: { ownerName: string; restaurantName: string; loginEmail: string; restaurantCode: string; tempPassword: string; paidPlan?: string; endsAt: string; mustChange?: boolean }) {
+  const change = p.mustChange !== false;
+  const ends = new Date(p.endsAt).toLocaleDateString("en-IN", { dateStyle: "long" });
+  const what = p.paidPlan ? `Your <b>${esc(p.paidPlan)}</b> plan is active until <b>${esc(ends)}</b>.` : `Your <b>${TRIAL_DAYS}-day free trial</b> is running and ends on <b>${esc(ends)}</b>.`;
+  return {
+    subject: `${p.restaurantName} is set up on Table Secret`,
+    html: shell(
+      "Your restaurant is ready",
+      `<p>Hi ${esc(p.ownerName)},</p>
+<p><b>${esc(p.restaurantName)}</b> has been set up on Table Secret. ${what}</p>
+<div style="background:#fde4d2;border-radius:12px;padding:14px 18px;margin:14px 0">
+<div style="color:#7b6d64;font-size:12px">YOUR LOGIN ID</div>
+<div style="font-size:20px;font-weight:700">${esc(p.loginEmail)}</div>
+<div style="color:#7b6d64;font-size:12px;margin-top:8px">RESTAURANT CODE</div>
+<div style="font-size:18px;font-weight:700">${esc(p.restaurantCode)}</div>
+<div style="color:#7b6d64;font-size:12px;margin-top:8px">${change ? "TEMPORARY PASSWORD" : "PASSWORD"}</div>
+<div style="font-size:20px;font-weight:700">${esc(p.tempPassword)}</div></div>
+<p>Sign in on the website or in the app with your login ID, or with your restaurant code and username. ${change ? "You will choose your own password straight away." : "You can change it any time from the Password button."} Your waiters use the same restaurant code.</p>`
+    ),
+    text: `Hi ${p.ownerName}, ${p.restaurantName} is set up on Table Secret. ${p.paidPlan ? `Your ${p.paidPlan} plan is active until ${ends}.` : `Your ${TRIAL_DAYS}-day free trial ends on ${ends}.`} Login ID: ${p.loginEmail}. Restaurant code: ${p.restaurantCode}. ${change ? `Temporary password: ${p.tempPassword}. You will choose your own password when you sign in.` : `Password: ${p.tempPassword}. You can change it any time.`}`,
+  };
+}
+
+// A security notice: their password was just changed. If it was not them, they need to know straight away.
+export function passwordChangedEmail(p: { name?: string; loginEmail: string; when: Date }) {
+  const when = p.when.toLocaleString("en-IN", { dateStyle: "long", timeStyle: "short", timeZone: "Asia/Kolkata" });
+  return {
+    subject: "Your Table Secret password was changed",
+    html: shell(
+      "Your password was changed",
+      `<p>Hi ${esc(p.name || "there")},</p>
+<p>The password for <b>${esc(p.loginEmail)}</b> was changed on <b>${esc(when)}</b> (India time). You were signed out of your other devices.</p>
+<p style="background:#fde4d2;border-radius:12px;padding:12px 16px">If this was you, there is nothing to do. If it was <b>not</b> you, reply to this email or write to us from the Help chat right away so we can lock the account.</p>`
+    ),
+    text: `Hi ${p.name || "there"}, the password for ${p.loginEmail} was changed on ${when} (India time). You were signed out of your other devices. If this was not you, write to us right away.`,
+  };
+}
+
+// The Super Admin reset someone's password. The new temporary password goes to the inbox they gave us.
+export function passwordResetEmail(p: { name?: string; loginEmail: string; restaurantCode?: string; tempPassword: string }) {
+  return {
+    subject: "Your Table Secret password was reset",
+    html: shell(
+      "Your password was reset",
+      `<p>Hi ${esc(p.name || "there")},</p>
+<p>The Table Secret team reset the password for <b>${esc(p.loginEmail)}</b>. Use this temporary password to sign in. You will be asked to choose your own straight away.</p>
+<div style="background:#fde4d2;border-radius:12px;padding:14px 18px;margin:14px 0">
+<div style="color:#7b6d64;font-size:12px">LOGIN ID</div>
+<div style="font-size:18px;font-weight:700">${esc(p.loginEmail)}</div>${
+        p.restaurantCode ? `
+<div style="color:#7b6d64;font-size:12px;margin-top:8px">RESTAURANT CODE</div>
+<div style="font-size:18px;font-weight:700">${esc(p.restaurantCode)}</div>` : ""
+      }
+<div style="color:#7b6d64;font-size:12px;margin-top:8px">TEMPORARY PASSWORD</div>
+<div style="font-size:20px;font-weight:700">${esc(p.tempPassword)}</div></div>
+<p style="color:#7b6d64;font-size:13px">You were signed out of all devices. If you did not ask for this, write to us from the Help chat.</p>`
+    ),
+    text: `Hi ${p.name || "there"}, the Table Secret team reset the password for ${p.loginEmail}. Temporary password: ${p.tempPassword}.${p.restaurantCode ? ` Restaurant code: ${p.restaurantCode}.` : ""} You will choose your own when you sign in. You were signed out of all devices.`,
+  };
+}
+
+// The 6-digit code for "Forgot password".
+export function resetCodeEmail(p: { name?: string; loginEmail: string; code: string }) {
+  return {
+    subject: `Your Table Secret password reset code: ${p.code}`,
+    html: shell(
+      "Reset your password",
+      `<p>Hi ${esc(p.name || "there")},</p>
+<p>Someone asked to reset the password for <b>${esc(p.loginEmail)}</b>. Enter this code to choose a new one:</p>
+<p style="font-size:34px;font-weight:700;letter-spacing:8px;background:#fde4d2;border-radius:12px;padding:14px 18px;display:inline-block;margin:6px 0">${esc(p.code)}</p>
+<p style="color:#7b6d64">It works for 10 minutes. If this was not you, ignore this email: your password stays the same. Never share this code with anyone.</p>`
+    ),
+    text: `Your Table Secret password reset code for ${p.loginEmail} is ${p.code}. It works for 10 minutes. If this was not you, ignore this email.`,
   };
 }

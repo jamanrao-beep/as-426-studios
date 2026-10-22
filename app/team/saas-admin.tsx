@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { poll } from "@/lib/poller";
 import { Check, ExternalLink, Inbox, MapPin, Pencil, Plus, Trash2, X, Crown, Building2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -65,8 +66,9 @@ export function RegistrationRequests({ onChange }: { onChange?: () => void }) {
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 20000);
-    return () => clearInterval(t);
+    return poll(async () => {
+      await load();
+    }, { base: 20000, max: 40000 });
   }, [load]);
 
   async function decide(id: string, action: "approve" | "reject") {
@@ -249,18 +251,23 @@ function AccountRow({ acc, onDone }: { acc: Acc; onDone: () => void }) {
 function AddAccount({ restaurant, role, onDone }: { restaurant: string; role: "admin" | "waiter"; onDone: () => void }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [busy, setBusy] = useState(false);
   const [temp, setTemp] = useState("");
+  const [login, setLogin] = useState("");
+  const [pw, setPw] = useState("");
+  const [mustChange, setMustChange] = useState(true);
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     try {
-      const d = await call("/api/admin/directory", "POST", { action: "add_account", role, restaurant, email, name });
+      const d = await call("/api/admin/directory", "POST", { action: "add_account", role, restaurant, username, name, password: pw.trim() || undefined, mustChange });
       setTemp(d.temporary_password);
+      setPw("");
+      setLogin(d.login);
       setName("");
-      setEmail("");
+      setUsername("");
       toast.success("Account created.");
       onDone();
     } catch (err) {
@@ -275,12 +282,19 @@ function AddAccount({ restaurant, role, onDone }: { restaurant: string; role: "a
     <form onSubmit={add} style={{ display: "grid", gap: 8, padding: "10px 0" }}>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <input required style={{ flex: "1 1 140px" }} value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
-        <input required type="email" style={{ flex: "2 1 220px" }} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
+        <input required style={{ flex: "2 1 220px" }} maxLength={30} value={username} onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""))} placeholder="Username, e.g. rahul" />
       </div>
-      {temp && <p className="success-note">Temporary password (shown once): <strong>{temp}</strong></p>}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <input style={{ flex: "1 1 220px" }} value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Password (optional, empty = we make one)" autoComplete="new-password" />
+        <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.85rem", opacity: pw.trim() ? 1 : 0.6 }}>
+          <input type="checkbox" disabled={!pw.trim()} checked={pw.trim() ? mustChange : true} onChange={(e) => setMustChange(e.target.checked)} /> They must change it at first sign-in
+        </label>
+      </div>
+      <small className="muted">Signs in as {username || "username"}@{restaurant}.as426studios.com · restaurant code: <b>{restaurant}</b></small>
+      {temp && <p className="success-note">Login ID: <strong>{login}</strong> · Restaurant code: <strong>{restaurant}</strong><br />Password (shown once): <strong>{temp}</strong></p>}
       <div style={{ display: "flex", gap: 8 }}>
         <button className="primary" disabled={busy} type="submit">Create account</button>
-        <button className="secondary" type="button" onClick={() => { setOpen(false); setTemp(""); }}>Close</button>
+        <button className="secondary" type="button" onClick={() => { setOpen(false); setTemp(""); setLogin(""); }}>Close</button>
       </div>
     </form>
   );
@@ -473,6 +487,7 @@ function left(ms: number) {
 export function Subscriptions() {
   const [rows, setRows] = useState<Sub[]>([]);
   const [plans, setPlans] = useState<PlanInfo[]>([]);
+  const [payments, setPayments] = useState<{ id: string; restaurant_name: string | null; plan_key: string; amount: number; status: string; paid_at: string | null; created_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [days, setDays] = useState<Record<string, number>>({});
@@ -483,6 +498,7 @@ export function Subscriptions() {
       const d = await call("/api/admin/subscriptions");
       setRows(d.subscriptions);
       setPlans(d.plans || []);
+      setPayments(d.payments || []);
       setError("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load plans");
@@ -493,8 +509,9 @@ export function Subscriptions() {
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 30000);
-    return () => clearInterval(t);
+    return poll(async () => {
+      await load();
+    }, { base: 30000, max: 60000 });
   }, [load]);
 
   // What the Activate button will do, so a wrong end date never comes as a surprise.
@@ -573,6 +590,24 @@ export function Subscriptions() {
           </div>
         </div>
       ))}
+      {payments.length > 0 && (
+        <div className="form-panel" style={{ display: "grid", gap: 6 }}>
+          <strong>Online payments</strong>
+          <small className="muted">Plans paid through Razorpay switch on by themselves. Pending rows are payments that were started but not finished.</small>
+          {payments.map((x) => (
+            <div key={x.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", borderTop: "1px solid #eee", paddingTop: 6 }}>
+              <span>
+                {x.restaurant_name || "Restaurant"} · {labelOf(x.plan_key)} · ₹{(x.amount / 100).toLocaleString("en-IN")}
+                <br />
+                <small className="muted">{when(x.paid_at || x.created_at)}</small>
+              </span>
+              <span className="tiny-badge" style={{ alignSelf: "center", background: x.status === "paid" ? "#dcfce7" : "#fef3c7", color: x.status === "paid" ? "#166534" : "#92400e" }}>
+                {x.status === "paid" ? "PAID" : "PENDING"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
