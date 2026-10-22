@@ -17,20 +17,21 @@ export default function Refunds() {
       </p>
 
       <h2>Refunds</h2>
+      <p>
+        Payments for a plan are <b>not refunded</b>, whether the plan is monthly, half-yearly or yearly, and a plan is not refunded part way through its period. We refund only in these three cases:
+      </p>
       <ul>
         <li>
-          <b>Monthly plan:</b> the monthly price covers the month it starts, so it is not refunded part way through the month.
+          <b>You were charged twice</b> for the same plan. We refund the extra payment in full.
         </li>
         <li>
-          <b>Half-yearly and yearly plans:</b> if you ask within <b>7 days</b> of the payment, we refund it in full. After 7 days we do not refund the unused part of the plan.
+          <b>You were charged the wrong amount</b>, meaning an amount different from the price of the plan. We refund the difference, or the whole payment if you want the plan at the right price instead.
         </li>
         <li>
-          <b>Paid twice or charged by mistake:</b> if you were charged twice for the same plan, or charged an amount different from the plan price, we refund the extra amount in full whenever you tell us.
-        </li>
-        <li>
-          <b>The service did not work:</b> if a long outage on our side stopped you from using a plan you paid for, write to us and we will fix it, which may mean extending your plan or refunding part of it.
+          <b>You were charged but did not get access.</b> If your payment went through and your plan did not start, write to us. We first try to switch it on straight away, and if we cannot, we refund the payment in full.
         </li>
       </ul>
+      <p>You can tell us about any of these at any time, there is no deadline.</p>
 
       <h2>How to ask for a refund</h2>
       <p>
@@ -38,7 +39,7 @@ export default function Refunds() {
         {b.email ? <>
           {" "}or write to <a href={`mailto:${b.email}`}>{b.email}</a>
         </> : null}{" "}
-        from the email address you used to sign up. Tell us your restaurant name, the date and the amount. We reply within 2 working days.
+        from the email address you used to sign up. Tell us your restaurant name, the date and the amount, and which of the three cases above it is. We reply within 2 working days.
       </p>
 
       <h2>When you get the money</h2>

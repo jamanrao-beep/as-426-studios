@@ -1,14 +1,14 @@
 import type { ReactNode } from "react";
 
 // The business details shown on the legal pages. The email comes from the server settings; the address and phone are
-// shown only when set (BUSINESS_ADDRESS, BUSINESS_PHONE), so nothing here is invented.
+// The phone and address default to the business details below and can be changed with BUSINESS_PHONE and BUSINESS_ADDRESS.
 export function business() {
   return {
     name: "AS 426 Studios",
     product: "Table Secret",
     email: process.env.SUPPORT_EMAIL || process.env.MAIL_USER || "",
-    phone: process.env.BUSINESS_PHONE || "",
-    address: process.env.BUSINESS_ADDRESS || "",
+    phone: process.env.BUSINESS_PHONE || "+91 96638 72103",
+    address: process.env.BUSINESS_ADDRESS || "SLV Sunshine Apartment, Defense Layout, Vidyaranyapura, Bangalore, Karnataka",
   };
 }
 
