@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sameOrigin } from "@/db/store";
-import { encodeSession } from "@/lib/auth";
+import { AUTH_COOKIE_NAME, encodeSession } from "@/lib/auth";
 import { checkEmailCode, createGuest, GUEST_DAYS, GuestUsedError } from "@/lib/saas";
 import { guestWelcomeEmail } from "@/lib/mail-templates";
 import { sendMail } from "@/lib/mailer";
@@ -51,7 +51,19 @@ export async function POST(req: Request) {
       const mail = guestWelcomeEmail({ days: GUEST_DAYS });
       sendMail(p.data.email, mail.subject, mail.html, mail.text).catch(() => {});
     }
-    return NextResponse.json({ token, expiresAt: g.expires, days: GUEST_DAYS });
+    // The phone app takes the token in the reply. The website gets a sign-in cookie instead, like a normal sign-in.
+    const isMobile = req.headers.get("x-client") === "mobile";
+    const res = NextResponse.json({ ...(isMobile ? { token } : {}), expiresAt: g.expires, days: GUEST_DAYS });
+    res.cookies.set({
+      name: AUTH_COOKIE_NAME,
+      value: token,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60,
+    });
+    return res;
   } catch (err) {
     console.error("POST /api/guest error:", err);
     return NextResponse.json({ error: "Could not start a guest session. Please try again." }, { status: 503 });

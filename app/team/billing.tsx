@@ -43,6 +43,7 @@ export default function Billing({ onChange }: { onChange?: () => void }) {
   const [error, setError] = useState("");
   const [payOnline, setPayOnline] = useState(false);
   const [testMode, setTestMode] = useState(false);
+  const [guest, setGuest] = useState(false);
   // A UPI QR shown on this page while we wait for the payment to land.
   const [qr, setQr] = useState<{ id: string; img: string; upi: string; expiresAt: number; plan: string } | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -55,6 +56,7 @@ export default function Billing({ onChange }: { onChange?: () => void }) {
       setPlans(d.plans);
       setSub(d.subscription);
       setTrial({ base: d.trialBaseDays, bonus: d.trialBonusDays, total: d.trialDays });
+      setGuest(!!d.guest);
       setPayOnline(!!d.payOnline);
       setTestMode(!!d.payTestMode);
       setPicked((p) => p || (d.plans.find((x: Plan) => x.best) || d.plans[0])?.key || "");
@@ -198,6 +200,26 @@ export default function Billing({ onChange }: { onChange?: () => void }) {
 
   const perMonth = plan ? Math.round(plan.price / plan.months) : 0;
   const save = plan && plan.strike > plan.price ? Math.round(((plan.strike - plan.price) / plan.strike) * 100) : 0;
+
+  if (guest) {
+    return (
+      <div className="bl">
+        <div className="bl-status">
+          <i /> You are exploring as a guest.
+        </div>
+        <div className="bl-card">
+          <h2 style={{ margin: 0 }}>Register your restaurant to choose a plan</h2>
+          <p className="muted">Plans are for registered restaurants. Registering starts your free trial first, with nothing charged today.</p>
+          <a className="primary" href="/apply" style={{ textAlign: "center", textDecoration: "none", display: "block", padding: "12px 0" }}>
+            Register my restaurant
+          </a>
+          <a href="/plans" className="muted small" style={{ textAlign: "center" }}>
+            See plans and pricing
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bl">

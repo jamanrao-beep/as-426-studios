@@ -173,6 +173,20 @@ function LoginForm() {
         </span>
         <ArrowRight size={18} />
       </a>
+      <a className="apply-cta" href="/guest">
+        <span>
+          <strong>Just curious? Test as a guest</strong>
+          <small>Try a sample restaurant for a week. We email you a code to confirm it is you.</small>
+        </span>
+        <ArrowRight size={18} />
+      </a>
+      <a className="apply-cta" href="/plans">
+        <span>
+          <strong>See plans and pricing</strong>
+          <small>Free trial first, then pay online by UPI, card or net banking.</small>
+        </span>
+        <ArrowRight size={18} />
+      </a>
 
       <footer className="login-footer-info">
         <div className="info-item">
@@ -215,6 +229,7 @@ export default function LoginPage() {
 
       <footer className="login-page-footer">
         AS 426 Studios · Secure Restaurant Experience Platform
+        <nav aria-label="Legal" style={{display:"flex",gap:16,flexWrap:"wrap",justifyContent:"center",marginTop:8}}><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/refunds">Refunds</a><a href="/contact">Contact</a></nav>
       </footer>
     </div>
   );

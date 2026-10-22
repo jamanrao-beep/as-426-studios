@@ -32,6 +32,10 @@ they can do in the other, behind the same permissions. Super Admin tools are web
 | Ask Mira, replies from our team | header button (`app/team/help-chat.tsx`) | header orb (`MiraChat.tsx`) |
 | Change password (signs out other devices) | Password button / change-password page | Account |
 | Sign-in, register, 14-day trial | login page, `/apply` | login, Join |
+| Test as guest (email code, one guest week) | `/guest` (`app/guest/page.tsx`) | guest (`src/app/guest.tsx`) |
+| Public plans and pricing, same cards as the app | `/plans` (`app/plans/page.tsx`, shared `app/plan-cards.tsx`) | Plans screen |
+| Pay for a plan online (UPI QR, card, net banking) | Plan and billing | Plans screen |
+| Guest banner: days left, limits, register | `app/team/guest-banner.tsx` | header badge and upsells |
 | Super Admin (requests, directory, plans, queries, app controls) | website only | not in the app |
 
 ## Rules when you change something

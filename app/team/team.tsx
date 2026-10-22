@@ -53,6 +53,7 @@ import QrRequest from "./qr-request";
 import ManagerProposals from "./manager-proposals";
 import People from "./people";
 import Onboard from "./onboard";
+import GuestBanner from "./guest-banner";
 import SignOutAll from "./sign-out-all";
 import MailCheck from "./mail-check";
 import OrderAlerts from "./order-alerts";
@@ -136,12 +137,12 @@ export default function Team({
   const [plansTick, setPlansTick] = useState(0);
   // What the Super Admin has switched on for this restaurant, plus the plan or trial. The phone app reads the same
   // endpoint, so both show and hide exactly the same things.
-  const [cfg, setCfg] = useState<{ restaurant: any; subscription: any } | null>(null);
+  const [cfg, setCfg] = useState<{ restaurant: any; subscription: any; guest?: boolean; guestExpiresAt?: string | null; guestLimits?: { dishes: number; waiters: number } | null } | null>(null);
   const loadCfg = () => {
     if (isSuperAdmin) return;
     fetch("/api/app-config", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: any) => d && setCfg({ restaurant: d.restaurant, subscription: d.subscription }))
+      .then((d: any) => d && setCfg({ restaurant: d.restaurant, subscription: d.subscription, guest: !!d.guest, guestExpiresAt: d.guestExpiresAt || null, guestLimits: d.guestLimits || null }))
       .catch(() => {});
   };
   useEffect(() => {
@@ -182,6 +183,13 @@ export default function Team({
 
   // Tab defaults
   const [tab, setTab] = useState<string>(isSuperAdmin ? "overview" : "menu");
+  // The public Plans page links straight to Plan and billing.
+  useEffect(() => {
+    try {
+      if (!isSuperAdmin && new URLSearchParams(window.location.search).get("tab") === "billing") setTab("billing");
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // Create restaurant dialog
@@ -677,6 +685,7 @@ export default function Team({
 
       {/* Main Workspace Area */}
       <div className="admin-main">
+        {!isSuperAdmin && cfg?.guest && <GuestBanner expiresAt={cfg.guestExpiresAt || null} limits={cfg.guestLimits || null} />}
         <header className="admin-top">
           <span>
             Workspace <span className="muted"> / {tab === "overview" ? "System Overview" : menu?.name || savedName || "Restaurant"}</span>
