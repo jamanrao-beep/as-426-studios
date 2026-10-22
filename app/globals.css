@@ -1246,10 +1246,9 @@
  .ts-dining .secret-copy h2 {font-size:28px}
  .ts-dining .secret-copy p {font-size:14px}
  .ts-dining .secret-copy .primary {width:100%}
- .ts-dining .menu-section {margin-top:32px}
- .ts-dining .section-top {display:block}
+ .ts-dining .section-top {display:flex;flex-direction:column;align-items:flex-start;gap:12px}
  .ts-dining .section-top h2 {font-size:30px;line-height:1.25}
- .ts-dining .switch-label {width:fit-content;margin-top:12px;font-size:13px}
+ .ts-dining .switch-label,.ts-dining .veg-toggle-chip {width:fit-content;margin-top:4px;font-size:13px}
  .ts-dining .menu-tools {margin-top:14px;gap:14px}
  .ts-dining .menu-tools .chip {padding:10px 12px;font-size:12px;gap:7px}
  .ts-dining .menu-tools .chip svg {width:17px;height:17px}
@@ -1550,3 +1549,273 @@ html[data-ts-theme=dark] [data-slot=dialog-content] .primary,html[data-ts-theme=
 .ts-toast,.status-toast,.back-to-top{touch-action:manipulation}
 .ts-toast,.status-toast{pointer-events:none}
 .offline-banner{display:flex;align-items:center;gap:8px;margin:8px 0;padding:10px 14px;border-radius:12px;background:#fff1e6;border:1px solid #f0b78e;color:#8a3d0a;font-size:13px}
+
+/* --- Premium Vegetarian Toggle Button UI --- */
+.veg-toggle-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 6px 14px 6px 12px;
+  border-radius: 9999px;
+  border: 1.5px solid #ded5cc;
+  background: #ffffff;
+  color: #5c4335;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 3px rgba(68, 44, 34, 0.05);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+
+.veg-toggle-chip:hover {
+  border-color: #c9bbae;
+  background: #fdfaf8;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(68, 44, 34, 0.08);
+}
+
+.veg-toggle-chip:active {
+  transform: scale(0.97);
+}
+
+.veg-toggle-chip:focus-visible {
+  outline: 3px solid #22c55e;
+  outline-offset: 3px;
+}
+
+/* Indian Veg Symbol */
+.veg-badge-symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.veg-symbol-border {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid #16a34a;
+  border-radius: 3.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.veg-symbol-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #16a34a;
+  display: block;
+  transition: all 0.2s ease;
+}
+
+.veg-label-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1;
+}
+
+.veg-leaf-icon {
+  color: #6d786f;
+  transition: color 0.2s ease, transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.veg-label-text {
+  white-space: nowrap;
+}
+
+/* Integrated switch pill */
+.veg-switch-pill {
+  display: inline-flex;
+  align-items: center;
+  width: 38px;
+  height: 22px;
+  border-radius: 9999px;
+  background: #ded5cc;
+  padding: 2px;
+  box-sizing: border-box;
+  transition: background-color 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+
+.veg-switch-slider {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1.5px 3.5px rgba(0, 0, 0, 0.22);
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateX(0);
+}
+
+/* Active / Veg Only ON State */
+.veg-toggle-chip.active {
+  background: #edfdf2;
+  border-color: #22c55e;
+  color: #15803d;
+  box-shadow: 0 2px 10px rgba(34, 197, 94, 0.18);
+}
+
+.veg-toggle-chip.active:hover {
+  background: #e4f9eb;
+  border-color: #16a34a;
+}
+
+.veg-toggle-chip.active .veg-leaf-icon {
+  color: #16a34a;
+  transform: scale(1.1);
+}
+
+.veg-toggle-chip.active .veg-symbol-border {
+  border-color: #16a34a;
+  box-shadow: 0 0 0 1px rgba(22, 163, 74, 0.2);
+}
+
+.veg-toggle-chip.active .veg-switch-pill {
+  background: #16a34a;
+}
+
+.veg-toggle-chip.active .veg-switch-slider {
+  transform: translateX(16px);
+}
+
+/* Dark Mode for Veg Toggle Chip */
+.ts-dark .veg-toggle-chip {
+  background: #251c17;
+  border-color: #4c372b;
+  color: #d8c7bc;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.ts-dark .veg-toggle-chip:hover {
+  background: #2f221b;
+  border-color: #634a3b;
+}
+
+.ts-dark .veg-symbol-border {
+  background: #1f1712;
+}
+
+.ts-dark .veg-switch-pill {
+  background: #4a382e;
+}
+
+.ts-dark .veg-toggle-chip.active {
+  background: #10291a;
+  border-color: #16a34a;
+  color: #4ade80;
+  box-shadow: 0 2px 12px rgba(22, 163, 74, 0.25);
+}
+
+.ts-dark .veg-toggle-chip.active:hover {
+  background: #143522;
+}
+
+.ts-dark .veg-toggle-chip.active .veg-leaf-icon {
+  color: #4ade80;
+}
+
+.ts-dark .veg-toggle-chip.active .veg-switch-pill {
+  background: #16a34a;
+}
+
+/* Bulletproof styles for Radix Switch primitive across app */
+[data-slot="switch"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  width: 40px !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  max-height: 22px !important;
+  border-radius: 9999px !important;
+  padding: 2px !important;
+  border: 0 !important;
+  cursor: pointer !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+  transition: background-color 0.22s ease !important;
+  background-color: #dcd4cd !important;
+}
+
+[data-slot="switch"][data-size="sm"] {
+  width: 28px !important;
+  height: 16px !important;
+  min-height: 16px !important;
+  max-height: 16px !important;
+  padding: 2px !important;
+}
+
+[data-slot="switch"][data-state="checked"] {
+  background-color: #16a34a !important;
+}
+
+.ts-dark [data-slot="switch"] {
+  background-color: #4a382e !important;
+}
+
+.ts-dark [data-slot="switch"][data-state="checked"] {
+  background-color: #16a34a !important;
+}
+
+[data-slot="switch-thumb"] {
+  display: block !important;
+  width: 18px !important;
+  height: 18px !important;
+  border-radius: 50% !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 1.5px 3.5px rgba(0, 0, 0, 0.25) !important;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  transform: translateX(0) !important;
+  pointer-events: none !important;
+  flex-shrink: 0 !important;
+}
+
+[data-slot="switch"][data-size="sm"] [data-slot="switch-thumb"] {
+  width: 12px !important;
+  height: 12px !important;
+}
+
+[data-slot="switch"][data-state="checked"] [data-slot="switch-thumb"] {
+  transform: translateX(18px) !important;
+}
+
+[data-slot="switch"][data-size="sm"][data-state="checked"] [data-slot="switch-thumb"] {
+  transform: translateX(12px) !important;
+}
+
+/* Mobile ordering rhythm */
+#table-secret {
+  scroll-margin-top: 24px;
+}
+
+#your-taste, #table-games {
+  scroll-margin-top: 24px;
+}
+
+@media(max-width:800px) {
+  .ts-dining .customer-extras {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    margin: 22px 0 28px !important;
+  }
+  .ts-dining .customer-extras > div {
+    width: 100% !important;
+  }
+}
+

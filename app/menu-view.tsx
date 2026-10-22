@@ -432,12 +432,12 @@ export default function MenuView({ restaurant }: { restaurant: string }) {
         </section>
 
         <nav className="customer-nav" aria-label="Customer navigation">
+          <a href="#table-secret">{t("Secret")}</a>
+          <a href="#your-taste">{t("Taste quiz")}</a>
+          <a href="#table-games">{t("Table games")}</a>
           <a href="#restaurant-menu">
             {t("Menu")} <ArrowUpRight size={15} />
           </a>
-          <a href="#your-taste">{t("Taste quiz")}</a>
-          <a href="#table-games">{t("Table games")}</a>
-          <a href={"/r/" + encodeURIComponent(restaurant) + "/review"}>{t("Reviews")}</a>
         </nav>
 
         <div className="customer-prefs">
@@ -474,37 +474,45 @@ export default function MenuView({ restaurant }: { restaurant: string }) {
           </p>
         )}
 
-        {secrets.length > 0 && (
-          <section className="secret-banner">
-            <div className="secret-copy">
-              <span className="pill">
-                <Sparkles size={14} /> {t("SOMETHING SPECIAL")}
-              </span>
-              <h2>{t("Your table has a delicious secret.")}</h2>
-              <p>{t("A little something you won’t find on the regular menu.")}</p>
-              <button className="primary" onClick={() => setUnlocked(!unlocked)}>
-                <LockKeyhole size={17} />
-                {t(unlocked ? "Hide the secret" : "Unlock the secret")}
-              </button>
-            </div>
-          </section>
-        )}
+        <section className="secret-banner" id="table-secret">
+          <div className="secret-copy">
+            <span className="pill">
+              <Sparkles size={14} /> {t("SOMETHING SPECIAL")}
+            </span>
+            <h2>{t("Your table has a delicious secret.")}</h2>
+            <p>{t("A little something you won’t find on the regular menu.")}</p>
+            <button className="primary" onClick={() => setUnlocked(!unlocked)}>
+              <LockKeyhole size={17} />
+              {t(unlocked ? "Hide the secret" : "Unlock the secret")}
+            </button>
+          </div>
+        </section>
 
         {unlocked && (
           <section className="secret-reveal" aria-live="polite">
             <span className="eyebrow">YOU’RE IN ON THE SECRET</span>
-            {secrets.map((d) => (
-              <div className="reveal-row" key={d.id}>
-                <div>
-                  <h2>{d.name}</h2>
-                  <p>{d.description}</p>
-                  <small>Allergens: {d.allergens || "Ask your server"}</small>
+            {secrets.length > 0 ? (
+              secrets.map((d) => (
+                <div className="reveal-row" key={d.id}>
+                  <div>
+                    <h2>{d.name}</h2>
+                    <p>{d.description}</p>
+                    <small>Allergens: {d.allergens || "Ask your server"}</small>
+                  </div>
+                  <button className="primary" onClick={() => setSelected(d)}>
+                    Discover · ₹{d.price}
+                  </button>
                 </div>
-                <button className="primary" onClick={() => setSelected(d)}>
-                  Discover · ₹{d.price}
-                </button>
+              ))
+            ) : (
+              <div className="reveal-row">
+                <div>
+                  <h2>{t("Chef’s Secret Table Tasting")}</h2>
+                  <p>{t("A little something off-menu crafted fresh today. Ask your server for table specials.")}</p>
+                  <small>{t("Prepared fresh to order")}</small>
+                </div>
               </div>
-            ))}
+            )}
           </section>
         )}
 
@@ -523,10 +531,27 @@ export default function MenuView({ restaurant }: { restaurant: string }) {
               <p className="eyebrow">{t("FRESH PICKS FOR YOUR TABLE")}</p>
               <h2>{t("Find your favourite.")}</h2>
             </div>
-            <label className="switch-label">
-              <Leaf size={16} /> {t("Veg only")}
-              <Switch aria-label="Vegetarian dishes only" checked={veg} onCheckedChange={setVeg} />
-            </label>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={veg}
+              className={`veg-toggle-chip ${veg ? "active" : ""}`}
+              onClick={() => setVeg(!veg)}
+              aria-label={t("Vegetarian dishes only")}
+            >
+              <span className="veg-badge-symbol" aria-hidden="true">
+                <span className="veg-symbol-border">
+                  <span className="veg-symbol-dot" />
+                </span>
+              </span>
+              <span className="veg-label-group">
+                <Leaf size={15} className="veg-leaf-icon" />
+                <span className="veg-label-text">{t("Veg only")}</span>
+              </span>
+              <span className={`veg-switch-pill ${veg ? "is-active" : ""}`} aria-hidden="true">
+                <span className="veg-switch-slider" />
+              </span>
+            </button>
           </div>
           <div className="menu-tools">
             <div className="category-list" aria-label="Menu categories">
